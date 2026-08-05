@@ -1,0 +1,18 @@
+# clasp / Apps Script
+.clasp.json
+.clasprc.json
+
+# secrets
+config.local.js
+.env
+.env.local
+
+# node
+node_modules/
+
+# os / editor
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
