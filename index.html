@@ -10,6 +10,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#f2685c"> <!-- สีนี้จะเปลี่ยนแถบด้านบนสุดของเครื่อง Android ให้เป็นสีส้มพีชของร้านคุณ -->
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -70,7 +71,7 @@
     }
   </style>
 </head>
-<body class="font-sarabun bg-[#fdf6f2] h-screen flex flex-col overflow-hidden text-[#6b5f6a]">
+<body class="font-sarabun bg-[#fdf6f2] h-[100dvh] flex flex-col overflow-hidden text-[#6b5f6a]">
 
   <!-- 🔒 หน้าจอล็อก PIN (แสดงทับทุกอย่างจนกว่าจะใส่ PIN ถูก) -->
   <div id="pin-lock-screen" class="fixed inset-0 bg-[#fdf6f2] z-[100] flex flex-col items-center justify-center p-6">
