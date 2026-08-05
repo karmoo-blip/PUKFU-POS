@@ -1013,6 +1013,164 @@
         img.src = base64;
       });
     }
+    // ==========================================================
+    // 🧾 ReceiptImage — วาดใบเสร็จลง canvas แล้วพิมพ์เป็นรูปภาพ
+    //    (แก้ปัญหาภาษาไทยเพี้ยน เพราะไม่พึ่ง code page ของเครื่องพิมพ์)
+    // ==========================================================
+    const ReceiptImage = {
+      FONT: '"Noto Sans Thai","Sarabun","Leelawadee UI","Thonburi","Tahoma",sans-serif',
+      PAD: 6,
+      _fontReady: null,
+
+      // โหลดฟอนต์ไทยให้พร้อมก่อนวาด (ถ้าโหลดไม่ได้จะใช้ฟอนต์ระบบแทน)
+      ensureFont() {
+        if (this._fontReady) return this._fontReady;
+        this._fontReady = (async () => {
+          try {
+            if (!document.getElementById('receipt-thai-font')) {
+              const link = document.createElement('link');
+              link.id = 'receipt-thai-font';
+              link.rel = 'stylesheet';
+              link.href = 'https://fonts.googleapis.com/css2' + '?family=Noto+Sans+Thai:wght@400;700&display=swap';
+              document.head.appendChild(link);
+            }
+            await Promise.race([
+              Promise.all([
+                document.fonts.load('400 24px "Noto Sans Thai"'),
+                document.fonts.load('700 24px "Noto Sans Thai"')
+              ]),
+              new Promise(r => setTimeout(r, 3000))
+            ]);
+          } catch (e) { /* ใช้ฟอนต์ระบบแทน */ }
+        })();
+        return this._fontReady;
+      },
+
+      loadImage(src) {
+        return new Promise((res, rej) => {
+          const i = new Image();
+          i.onload = () => res(i);
+          i.onerror = rej;
+          i.src = src;
+        });
+      },
+
+      // ─── สร้างเอกสารเปล่า ───
+      newDoc(paperSize) {
+        const width = (paperSize === '58mm') ? 384 : 576;
+        return { width, base: (width >= 576 ? 28 : 24), ops: [] };
+      },
+      text(doc, str, o) { doc.ops.push(Object.assign({ t: 'text', str: String(str == null ? '' : str), size: doc.base, bold: false, align: 'left' }, o || {})); },
+      lr(doc, l, r, o)  { doc.ops.push(Object.assign({ t: 'lr', l: String(l == null ? '' : l), r: String(r == null ? '' : r), size: doc.base, bold: false }, o || {})); },
+      rule(doc)         { doc.ops.push({ t: 'rule' }); },
+      gap(doc, h)       { doc.ops.push({ t: 'gap', h: h || 10 }); },
+      image(doc, el, w) { doc.ops.push({ t: 'img', el: el, w: w }); },
+
+      _font(op)  { return (op.bold ? '700 ' : '400 ') + op.size + 'px ' + this.FONT; },
+      _lineH(op) { return Math.round(op.size * 1.5); },
+
+      // ตัดบรรทัดให้พอดีความกว้างกระดาษ
+      _wrap(ctx, str, maxW) {
+        const out = [];
+        const paras = String(str).split(String.fromCharCode(10));
+        for (const para of paras) {
+          if (ctx.measureText(para).width <= maxW) { out.push(para); continue; }
+          let line = '';
+          for (const ch of para) {
+            if (line && ctx.measureText(line + ch).width > maxW) { out.push(line); line = ch; }
+            else line += ch;
+          }
+          out.push(line);
+        }
+        return out;
+      },
+
+      // ─── วาดจริงแล้วคืนค่าเป็น PNG base64 ───
+      async toDataURL(doc) {
+        await this.ensureFont();
+        const pad = this.PAD;
+        const inner = doc.width - pad * 2;
+        const meas = document.createElement('canvas').getContext('2d');
+
+        // รอบที่ 1: คำนวณความสูงรวม
+        let total = pad;
+        for (const op of doc.ops) {
+          if (op.t === 'gap')  { total += op.h; continue; }
+          if (op.t === 'rule') { total += 16; continue; }
+          if (op.t === 'img') {
+            const iw = Math.min(op.w || inner, inner);
+            op._w = iw;
+            op._h = Math.round(op.el.height * (iw / op.el.width));
+            total += op._h + 8;
+            continue;
+          }
+          meas.font = this._font(op);
+          if (op.t === 'text') {
+            op._lines = this._wrap(meas, op.str, inner);
+          } else {
+            const rw = meas.measureText(op.r).width;
+            op._lines = this._wrap(meas, op.l, Math.max(24, inner - rw - 10));
+          }
+          total += op._lines.length * this._lineH(op);
+        }
+        total += pad;
+
+        // รอบที่ 2: วาด
+        const cv = document.createElement('canvas');
+        cv.width = doc.width;
+        cv.height = Math.max(1, total);
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, cv.width, cv.height);
+        ctx.fillStyle = '#000000';
+        ctx.textBaseline = 'top';
+
+        let y = pad;
+        for (const op of doc.ops) {
+          if (op.t === 'gap') { y += op.h; continue; }
+          if (op.t === 'rule') {
+            ctx.save();
+            ctx.strokeStyle = '#000000';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([6, 5]);
+            ctx.beginPath();
+            ctx.moveTo(pad, y + 7);
+            ctx.lineTo(doc.width - pad, y + 7);
+            ctx.stroke();
+            ctx.restore();
+            y += 16;
+            continue;
+          }
+          if (op.t === 'img') {
+            ctx.drawImage(op.el, Math.round((doc.width - op._w) / 2), y, op._w, op._h);
+            y += op._h + 8;
+            continue;
+          }
+          ctx.font = this._font(op);
+          const lh = this._lineH(op);
+          if (op.t === 'text') {
+            for (const line of op._lines) {
+              const wpx = ctx.measureText(line).width;
+              let x = pad;
+              if (op.align === 'center') x = (doc.width - wpx) / 2;
+              else if (op.align === 'right') x = doc.width - pad - wpx;
+              ctx.fillText(line, Math.round(x), y);
+              y += lh;
+            }
+          } else {
+            op._lines.forEach((line, i) => {
+              ctx.fillText(line, pad, y);
+              if (i === op._lines.length - 1) {
+                ctx.fillText(op.r, Math.round(doc.width - pad - ctx.measureText(op.r).width), y);
+              }
+              y += lh;
+            });
+          }
+        }
+        return cv.toDataURL('image/png');
+      }
+    };
+
     // =============================================
     // 🖨️ BluetoothPrinter — จัดการเครื่องพิมพ์ BLE
     // =============================================
@@ -1083,14 +1241,24 @@
         this.deviceName = '';
       },
 
-      // ─── ส่งข้อมูล (แบ่งส่งทีละ 100 bytes) ───
+      // ─── ส่งข้อมูล (แบ่งส่งเป็นก้อน ปรับขนาดอัตโนมัติ) ───
+      chunkSize: 180,
+      chunkDelay: 8,
       async sendData(data) {
         if (!this.characteristic) throw new Error('ไม่ได้เชื่อมต่อเครื่องพิมพ์');
-        const CHUNK_SIZE = 100;
-        for (let i = 0; i < data.length; i += CHUNK_SIZE) {
-          const chunk = data.slice(i, i + CHUNK_SIZE);
-          await this.characteristic.writeValueWithoutResponse(new Uint8Array(chunk));
-          await new Promise(r => setTimeout(r, 50));
+        for (let i = 0; i < data.length; i += this.chunkSize) {
+          const chunk = data.slice(i, i + this.chunkSize);
+          try {
+            await this.characteristic.writeValueWithoutResponse(new Uint8Array(chunk));
+          } catch (e) {
+            // เครื่องพิมพ์รับก้อนใหญ่ไม่ไหว → ลดขนาดก้อนแล้วส่งซ้ำทีละน้อย
+            if (this.chunkSize > 20) this.chunkSize = 20;
+            for (let j = 0; j < chunk.length; j += 20) {
+              await this.characteristic.writeValueWithoutResponse(new Uint8Array(chunk.slice(j, j + 20)));
+              await new Promise(r => setTimeout(r, 20));
+            }
+          }
+          await new Promise(r => setTimeout(r, this.chunkDelay));
         }
       },
 
@@ -1126,143 +1294,152 @@
         return [...this.textToBytes(left), ...this.textToBytes(' '.repeat(spaces)), ...this.textToBytes(right)];
       },
 
-      // ─── สร้างใบเสร็จ ───
-      buildReceipt(order, queueStr, settings) {
-        const w = (settings.paperSize === '58mm') ? 24 : 32;
-        let d = [];
+      // ─── แปลงรูป (base64) เป็นคำสั่งพิมพ์ raster แบ่งเป็นแถบ ๆ กัน buffer เต็ม ───
+      async imageBytes(dataURL, targetWidthPx) {
+        const ras = await imageToRaster(dataURL, targetWidthPx);
+        const BAND = 128; // จำนวนเส้นต่อแถบ
+        const out = [];
+        for (let top = 0; top < ras.height; top += BAND) {
+          const rows = Math.min(BAND, ras.height - top);
+          const chunk = ras.data.slice(top * ras.bytesPerRow, (top + rows) * ras.bytesPerRow);
+          out.push(this.GS, 0x76, 0x30, 0x00,
+                   ras.bytesPerRow & 0xFF, (ras.bytesPerRow >> 8) & 0xFF,
+                   rows & 0xFF, (rows >> 8) & 0xFF);
+          for (let i = 0; i < chunk.length; i++) out.push(chunk[i]);
+        }
+        return out;
+      },
 
-        d.push(...this.initPrinter());
+      // ─── ส่งเอกสาร (วาดเป็นรูป) ไปเครื่องพิมพ์ ───
+      async docToBytes(doc) {
+        const url = await ReceiptImage.toDataURL(doc);
+        return [
+          ...this.initPrinter(),
+          ...this.leftAlign(),
+          ...(await this.imageBytes(url, doc.width)),
+          ...this.feedLines(4),
+          ...this.cutPaper()
+        ];
+      },
+
+      // ─── สร้างใบเสร็จ ───
+      async buildReceipt(order, queueStr, settings) {
+        const R = ReceiptImage;
+        const doc = R.newDoc(settings.paperSize);
+        const S = doc.base;
 
         // โลโก้ร้าน (ถ้ามี)
-        if (settings.logoRaster) {
-          d.push(...this.centerAlign());
-          d.push(...this.printLogoBytes(settings.logoRaster));
+        if (settings.logoBase64) {
+          try { R.image(doc, await R.loadImage(settings.logoBase64), Math.round(doc.width * 0.6)); }
+          catch (e) { console.warn('โหลดโลโก้ไม่สำเร็จ', e); }
         }
 
-        // ชื่อร้าน (ตัวใหญ่ กลาง)
-        d.push(...this.centerAlign(), ...this.boldOn(), ...this.bigText());
-        d.push(...this.textToBytes(settings.header || 'Pukfu Coffee'), this.LF);
-        d.push(...this.normalText(), ...this.boldOff());
+        // ชื่อร้าน
+        R.text(doc, settings.header || 'Pukfu Coffee', { size: Math.round(S * 1.7), bold: true, align: 'center' });
 
-        // ที่อยู่ / เบอร์โทร / เลขผู้เสียภาษี (ถ้ามี)
-        if (settings.address) d.push(...this.textToBytes(settings.address), this.LF);
-        if (settings.phone) d.push(...this.textToBytes('โทร: ' + settings.phone), this.LF);
-        if (settings.taxId) d.push(...this.textToBytes('เลขผู้เสียภาษี: ' + settings.taxId), this.LF);
-
-        // วันเวลา
-        d.push(...this.textToBytes(new Date(order.timestamp).toLocaleString('th-TH')), this.LF);
+        // ที่อยู่ / เบอร์โทร / เลขผู้เสียภาษี
+        const small = Math.round(S * 0.85);
+        if (settings.address) R.text(doc, settings.address, { size: small, align: 'center' });
+        if (settings.phone)   R.text(doc, 'โทร: ' + settings.phone, { size: small, align: 'center' });
+        if (settings.taxId)   R.text(doc, 'เลขผู้เสียภาษี: ' + settings.taxId, { size: small, align: 'center' });
+        R.text(doc, new Date(order.timestamp).toLocaleString('th-TH'), { size: small, align: 'center' });
+        R.gap(doc, 6);
 
         // เลขบิล
-        d.push(...this.leftAlign());
-        d.push(...this.textToBytes('บิล: ' + order.invoice), this.LF);
-        d.push(...this.dashedLine(w), this.LF);
+        R.text(doc, 'บิล: ' + order.invoice, { size: S });
+        R.rule(doc);
 
         // รายการสินค้า
         order.items.forEach(item => {
-          d.push(...this.leftRight(item.qty + 'x ' + item.name, (item.price * item.qty).toFixed(0), w), this.LF);
-          if (item.note) d.push(...this.textToBytes('  (' + item.note + ')'), this.LF);
+          R.lr(doc, item.qty + 'x ' + item.name, (item.price * item.qty).toFixed(0), { size: S });
+          if (item.note) R.text(doc, '    (' + item.note + ')', { size: Math.round(S * 0.8) });
         });
+        R.rule(doc);
 
-        d.push(...this.dashedLine(w), this.LF);
-
-        // ถ้ามีส่วนลด แสดงยอดก่อนลด + ส่วนลด
+        // ส่วนลด
         if (order.discount && order.discount > 0) {
           const subtotal = order.subtotal || (order.total + order.discount);
-          d.push(...this.leftRight('ยอดก่อนลด', subtotal.toFixed(0), w), this.LF);
-          d.push(...this.leftRight('ส่วนลด', order.discountLabel || ('-' + order.discount.toFixed(0)), w), this.LF);
+          R.lr(doc, 'ยอดก่อนลด', subtotal.toFixed(0), { size: S });
+          R.lr(doc, 'ส่วนลด', order.discountLabel || ('-' + order.discount.toFixed(0)), { size: S });
         }
 
-        // แยกยอด VAT (ถ้าเปิดใช้งาน)
+        // แยกยอด VAT
         if (settings.vatEnabled) {
           const vat = calcVatBreakdown(order.total, settings.vatRate);
-          d.push(...this.leftRight('มูลค่าก่อนภาษี', vat.exVat.toFixed(2), w), this.LF);
-          d.push(...this.leftRight(`VAT ${vat.rate}%`, vat.vatAmount.toFixed(2), w), this.LF);
+          R.lr(doc, 'มูลค่าก่อนภาษี', vat.exVat.toFixed(2), { size: S });
+          R.lr(doc, 'VAT ' + vat.rate + '%', vat.vatAmount.toFixed(2), { size: S });
         }
 
         // ยอดรวม
-        d.push(...this.boldOn());
-        d.push(...this.leftRight('รวม', order.total.toFixed(0) + ' บาท', w), this.LF);
-        d.push(...this.boldOff());
-        d.push(...this.leftRight('ชำระโดย', order.paymentType, w), this.LF);
+        R.lr(doc, 'รวม', order.total.toFixed(0) + ' บาท', { size: Math.round(S * 1.2), bold: true });
+        R.lr(doc, 'ชำระโดย', order.paymentType, { size: S });
 
         // เลขคิว
         if (settings.showQueue && queueStr) {
-          d.push(this.LF, ...this.centerAlign());
-          d.push(...this.textToBytes('คิวรับสินค้า'), this.LF);
-          d.push(...this.boldOn(), ...this.bigText());
-          d.push(...this.textToBytes(queueStr), this.LF);
-          d.push(...this.normalText(), ...this.boldOff());
+          R.gap(doc, 12);
+          R.text(doc, 'คิวรับสินค้า', { size: S, align: 'center' });
+          R.text(doc, queueStr, { size: Math.round(S * 2), bold: true, align: 'center' });
         }
 
         // Footer
-        d.push(this.LF, ...this.centerAlign());
-        d.push(...this.textToBytes(settings.footer || 'Thank You'), this.LF);
-        d.push(...this.feedLines(4), ...this.cutPaper());
-
-        return d;
+        R.gap(doc, 12);
+        R.text(doc, settings.footer || 'Thank You', { size: S, align: 'center' });
+        return await this.docToBytes(doc);
       },
 
       // ─── สร้างใบสั่งทำ (Order Slip) ───
-      buildOrderSlip(order, queueStr, settings) {
-        const w = (settings && settings.paperSize === '58mm') ? 24 : 32;
-        let d = [];
+      async buildOrderSlip(order, queueStr, settings) {
+        const R = ReceiptImage;
+        const doc = R.newDoc(settings && settings.paperSize);
+        const S = doc.base;
 
-        d.push(...this.initPrinter());
-
-        if (settings && settings.logoRaster) {
-          d.push(...this.centerAlign());
-          d.push(...this.printLogoBytes(settings.logoRaster));
-        }
-
-        d.push(...this.centerAlign(), ...this.boldOn(), ...this.bigText());
-        d.push(...this.textToBytes('ใบสั่งทำ'), this.LF);
-        d.push(...this.normalText());
-        if (queueStr) {
-          d.push(...this.bigText(), ...this.textToBytes(queueStr), this.LF, ...this.normalText());
-        }
-        d.push(...this.boldOff(), ...this.leftAlign(), ...this.dashedLine(w), this.LF);
+        R.text(doc, 'ใบสั่งทำ', { size: Math.round(S * 1.7), bold: true, align: 'center' });
+        if (queueStr) R.text(doc, queueStr, { size: Math.round(S * 2.2), bold: true, align: 'center' });
+        R.rule(doc);
 
         order.items.forEach(item => {
-          d.push(...this.boldOn(), ...this.textToBytes('- ' + item.qty + 'x ' + item.name), this.LF, ...this.boldOff());
-          if (item.note) d.push(...this.textToBytes('  ' + item.note), this.LF);
+          R.text(doc, '- ' + item.qty + 'x ' + item.name, { size: Math.round(S * 1.15), bold: true });
+          if (item.note) R.text(doc, '    ' + item.note, { size: Math.round(S * 0.9) });
         });
 
-        d.push(...this.dashedLine(w), this.LF, ...this.centerAlign());
-        d.push(...this.textToBytes(new Date(order.timestamp).toLocaleString('th-TH')), this.LF);
-        d.push(...this.textToBytes('บิล: ' + order.invoice), this.LF);
-        d.push(...this.feedLines(4), ...this.cutPaper());
-        return d;
+        R.rule(doc);
+        R.text(doc, new Date(order.timestamp).toLocaleString('th-TH'), { size: Math.round(S * 0.85), align: 'center' });
+        R.text(doc, 'บิล: ' + order.invoice, { size: Math.round(S * 0.85), align: 'center' });
+        return await this.docToBytes(doc);
       },
 
       // ─── หน้าทดสอบ ───
-      buildTestPage(settings) {
-        const w = (settings && settings.paperSize === '58mm') ? 24 : 32;
-        let d = [];
-        d.push(...this.initPrinter());
-        d.push(...this.centerAlign(), ...this.boldOn(), ...this.bigText());
-        d.push(...this.textToBytes('TEST PRINT'), this.LF);
-        d.push(...this.normalText(), ...this.boldOff());
-        d.push(...this.textToBytes('ทดสอบภาษาไทย'), this.LF);
-        d.push(...this.textToBytes('Pukfu Coffee POS'), this.LF);
-        d.push(...this.leftAlign(), ...this.dashedLine(w), this.LF);
-        d.push(...this.textToBytes('พร้อมใช้งาน'), this.LF);
-        d.push(...this.textToBytes(new Date().toLocaleString('th-TH')), this.LF);
-        d.push(...this.feedLines(4), ...this.cutPaper());
-        return d;
+      async buildTestPage(settings) {
+        const R = ReceiptImage;
+        const doc = R.newDoc(settings && settings.paperSize);
+        const S = doc.base;
+
+        R.text(doc, 'TEST PRINT', { size: Math.round(S * 1.6), bold: true, align: 'center' });
+        R.text(doc, 'ทดสอบภาษาไทย ก-ฮ สระอำ ไม้เอก', { size: S, align: 'center' });
+        R.text(doc, 'ปุ๊กฟู่ กาแฟ ๑๒๓๔๕๖๗๘๙๐', { size: S, align: 'center' });
+        R.text(doc, 'Pukfu Coffee POS', { size: S, align: 'center' });
+        R.rule(doc);
+        R.lr(doc, 'ชาไทย', '45', { size: S });
+        R.lr(doc, 'อเมริกาโน่เย็น', '55', { size: S });
+        R.lr(doc, 'รวม', '100 บาท', { size: Math.round(S * 1.2), bold: true });
+        R.rule(doc);
+        R.text(doc, 'พร้อมใช้งาน', { size: S, align: 'center' });
+        R.text(doc, new Date().toLocaleString('th-TH'), { size: Math.round(S * 0.85), align: 'center' });
+        return await this.docToBytes(doc);
       },
 
       // ─── สั่งพิมพ์หลัก ───
       async printReceipt(order, queueStr, settings) {
-        await this.sendData(this.buildReceipt(order, queueStr, settings));
+        await this.sendData(await this.buildReceipt(order, queueStr, settings));
         if (settings.printOrderSlip) {
           await new Promise(r => setTimeout(r, 500));
-          await this.sendData(this.buildOrderSlip(order, queueStr, settings));
+          await this.sendData(await this.buildOrderSlip(order, queueStr, settings));
         }
       },
 
       async printTest(settings) {
-        await this.sendData(this.buildTestPage(settings));
-    }
+        await this.sendData(await this.buildTestPage(settings));
+      }
     };
     
     const Controller = {
