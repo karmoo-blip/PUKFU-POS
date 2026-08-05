@@ -380,6 +380,26 @@
             <input type="text" id="printer-header" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น Pukfu Coffee">
           </div>
           <div class="mb-4">
+            <label class="text-sm font-bold text-slate-500 mb-1 block">สาขา (Branch)</label>
+            <input type="text" id="printer-branch" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น Central Ladprao">
+          </div>
+          <div class="mb-4">
+            <label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อนิติบุคคล</label>
+            <input type="text" id="printer-company" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น บริษัท ปุ๊กฟู่ จำกัด">
+          </div>
+          <div class="mb-4">
+            <label class="text-sm font-bold text-slate-500 mb-1 block">เลขที่สาขา (No. Branch)</label>
+            <input type="text" id="printer-branch-no" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น 00000">
+          </div>
+          <div class="mb-4">
+            <label class="text-sm font-bold text-slate-500 mb-1 block">POS ID</label>
+            <input type="text" id="printer-pos-id" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น 00000">
+          </div>
+          <div class="mb-4">
+            <label class="text-sm font-bold text-slate-500 mb-1 block">หัวเอกสาร</label>
+            <input type="text" id="printer-doc-title" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="Receipt / TAX Invoice (ABB)">
+          </div>
+          <div class="mb-4">
             <label class="text-sm font-bold text-slate-500 mb-1 block">ข้อความส่วนท้าย (Footer)</label>
             <input type="text" id="printer-footer" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น ขอบคุณที่ใช้บริการค่ะ">
           </div>
@@ -1060,13 +1080,15 @@
         const width = (paperSize === '58mm') ? 384 : 576;
         return { width, base: (width >= 576 ? 26 : 23), ops: [] };
       },
-      text(doc, str, o) { doc.ops.push(Object.assign({ t: 'text', str: String(str == null ? '' : str), size: doc.base, bold: false, align: 'left' }, o || {})); },
-      lr(doc, l, r, o)  { doc.ops.push(Object.assign({ t: 'lr', l: String(l == null ? '' : l), r: String(r == null ? '' : r), size: doc.base, bold: false }, o || {})); },
-      rule(doc)         { doc.ops.push({ t: 'rule' }); },
-      gap(doc, h)       { doc.ops.push({ t: 'gap', h: h || 10 }); },
-      image(doc, el, w) { doc.ops.push({ t: 'img', el: el, w: w }); },
+      text(doc, str, o)  { doc.ops.push(Object.assign({ t: 'text', str: String(str == null ? '' : str), size: doc.base, bold: false, align: 'left', indent: 0 }, o || {})); },
+      lr(doc, l, r, o)   { doc.ops.push(Object.assign({ t: 'lr', l: String(l == null ? '' : l), r: String(r == null ? '' : r), size: doc.base, bold: false, indent: 0, boldRight: false }, o || {})); },
+      // แถวรายการสินค้า: จำนวน | ชื่อ | ราคา
+      row3(doc, qty, name, price, o) { doc.ops.push(Object.assign({ t: 'row3', qty: String(qty), name: String(name), price: String(price), size: doc.base, bold: false }, o || {})); },
+      rule(doc)          { doc.ops.push({ t: 'rule' }); },
+      gap(doc, h)        { doc.ops.push({ t: 'gap', h: h || 10 }); },
+      image(doc, el, w)  { doc.ops.push({ t: 'img', el: el, w: w }); },
 
-      _font(op)  { return (op.bold ? '700 ' : '400 ') + op.size + 'px ' + this.FONT; },
+      _font(op)  { return ((op.bold ? '700 ' : '400 ') + op.size + 'px ' + this.FONT); },
       _lineH(op) { return Math.round(op.size * 1.38); },
 
       // ตัดบรรทัดให้พอดีความกว้างกระดาษ
@@ -1106,10 +1128,15 @@
           }
           meas.font = this._font(op);
           if (op.t === 'text') {
-            op._lines = this._wrap(meas, op.str, inner);
-          } else {
+            op._lines = this._wrap(meas, op.str, inner - (op.indent || 0));
+          } else if (op.t === 'lr') {
             const rw = meas.measureText(op.r).width;
-            op._lines = this._wrap(meas, op.l, Math.max(24, inner - rw - 10));
+            op._lines = this._wrap(meas, op.l, Math.max(24, inner - (op.indent || 0) - rw - 10));
+          } else {
+            const qw = Math.max(meas.measureText('99').width, meas.measureText(op.qty).width) + 14;
+            const pw = meas.measureText(op.price).width;
+            op._qw = qw;
+            op._lines = this._wrap(meas, op.name, Math.max(30, inner - qw - pw - 12));
           }
           total += op._lines.length * this._lineH(op);
         }
@@ -1151,17 +1178,30 @@
           if (op.t === 'text') {
             for (const line of op._lines) {
               const wpx = ctx.measureText(line).width;
-              let x = pad;
+              let x = pad + (op.indent || 0);
               if (op.align === 'center') x = (doc.width - wpx) / 2;
               else if (op.align === 'right') x = doc.width - pad - wpx;
               ctx.fillText(line, Math.round(x), y);
               y += lh;
             }
+          } else if (op.t === 'lr') {
+            op._lines.forEach((line, i) => {
+              ctx.fillText(line, pad + (op.indent || 0), y);
+              if (i === op._lines.length - 1) {
+                if (op.boldRight) ctx.font = this._font({ size: op.size, bold: true });
+                ctx.fillText(op.r, Math.round(doc.width - pad - ctx.measureText(op.r).width), y);
+                ctx.font = this._font(op);
+              }
+              y += lh;
+            });
           } else {
             op._lines.forEach((line, i) => {
-              ctx.fillText(line, pad, y);
+              if (i === 0) ctx.fillText(op.qty, pad, y);
+              ctx.fillText(line, pad + op._qw, y);
               if (i === op._lines.length - 1) {
-                ctx.fillText(op.r, Math.round(doc.width - pad - ctx.measureText(op.r).width), y);
+                ctx.font = this._font({ size: op.size, bold: true });
+                ctx.fillText(op.price, Math.round(doc.width - pad - ctx.measureText(op.price).width), y);
+                ctx.font = this._font(op);
               }
               y += lh;
             });
@@ -1395,66 +1435,84 @@
         const R = ReceiptImage;
         const doc = R.newDoc(settings.paperSize);
         const S = doc.base;
+        const small = Math.round(S * 0.86);
+        const q = queueStr || order.queue || '';
+        const money = n => Number(n || 0).toFixed(2);
+        const p2 = n => (n < 10 ? '0' + n : String(n));
+        const dt = new Date(order.timestamp);
+        const dateStr = p2(dt.getDate()) + '/' + p2(dt.getMonth() + 1) + '/' + dt.getFullYear();
+        const timeStr = p2(dt.getHours()) + ':' + p2(dt.getMinutes());
 
-        // โลโก้ร้าน (ถ้ามี)
+        // ── เลขคิวตัวใหญ่บนสุด ──
+        if (settings.showQueue && q) {
+          R.text(doc, 'Queue no.', { size: small, align: 'center' });
+          R.text(doc, q, { size: Math.round(S * 2.4), bold: true, align: 'center' });
+          R.rule(doc);
+          R.gap(doc, 6);
+        }
+
+        // ── โลโก้ ──
         if (settings.logoBase64) {
-          try { R.image(doc, await R.loadImage(settings.logoBase64), Math.round(doc.width * 0.6)); }
+          try { R.image(doc, await R.loadImage(settings.logoBase64), Math.round(doc.width * 0.45)); }
           catch (e) { console.warn('โหลดโลโก้ไม่สำเร็จ', e); }
         }
 
-        // ชื่อร้าน
-        R.text(doc, settings.header || 'Pukfu Coffee', { size: Math.round(S * 1.7), bold: true, align: 'center' });
+        // ── ข้อมูลร้าน ──
+        R.text(doc, settings.header || 'Pukfu Coffee', { size: Math.round(S * 1.35), bold: true, align: 'center' });
+        if (settings.branch)   R.text(doc, settings.branch, { size: small, align: 'center' });
+        if (settings.company)  R.text(doc, settings.company, { size: small, align: 'center' });
+        if (settings.branchNo) R.text(doc, 'No. Branch: ' + settings.branchNo, { size: small, align: 'center' });
+        if (settings.address)  R.text(doc, settings.address, { size: small, align: 'center' });
+        if (settings.taxId)    R.text(doc, 'TAX ID: ' + settings.taxId, { size: small, align: 'center' });
+        if (settings.phone)    R.text(doc, 'Tel: ' + settings.phone, { size: small, align: 'center' });
 
-        // ที่อยู่ / เบอร์โทร / เลขผู้เสียภาษี
-        const small = Math.round(S * 0.85);
-        if (settings.address) R.text(doc, settings.address, { size: small, align: 'center' });
-        if (settings.phone)   R.text(doc, 'โทร: ' + settings.phone, { size: small, align: 'center' });
-        if (settings.taxId)   R.text(doc, 'เลขผู้เสียภาษี: ' + settings.taxId, { size: small, align: 'center' });
-        R.text(doc, new Date(order.timestamp).toLocaleString('th-TH'), { size: small, align: 'center' });
-        R.gap(doc, 6);
-
-        // เลขบิล
-        R.text(doc, 'บิล: ' + order.invoice, { size: S });
+        // ── หัวเอกสาร ──
+        R.gap(doc, 10);
+        R.text(doc, settings.docTitle || 'Receipt / TAX Invoice (ABB)', { size: Math.round(S * 1.05), bold: true, align: 'center' });
+        if (settings.vatEnabled) R.text(doc, 'VAT Included', { size: Math.round(S * 1.05), bold: true, align: 'center' });
         R.rule(doc);
 
-        // รายการสินค้า
+        // ── ข้อมูลบิล ──
+        if (settings.posId) R.text(doc, 'POS ID: ' + settings.posId, { size: small });
+        R.text(doc, 'NO.: ' + order.invoice, { size: small });
+        if (q) R.text(doc, 'Queue: ' + q, { size: small });
+        if (order.cashier) R.text(doc, 'Staff: ' + order.cashier, { size: small });
+        R.lr(doc, 'Date: ' + dateStr, 'Time: ' + timeStr, { size: small });
+        R.rule(doc);
+
+        // ── รายการสินค้า ──
         order.items.forEach(item => {
-          R.lr(doc, item.qty + 'x ' + item.name, (item.price * item.qty).toFixed(0), { size: S });
-          if (item.note) R.text(doc, '    (' + item.note + ')', { size: Math.round(S * 0.8) });
+          R.row3(doc, item.qty, item.name, money(item.price * item.qty), { size: small });
+          if (item.note) R.text(doc, item.note, { size: Math.round(S * 0.8), indent: Math.round(S * 1.7) });
         });
         R.rule(doc);
 
-        // ส่วนลด
+        // ── สรุปยอด ──
+        const count = order.items.reduce((s, i) => s + Number(i.qty || 0), 0);
+        const subtotal = order.subtotal || (order.total + (order.discount || 0));
+        R.text(doc, 'Items: ' + count, { size: small });
+        R.lr(doc, 'Subtotal:', money(subtotal), { size: small, indent: Math.round(doc.width * 0.35) });
         if (order.discount && order.discount > 0) {
-          const subtotal = order.subtotal || (order.total + order.discount);
-          R.lr(doc, 'ยอดก่อนลด', subtotal.toFixed(0), { size: S });
-          R.lr(doc, 'ส่วนลด', order.discountLabel || ('-' + order.discount.toFixed(0)), { size: S });
+          R.lr(doc, 'Discount:', order.discountLabel || ('-' + money(order.discount)), { size: small, indent: Math.round(doc.width * 0.35) });
         }
-
-        // แยกยอด VAT
         if (settings.vatEnabled) {
           const vat = calcVatBreakdown(order.total, settings.vatRate);
-          R.lr(doc, 'มูลค่าก่อนภาษี', vat.exVat.toFixed(2), { size: S });
-          R.lr(doc, 'VAT ' + vat.rate + '%', vat.vatAmount.toFixed(2), { size: S });
+          R.lr(doc, 'Before VAT:', money(vat.exVat), { size: small, indent: Math.round(doc.width * 0.35) });
+          R.lr(doc, 'VAT ' + vat.rate + '%:', money(vat.vatAmount), { size: small, indent: Math.round(doc.width * 0.35) });
         }
+        R.gap(doc, 4);
+        R.lr(doc, 'Total:', money(order.total), { size: Math.round(S * 1.1), bold: true, indent: Math.round(doc.width * 0.32) });
+        R.rule(doc);
 
-        // ยอดรวม
-        R.lr(doc, 'รวม', order.total.toFixed(0) + ' บาท', { size: Math.round(S * 1.2), bold: true });
-        R.lr(doc, 'ชำระโดย', order.paymentType, { size: S });
+        // ── วิธีชำระเงิน ──
+        R.lr(doc, order.paymentType || '-', money(order.total), { size: small });
+        R.rule(doc);
 
-        // เลขคิว
-        if (settings.showQueue && queueStr) {
-          R.gap(doc, 12);
-          R.text(doc, 'คิวรับสินค้า', { size: S, align: 'center' });
-          R.text(doc, queueStr, { size: Math.round(S * 2), bold: true, align: 'center' });
-        }
-
-        // Footer
-        R.gap(doc, 12);
-        R.text(doc, settings.footer || 'Thank You', { size: S, align: 'center' });
+        // ── ข้อความท้ายใบเสร็จ ──
+        R.gap(doc, 6);
+        R.text(doc, settings.footer || 'Thank You', { size: small, align: 'center' });
         return await this.docToBytes(doc);
       },
-
       // ─── สร้างใบสั่งทำ (Order Slip) ───
       async buildOrderSlip(order, queueStr, settings) {
         const R = ReceiptImage;
@@ -2167,6 +2225,11 @@
         if (tab === 'printer') {
           document.getElementById('printer-header').value = this.receiptSettings.header || '';
           document.getElementById('printer-footer').value = this.receiptSettings.footer || '';
+          document.getElementById('printer-branch').value = this.receiptSettings.branch || '';
+          document.getElementById('printer-company').value = this.receiptSettings.company || '';
+          document.getElementById('printer-branch-no').value = this.receiptSettings.branchNo || '';
+          document.getElementById('printer-pos-id').value = this.receiptSettings.posId || '';
+          document.getElementById('printer-doc-title').value = this.receiptSettings.docTitle || '';
           document.getElementById('printer-auto-print').checked = this.receiptSettings.autoPrint !== false;
           document.getElementById('printer-show-queue').checked = this.receiptSettings.showQueue !== false;
           document.getElementById('printer-print-order-slip').checked = this.receiptSettings.printOrderSlip === true;
@@ -3681,6 +3744,11 @@
           ...this.receiptSettings,
           header: document.getElementById('printer-header').value,
           footer: document.getElementById('printer-footer').value,
+          branch: document.getElementById('printer-branch').value,
+          company: document.getElementById('printer-company').value,
+          branchNo: document.getElementById('printer-branch-no').value,
+          posId: document.getElementById('printer-pos-id').value,
+          docTitle: document.getElementById('printer-doc-title').value,
           autoPrint: document.getElementById('printer-auto-print').checked,
           showQueue: document.getElementById('printer-show-queue').checked,
           printOrderSlip: document.getElementById('printer-print-order-slip').checked,
