@@ -1019,7 +1019,7 @@
     // ==========================================================
     const ReceiptImage = {
       FONT: '"Noto Sans Thai","Sarabun","Leelawadee UI","Thonburi","Tahoma",sans-serif',
-      PAD: 6,
+      PAD: 4,
       _fontReady: null,
 
       // โหลดฟอนต์ไทยให้พร้อมก่อนวาด (ถ้าโหลดไม่ได้จะใช้ฟอนต์ระบบแทน)
@@ -1058,7 +1058,7 @@
       // ─── สร้างเอกสารเปล่า ───
       newDoc(paperSize) {
         const width = (paperSize === '58mm') ? 384 : 576;
-        return { width, base: (width >= 576 ? 28 : 24), ops: [] };
+        return { width, base: (width >= 576 ? 26 : 23), ops: [] };
       },
       text(doc, str, o) { doc.ops.push(Object.assign({ t: 'text', str: String(str == null ? '' : str), size: doc.base, bold: false, align: 'left' }, o || {})); },
       lr(doc, l, r, o)  { doc.ops.push(Object.assign({ t: 'lr', l: String(l == null ? '' : l), r: String(r == null ? '' : r), size: doc.base, bold: false }, o || {})); },
@@ -1067,7 +1067,7 @@
       image(doc, el, w) { doc.ops.push({ t: 'img', el: el, w: w }); },
 
       _font(op)  { return (op.bold ? '700 ' : '400 ') + op.size + 'px ' + this.FONT; },
-      _lineH(op) { return Math.round(op.size * 1.5); },
+      _lineH(op) { return Math.round(op.size * 1.38); },
 
       // ตัดบรรทัดให้พอดีความกว้างกระดาษ
       _wrap(ctx, str, maxW) {
@@ -1239,26 +1239,56 @@
         this.isConnected = false;
         this.characteristic = null;
         this.deviceName = '';
+        this.chunkSize = 0;
       },
 
-      // ─── ส่งข้อมูล (แบ่งส่งเป็นก้อน ปรับขนาดอัตโนมัติ) ───
-      chunkSize: 180,
-      chunkDelay: 8,
+      // ─── ส่งข้อมูล ───
+      // หาขนาดก้อนที่ใหญ่ที่สุดที่เครื่องพิมพ์รับไหวครั้งเดียวตอนเริ่มใช้งาน
+      chunkSize: 0,
+      chunkDelay: 0,
+      onProgress: null,
+
+      async probeChunkSize() {
+        if (this.chunkSize) return this.chunkSize;
+        const CANDIDATES = [512, 244, 182, 100, 20];
+        for (const size of CANDIDATES) {
+          try {
+            // ESC @ ซ้ำ ๆ เป็นคำสั่งรีเซ็ต ไม่ทำให้กระดาษเดินหรือมีหมึกออก
+            const probe = new Uint8Array(size);
+            for (let i = 0; i < size; i += 2) { probe[i] = 0x1B; probe[i + 1] = 0x40; }
+            await this.characteristic.writeValueWithoutResponse(probe);
+            this.chunkSize = size;
+            this.chunkDelay = size >= 182 ? 2 : (size >= 100 ? 6 : 15);
+            console.log('🖨️ ขนาดก้อนที่ใช้ได้:', size, 'bytes');
+            return size;
+          } catch (e) { /* ใหญ่ไป ลองขนาดถัดไป */ }
+        }
+        this.chunkSize = 20;
+        this.chunkDelay = 15;
+        return 20;
+      },
+
       async sendData(data) {
         if (!this.characteristic) throw new Error('ไม่ได้เชื่อมต่อเครื่องพิมพ์');
-        for (let i = 0; i < data.length; i += this.chunkSize) {
+        await this.probeChunkSize();
+        const total = data.length;
+        for (let i = 0; i < total; i += this.chunkSize) {
           const chunk = data.slice(i, i + this.chunkSize);
           try {
             await this.characteristic.writeValueWithoutResponse(new Uint8Array(chunk));
           } catch (e) {
-            // เครื่องพิมพ์รับก้อนใหญ่ไม่ไหว → ลดขนาดก้อนแล้วส่งซ้ำทีละน้อย
-            if (this.chunkSize > 20) this.chunkSize = 20;
+            // ส่งก้อนใหญ่ไม่ผ่าน → ลดขนาดถาวรแล้วส่งก้อนนี้ซ้ำแบบละเอียด
+            this.chunkSize = 20;
+            this.chunkDelay = 15;
             for (let j = 0; j < chunk.length; j += 20) {
               await this.characteristic.writeValueWithoutResponse(new Uint8Array(chunk.slice(j, j + 20)));
-              await new Promise(r => setTimeout(r, 20));
+              await new Promise(r => setTimeout(r, this.chunkDelay));
             }
           }
-          await new Promise(r => setTimeout(r, this.chunkDelay));
+          if (this.chunkDelay) await new Promise(r => setTimeout(r, this.chunkDelay));
+          if (this.onProgress) {
+            try { this.onProgress(Math.min(total, i + this.chunkSize), total); } catch (e) {}
+          }
         }
       },
 
@@ -1294,18 +1324,56 @@
         return [...this.textToBytes(left), ...this.textToBytes(' '.repeat(spaces)), ...this.textToBytes(right)];
       },
 
-      // ─── แปลงรูป (base64) เป็นคำสั่งพิมพ์ raster แบ่งเป็นแถบ ๆ กัน buffer เต็ม ───
+      // ─── แปลงรูปเป็นคำสั่งพิมพ์ raster ───
+      // ข้ามแถวที่ขาวล้วนแล้วสั่ง ESC J (เลื่อนกระดาษ) แทน ลดข้อมูลได้ราวครึ่งหนึ่ง
       async imageBytes(dataURL, targetWidthPx) {
         const ras = await imageToRaster(dataURL, targetWidthPx);
-        const BAND = 128; // จำนวนเส้นต่อแถบ
+        const bpr = ras.bytesPerRow;
+        const data = ras.data;
+        const H = ras.height;
+
+        // หาแถวที่ไม่มีจุดดำเลย
+        const blank = new Uint8Array(H);
+        for (let y = 0; y < H; y++) {
+          const off = y * bpr;
+          let empty = 1;
+          for (let b = 0; b < bpr; b++) { if (data[off + b] !== 0) { empty = 0; break; } }
+          blank[y] = empty;
+        }
+
+        const MIN_GAP = 4;   // ช่องว่างสั้นกว่านี้พิมพ์รวมไปเลย ถูกกว่าส่งคำสั่งแยก
+        const MAX_BAND = 255; // เส้นสูงสุดต่อหนึ่งคำสั่ง GS v 0
+        const segs = [];
+        let y = 0;
+        while (y < H) {
+          if (blank[y]) {
+            let n = 0;
+            while (y + n < H && blank[y + n]) n++;
+            if (n >= MIN_GAP) { segs.push({ feed: n }); y += n; continue; }
+          }
+          const start = y;
+          while (y < H && (y - start) < MAX_BAND) {
+            if (!blank[y]) { y++; continue; }
+            let n = 0;
+            while (y + n < H && blank[y + n]) n++;
+            if (n >= MIN_GAP) break;
+            y += n;
+          }
+          segs.push({ from: start, rows: y - start });
+        }
+
         const out = [];
-        for (let top = 0; top < ras.height; top += BAND) {
-          const rows = Math.min(BAND, ras.height - top);
-          const chunk = ras.data.slice(top * ras.bytesPerRow, (top + rows) * ras.bytesPerRow);
+        for (const s of segs) {
+          if (s.feed) {
+            let n = s.feed;
+            while (n > 0) { const k = Math.min(255, n); out.push(this.ESC, 0x4A, k); n -= k; }
+            continue;
+          }
           out.push(this.GS, 0x76, 0x30, 0x00,
-                   ras.bytesPerRow & 0xFF, (ras.bytesPerRow >> 8) & 0xFF,
-                   rows & 0xFF, (rows >> 8) & 0xFF);
-          for (let i = 0; i < chunk.length; i++) out.push(chunk[i]);
+                   bpr & 0xFF, (bpr >> 8) & 0xFF,
+                   s.rows & 0xFF, (s.rows >> 8) & 0xFF);
+          const to = (s.from + s.rows) * bpr;
+          for (let i = s.from * bpr; i < to; i++) out.push(data[i]);
         }
         return out;
       },
