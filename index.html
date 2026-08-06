@@ -3596,7 +3596,7 @@
         const q = this.queueNumber;
         this.queueNumber++;
         localStorage.setItem('pos_queueNumber', this.queueNumber);
-        return 'Q' + q.toString().padStart(2, '0');
+        return 'PK' + q.toString().padStart(2, '0');
       },
 
         async printReceipt(order, queueStr) {
