@@ -1084,12 +1084,12 @@
       lr(doc, l, r, o)   { doc.ops.push(Object.assign({ t: 'lr', l: String(l == null ? '' : l), r: String(r == null ? '' : r), size: doc.base, bold: false, indent: 0, boldRight: false }, o || {})); },
       // แถวรายการสินค้า: จำนวน | ชื่อ | ราคา
       row3(doc, qty, name, price, o) { doc.ops.push(Object.assign({ t: 'row3', qty: String(qty), name: String(name), price: String(price), size: doc.base, bold: false }, o || {})); },
-      rule(doc)          { doc.ops.push({ t: 'gap', h: 13 }); }, // เว้นวรรคแทนเส้นประ (ลดความลายตา)
-      gap(doc, h)        { doc.ops.push({ t: 'gap', h: Math.round((h || 10) * 0.7) }); },
+      rule(doc)          { doc.ops.push({ t: 'gap', h: 22 }); }, // เว้นวรรคแทนเส้นประ (ลดความลายตา)
+      gap(doc, h)        { doc.ops.push({ t: 'gap', h: h || 10 }); },
       image(doc, el, w)  { doc.ops.push({ t: 'img', el: el, w: w }); },
 
       _font(op)  { return ((op.bold ? '700 ' : '400 ') + op.size + 'px ' + this.FONT); },
-      _lineH(op) { return Math.round(op.size * 1.22); },
+      _lineH(op) { return Math.round(op.size * 1.28); },
 
       // ตัดบรรทัดให้พอดีความกว้างกระดาษ
       _wrap(ctx, str, maxW) {
