@@ -1404,8 +1404,16 @@
         const out = [];
         for (const s of segs) {
           if (s.feed) {
+            // พิมพ์ช่องว่างเป็นแถวขาวจริง (ESC J ของเครื่องพิมพ์บางรุ่นเลื่อนกระดาษไม่ตรง ทำให้บรรทัดชิดกัน)
             let n = s.feed;
-            while (n > 0) { const k = Math.min(255, n); out.push(this.ESC, 0x4A, k); n -= k; }
+            while (n > 0) {
+              const k = Math.min(MAX_BAND, n);
+              out.push(this.GS, 0x76, 0x30, 0x00,
+                       bpr & 0xFF, (bpr >> 8) & 0xFF,
+                       k & 0xFF, (k >> 8) & 0xFF);
+              for (let i = 0; i < k * bpr; i++) out.push(0);
+              n -= k;
+            }
             continue;
           }
           out.push(this.GS, 0x76, 0x30, 0x00,
@@ -1501,7 +1509,7 @@
           R.lr(doc, 'Before VAT:', money(vat.exVat), { size: small, indent: Math.round(doc.width * 0.35) });
           R.lr(doc, 'VAT ' + vat.rate + '%:', money(vat.vatAmount), { size: small, indent: Math.round(doc.width * 0.35) });
         }
-        R.gap(doc, 4);
+        R.gap(doc, 10);
         R.lr(doc, 'Total:', money(order.total), { size: Math.round(S * 1.1), bold: true, indent: Math.round(doc.width * 0.32) });
         R.rule(doc);
 
