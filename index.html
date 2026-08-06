@@ -1084,12 +1084,12 @@
       lr(doc, l, r, o)   { doc.ops.push(Object.assign({ t: 'lr', l: String(l == null ? '' : l), r: String(r == null ? '' : r), size: doc.base, bold: false, indent: 0, boldRight: false }, o || {})); },
       // แถวรายการสินค้า: จำนวน | ชื่อ | ราคา
       row3(doc, qty, name, price, o) { doc.ops.push(Object.assign({ t: 'row3', qty: String(qty), name: String(name), price: String(price), size: doc.base, bold: false }, o || {})); },
-      rule(doc)          { doc.ops.push({ t: 'rule' }); },
-      gap(doc, h)        { doc.ops.push({ t: 'gap', h: h || 10 }); },
+      rule(doc)          { doc.ops.push({ t: 'gap', h: 13 }); }, // เว้นวรรคแทนเส้นประ (ลดความลายตา)
+      gap(doc, h)        { doc.ops.push({ t: 'gap', h: Math.round((h || 10) * 0.7) }); },
       image(doc, el, w)  { doc.ops.push({ t: 'img', el: el, w: w }); },
 
       _font(op)  { return ((op.bold ? '700 ' : '400 ') + op.size + 'px ' + this.FONT); },
-      _lineH(op) { return Math.round(op.size * 1.38); },
+      _lineH(op) { return Math.round(op.size * 1.22); },
 
       // ตัดบรรทัดให้พอดีความกว้างกระดาษ
       _wrap(ctx, str, maxW) {
@@ -1256,6 +1256,7 @@
           if (!this.characteristic) throw new Error('ไม่พบ BLE Service ที่รองรับ');
 
           this.isConnected = true;
+      this.probeChunkSize().catch(() => {}); // วัดขนาดก้อนข้อมูลล่วงหน้า ไม่ต้องรอตอนพิมพ์ใบแรก
 
           // ดักเหตุการณ์เครื่องพิมพ์หลุด
           this.device.addEventListener('gattserverdisconnected', () => {
@@ -1425,7 +1426,7 @@
           ...this.initPrinter(),
           ...this.leftAlign(),
           ...(await this.imageBytes(url, doc.width)),
-          ...this.feedLines(4),
+          ...this.feedLines(2),
           ...this.cutPaper()
         ];
       },
@@ -1446,7 +1447,7 @@
         // ── เลขคิวตัวใหญ่บนสุด ──
         if (settings.showQueue && q) {
           R.text(doc, 'Queue no.', { size: small, align: 'center' });
-          R.text(doc, q, { size: Math.round(S * 2.4), bold: true, align: 'center' });
+          R.text(doc, q, { size: Math.round(S * 1.9), bold: true, align: 'center' });
           R.rule(doc);
           R.gap(doc, 6);
         }
@@ -1558,7 +1559,7 @@
       async printReceipt(order, queueStr, settings) {
         await this.sendData(await this.buildReceipt(order, queueStr, settings));
         if (settings.printOrderSlip) {
-          await new Promise(r => setTimeout(r, 500));
+          await new Promise(r => setTimeout(r, 150));
           await this.sendData(await this.buildOrderSlip(order, queueStr, settings));
         }
       },
@@ -1687,6 +1688,7 @@
         this.employees = JSON.parse(localStorage.getItem('pos_employees')) || [];
         const savedLockMin = localStorage.getItem('pos_autoLockMinutes');
         if (savedLockMin !== null) this.autoLockMinutes = Number(savedLockMin);
+        ReceiptImage.ensureFont(); // พรีโหลดฟอนต์ไทยล่วงหน้า บิลแรกจะพิมพ์ได้ไวขึ้น
         this.initPinLock();
         this.startAutoLockWatcher();
 
