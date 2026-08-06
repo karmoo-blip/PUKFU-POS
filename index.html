@@ -1084,12 +1084,12 @@
       lr(doc, l, r, o)   { doc.ops.push(Object.assign({ t: 'lr', l: String(l == null ? '' : l), r: String(r == null ? '' : r), size: doc.base, bold: false, indent: 0, boldRight: false }, o || {})); },
       // แถวรายการสินค้า: จำนวน | ชื่อ | ราคา
       row3(doc, qty, name, price, o) { doc.ops.push(Object.assign({ t: 'row3', qty: String(qty), name: String(name), price: String(price), size: doc.base, bold: false }, o || {})); },
-      rule(doc)          { doc.ops.push({ t: 'gap', h: 22 }); }, // เว้นวรรคแทนเส้นประ (ลดความลายตา)
+      rule(doc)          { doc.ops.push({ t: 'gap', h: 17 }, { t: 'rule' }, { t: 'gap', h: 17 }); }, // เว้นวรรคแทนเส้นประ (ลดความลายตา)
       gap(doc, h)        { doc.ops.push({ t: 'gap', h: h || 10 }); },
       image(doc, el, w)  { doc.ops.push({ t: 'img', el: el, w: w }); },
 
       _font(op)  { return ((op.bold ? '700 ' : '400 ') + op.size + 'px ' + this.FONT); },
-      _lineH(op) { return Math.round(op.size * 1.28); },
+      _lineH(op) { return Math.round(op.size * 1.7); },
 
       // ตัดบรรทัดให้พอดีความกว้างกระดาษ
       _wrap(ctx, str, maxW) {
@@ -1483,6 +1483,8 @@
 
         // ── รายการสินค้า ──
         order.items.forEach(item => {
+          if (doc._hasItem) R.gap(doc, 17);
+          doc._hasItem = true;
           R.row3(doc, item.qty, item.name, money(item.price * item.qty), { size: small });
           if (item.note) R.text(doc, item.note, { size: Math.round(S * 0.8), indent: Math.round(S * 1.7) });
         });
@@ -3638,7 +3640,7 @@
         const footer = this.receiptSettings.footer || 'Thank You';
         
         let itemsHtml = order.items.map(item => `
-          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
             <div style="flex: 1; padding-right: 8px;">
               <div>${item.qty}x ${item.name}</div>
               ${item.note ? `<div style="font-size: 0.8em; color: #555;">(${item.note})</div>` : ''}
@@ -3713,15 +3715,15 @@
         })() : '';
 
         container.innerHTML = `
-          <div style="padding: 10px; font-size: 14px; line-height: 1.4;">
+          <div style="padding: 12px; font-size: 14px; line-height: 1.7;">
             ${logoHtml}
             <div style="text-align: center; font-weight: bold; font-size: 1.2em; margin-bottom: 5px;">${header}</div>
             ${shopInfoHtml}
             <div style="text-align: center; font-size: 0.9em; margin-bottom: 10px;">${dateStr}</div>
             <div style="font-size: 0.8em; margin-bottom: 10px;">เลขที่บิล: <br>${order.invoice}</div>
-            <div style="border-bottom: 1px solid #000; margin-bottom: 10px;"></div>
+            <div style="border-top: 1px dashed #000; margin: 14px 0;"></div>
             ${itemsHtml}
-            <div style="border-bottom: 1px solid #000; margin-bottom: 10px; margin-top: 10px;"></div>
+            <div style="border-top: 1px dashed #000; margin: 14px 0;"></div>
             ${discountHtml}
             ${vatHtml}
             <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1em; margin-top: 5px;">
