@@ -44,6 +44,18 @@
       .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
     }
 
+    /* 📱 iOS: เผื่อพื้นที่ปลอดภัย กันเนื้อหามุดใต้ status bar และ home indicator ตอนเปิดเป็นแอปเต็มจอ */
+    html { background: #ffffff; }
+    body > nav {
+      padding-top: env(safe-area-inset-top) !important;
+      height: calc(4rem + env(safe-area-inset-top)) !important;
+    }
+    @media (max-width: 1023.98px) {
+      #cart-container { padding-bottom: env(safe-area-inset-bottom); }
+      #cart-container[class*="h-[72px]"] { height: calc(72px + env(safe-area-inset-bottom)) !important; }
+      #cart-container[class*="h-[65vh]"] { height: calc(65vh + env(safe-area-inset-bottom)) !important; }
+    }
+
     /* Print Styles */
     @media print {
       /* ซ่อนทุกอย่างที่เป็นลูกของ body ยกเว้น receipt-container */
