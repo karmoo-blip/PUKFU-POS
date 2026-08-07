@@ -2738,7 +2738,7 @@
       },
 
       async deleteAddon(id) {
-        const confirmDelete = confirm('คุณแน่ใจหรือไม่ว่าต้องการลบ Add-on นี้?');
+        const confirmDelete = await this.showConfirm('คุณแน่ใจหรือไม่ว่าต้องการลบ Add-on นี้?', '🗑️');
         if (!confirmDelete) return;
 
         this.setIndicator('syncing');
