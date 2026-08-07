@@ -812,7 +812,10 @@
         <div id="checkout-numpad" class="hidden">
           <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl mb-3 border border-slate-100">
             <span class="text-slate-500 font-bold text-sm">Received:</span>
-            <span id="cash-received" class="text-xl font-black text-secondary ml-2">0</span>
+            <span class="flex items-center gap-3">
+              <span id="cash-received" class="text-xl font-black text-secondary ml-2">0</span>
+              <button onclick="Controller.numpad('C')" class="text-xs font-bold text-red-400 hover:text-red-600 hover:underline">ล้างทั้งหมด</button>
+            </span>
           </div>
           <div class="flex justify-between items-center bg-red-50 p-3 rounded-xl mb-3 text-red-500">
             <span class="font-bold text-sm">Change:</span> 
@@ -833,7 +836,7 @@
             <button onclick="Controller.numpad('7')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">7</button>
             <button onclick="Controller.numpad('8')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">8</button>
             <button onclick="Controller.numpad('9')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">9</button>
-            <button onclick="Controller.numpad('C')" class="bg-red-100 text-red-400 py-3 rounded-2xl text-xl font-bold hover:bg-red-200">C</button>
+            <button onclick="Controller.numpad('back')" class="bg-red-50 text-red-400 py-3 rounded-2xl text-xl font-bold hover:bg-red-100">⌫</button>
             <button onclick="Controller.numpad('0')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">0</button>
             <button onclick="Controller.numpad('00')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">00</button>
           </div>
@@ -3561,6 +3564,7 @@
 
       numpad(val) {
         if (val === 'C') this.cashInput = '0';
+        else if (val === 'back') this.cashInput = this.cashInput.slice(0, -1) || '0';
         else if (this.cashInput === '0' && val !== '00') this.cashInput = val;
         else this.cashInput += val;
         this.updateCashUI();
