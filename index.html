@@ -3975,7 +3975,23 @@
       initPinLock() {
         const savedUserId = localStorage.getItem('pos_loggedInUserId');
         const user = savedUserId ? this.employees.find(e => e.id === savedUserId && e.active) : null;
+
         if (user) {
+          // เช็คว่าตอนแอปถูกปิด/ระงับไป (สลับแอป, ล็อกจอมือถือ, browser kill หน้าเว็บ) ไม่มีการใช้งานนานเกินกำหนดไหม
+          // ป้องกันกรณีมือถือ (Android/iOS) ที่ setTimeout ของ auto-lock หยุดทำงานตอนแอปอยู่เบื้องหลัง
+          const limitMs = this.autoLockMinutes > 0 ? this.autoLockMinutes * 60 * 1000 : 0;
+          const lastActive = Number(localStorage.getItem('pos_lastActivityAt')) || 0;
+          const idleMs = Date.now() - lastActive;
+
+          if (limitMs > 0 && idleMs >= limitMs) {
+            localStorage.removeItem('pos_loggedInUserId');
+            this.logPinAttempt('ล็อกหน้าจออัตโนมัติ (ไม่มีการใช้งานระหว่างปิดแอป)', true, user.name);
+            this.loggedInEmployee = null;
+            this.currentSettingsUser = null;
+            this.showPinLockScreen();
+            return;
+          }
+
           this.loggedInEmployee = user;
           this.currentSettingsUser = user;
           this.hidePinLockScreen();
@@ -4078,12 +4094,29 @@
         ['click', 'touchstart', 'keydown', 'scroll'].forEach(evt => {
           document.addEventListener(evt, () => this.resetAutoLockTimer(), { passive: true });
         });
+        // มือถือ (Android/iOS) มักหยุด/หน่วง setTimeout ตอนสลับแอปไปพักหน้าจอ โดยไม่ปิดหน้าเว็บทิ้ง
+        // พอกลับมาเปิดแอปอีกครั้ง (visibilitychange) เลยต้องเช็คเวลาที่หายไปเองอีกที ไม่ต้องรอ event อื่น
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'visible') this.checkAutoLockOnResume();
+        });
         this.resetAutoLockTimer();
+      },
+
+      checkAutoLockOnResume() {
+        if (!this.loggedInEmployee) return;
+        if (!this.autoLockMinutes || this.autoLockMinutes <= 0) return;
+        const lastActive = Number(localStorage.getItem('pos_lastActivityAt')) || 0;
+        if (Date.now() - lastActive >= this.autoLockMinutes * 60 * 1000) {
+          this.autoLockNow();
+        } else {
+          this.resetAutoLockTimer();
+        }
       },
 
       resetAutoLockTimer() {
         if (this.autoLockTimer) clearTimeout(this.autoLockTimer);
         if (!this.loggedInEmployee) return; // ยังไม่ได้ล็อกอิน ไม่ต้องนับ
+        localStorage.setItem('pos_lastActivityAt', String(Date.now())); // เก็บเวลากิจกรรมล่าสุดไว้เช็คตอนเปิดแอปใหม่ (กรณีมือถือ suspend หน้าเว็บ)
         if (!this.autoLockMinutes || this.autoLockMinutes <= 0) return; // ปิดใช้งาน auto-lock
 
         this.autoLockTimer = setTimeout(() => {
