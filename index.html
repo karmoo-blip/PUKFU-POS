@@ -794,11 +794,6 @@
 
         <div id="checkout-payment-methods" class="flex flex-wrap gap-2 mb-6"></div>
 
-        <div id="checkout-qr-image" class="flex flex-col items-center justify-center mb-4 transition-all">
-          <img src="https://lh3.googleusercontent.com/d/1Yexa7V048bMODSBI0Uo3Ac2tGQSzJHHl" alt="QR Code ร้าน" class="w-48 h-48 object-contain border border-slate-200 rounded-xl p-2 bg-white shadow-sm">
-          <p class="text-xs font-bold text-slate-400 mt-2">ให้ลูกค้าสแกนเพื่อชำระเงิน</p>
-        </div>
-
         <div id="checkout-numpad" class="hidden">
           <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl mb-3 border border-slate-100">
             <span class="text-slate-500 font-bold text-sm">Received:</span>
@@ -3533,16 +3528,13 @@
         });
 
         const numpad = document.getElementById('checkout-numpad');
-        const qrImage = document.getElementById('checkout-qr-image');
 
         if (method.isCash) {
           numpad.classList.remove('hidden');
-          qrImage.classList.add('hidden');
           this.cashInput = '0';
           this.updateCashUI();
         } else {
           numpad.classList.add('hidden');
-          qrImage.classList.remove('hidden');
           document.getElementById('btn-submit-order').disabled = false;
         }
       },
