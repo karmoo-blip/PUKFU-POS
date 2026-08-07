@@ -1,6 +1,17 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script>
+      (function () {
+            var p = new URLSearchParams(location.search);
+            if (p.has('setupApiUrl') && p.has('setupApiKey')) {
+                    localStorage.setItem('pos_apiUrl', p.get('setupApiUrl'));
+                    localStorage.setItem('pos_apiKey', p.get('setupApiKey'));
+                    alert('ตั้งค่า API สำเร็จแล้ว');
+                    location.href = location.pathname;
+            }
+      })();
+  </script>
   <!-- 🍎 สำหรับฝั่ง iOS (iPad, iPhone) -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
