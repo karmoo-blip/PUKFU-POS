@@ -50,12 +50,6 @@
       padding-top: env(safe-area-inset-top) !important;
       height: calc(4rem + env(safe-area-inset-top)) !important;
     }
-    #mobile-menu, #mobile-menu-backdrop {
-      top: calc(4rem + env(safe-area-inset-top)) !important;
-    }
-    @media (min-width: 1024px) {
-      #mobile-menu, #mobile-menu-backdrop { display: none !important; }
-    }
     @media (max-width: 1023.98px) {
       /* ปักตะกร้าไว้ที่ขอบล่างจริงของจอเสมอ ไม่พึ่ง h-full/dvh ที่ไล่มาจาก body
          เพราะ Safari บนมือถือ (โดยเฉพาะ iOS) บางทีไม่รีเฟลตความสูงที่คำนวณผ่าน dvh
@@ -139,16 +133,11 @@
 
   <nav class="bg-white border-b border-[#fce8e0] h-16 flex items-center justify-between px-4 lg:px-6 z-20 shadow-sm">
     <div class="flex items-center gap-4">
-      <button id="nav-btn-mobile" class="lg:hidden text-2xl text-primary p-2 bg-[#fdf6f2] rounded-2xl" onclick="Controller.toggleMobileMenu()">☰</button>
-      
-      <div class="flex items-center gap-2">
+      <!-- กด PUKFU เพื่อกลับหน้า POS แทนปุ่ม POS/แฮมเบอร์เกอร์เดิม ให้แถบบนดูโล่งขึ้น -->
+      <button onclick="Controller.switchView('pos')" class="flex items-center gap-2 hover:opacity-75 transition-opacity">
         <div class="w-9 h-9 bg-primary/15 rounded-2xl flex items-center justify-center text-primary font-bold">☕</div>
         <h1 class="text-xl font-bold text-secondary">PUKFU</h1>
-      </div>
-      
-      <div id="nav-menu-desktop" class="hidden lg:flex gap-2 ml-8 bg-[#fdf6f2] p-1 rounded-2xl">
-        <button onclick="Controller.switchView('pos')" class="font-bold text-sm px-6 py-2 rounded-lg text-slate-500 hover:text-primary hover:bg-white transition-all">POS</button>
-      </div>
+      </button>
     </div>
 
     <div class="flex items-center gap-4">
@@ -175,17 +164,6 @@
     <button id="user-menu-printer-btn" onclick="Controller.toggleUserMenu(); Controller.togglePrinterFromUserMenu()" class="w-full text-left px-4 py-3 text-sm font-bold text-secondary hover:bg-accent transition">🖨️ เชื่อมต่อเครื่องพิมพ์</button>
     <div class="border-t border-[#fce8e0]"></div>
     <button onclick="Controller.toggleUserMenu(); Controller.lockApp()" class="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition">🔒 ออกจากระบบ</button>
-  </div>
-
-  <!-- แตะพื้นที่มืดนี้เพื่อปิดเมนู (เดิมไม่มี ทำให้เปิดเมนูมือถือแล้วหาทางปิดไม่เจอ) -->
-  <div id="mobile-menu-backdrop" class="fixed left-0 right-0 bottom-0 bg-secondary/40 z-20 opacity-0 pointer-events-none transition-opacity duration-300" onclick="Controller.toggleMobileMenu()"></div>
-
-  <div id="mobile-menu" class="fixed left-0 bottom-0 w-64 max-w-[80%] bg-white shadow-2xl z-30 p-6 -translate-x-full transition-transform duration-300 border-r border-slate-100 flex flex-col gap-2">
-    <div class="flex items-center justify-between mb-2">
-      <span class="font-bold text-lg text-secondary">เมนู</span>
-      <button onclick="Controller.toggleMobileMenu()" aria-label="ปิดเมนู" class="w-9 h-9 flex items-center justify-center rounded-full bg-[#fdf6f2] text-slate-400 hover:bg-accent hover:text-slate-600 text-2xl leading-none">&times;</button>
-    </div>
-    <button onclick="Controller.switchView('pos'); Controller.toggleMobileMenu()" class="text-left font-bold text-lg p-3 rounded-xl hover:bg-slate-50 text-secondary">🛒 POS</button>
   </div>
 
   <main class="flex-1 relative overflow-hidden">
@@ -1934,17 +1912,6 @@
         document.getElementById(`view-${viewId}`).classList.remove('hidden');
       },
 
-      toggleMobileMenu() {
-        const menu = document.getElementById('mobile-menu');
-        const backdrop = document.getElementById('mobile-menu-backdrop');
-        const opening = menu.classList.contains('-translate-x-full');
-        menu.classList.toggle('-translate-x-full', !opening);
-        menu.classList.toggle('translate-x-0', opening);
-        backdrop.classList.toggle('opacity-0', !opening);
-        backdrop.classList.toggle('pointer-events-none', !opening);
-        backdrop.classList.toggle('opacity-100', opening);
-        backdrop.classList.toggle('pointer-events-auto', opening);
-      },
       openModal(id) { document.getElementById(id).classList.remove('hidden'); },
       closeModal(id) { document.getElementById(id).classList.add('hidden'); },
       setIndicator(status) {
