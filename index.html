@@ -148,15 +148,25 @@
       
       <div id="nav-menu-desktop" class="hidden lg:flex gap-2 ml-8 bg-[#fdf6f2] p-1 rounded-2xl">
         <button onclick="Controller.switchView('pos')" class="font-bold text-sm px-6 py-2 rounded-lg text-slate-500 hover:text-primary hover:bg-white transition-all">POS</button>
-
-        <div class="w-px h-6 bg-slate-200 my-auto mx-1"></div>
-        <button onclick="Controller.openSettings()" class="font-bold text-sm px-6 py-2 rounded-lg text-slate-500 hover:text-primary hover:bg-white transition-all">⚙️ Settings</button>
       </div>
     </div>
-    
+
     <div class="flex items-center gap-4">
       <!-- Navbar Right -->
-      <span id="current-user-label" class="hidden text-xs font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100"></span>     
+      <div id="user-menu-wrap" class="relative hidden">
+        <button onclick="Controller.toggleUserMenu()" class="flex items-center gap-1.5 text-xs font-bold text-slate-400 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 hover:bg-slate-100 transition">
+          <span id="current-user-label"></span>
+          <span id="user-menu-chevron" class="text-[9px] transition-transform duration-200">▾</span>
+        </button>
+        <!-- แตะพื้นที่นี้เพื่อปิดเมนู (บทเรียนจากเมนูแฮมเบอร์เกอร์ที่แต่ก่อนไม่มีทางปิด) -->
+        <div id="user-menu-backdrop" class="hidden fixed inset-0 z-30" onclick="Controller.toggleUserMenu()"></div>
+        <div id="user-menu-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl shadow-xl border border-[#fce8e0] z-40 overflow-hidden">
+          <button onclick="Controller.toggleUserMenu(); Controller.openSettings()" class="w-full text-left px-4 py-3 text-sm font-bold text-secondary hover:bg-accent transition">⚙️ ตั้งค่า</button>
+          <button id="user-menu-printer-btn" onclick="Controller.toggleUserMenu(); Controller.togglePrinterFromUserMenu()" class="w-full text-left px-4 py-3 text-sm font-bold text-secondary hover:bg-accent transition">🖨️ เชื่อมต่อเครื่องพิมพ์</button>
+          <div class="border-t border-[#fce8e0]"></div>
+          <button onclick="Controller.toggleUserMenu(); Controller.lockApp()" class="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition">🔒 ออกจากระบบ</button>
+        </div>
+      </div>
       <div onclick="Controller.showSyncQueueInfo()" class="flex items-center gap-3 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 cursor-pointer hover:bg-slate-100 transition">
         <span class="text-xs font-bold text-slate-400">STATUS</span>
         <span id="sync-queue-badge" class="hidden bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">0</span>
@@ -174,8 +184,6 @@
       <button onclick="Controller.toggleMobileMenu()" aria-label="ปิดเมนู" class="w-9 h-9 flex items-center justify-center rounded-full bg-[#fdf6f2] text-slate-400 hover:bg-accent hover:text-slate-600 text-2xl leading-none">&times;</button>
     </div>
     <button onclick="Controller.switchView('pos'); Controller.toggleMobileMenu()" class="text-left font-bold text-lg p-3 rounded-xl hover:bg-slate-50 text-secondary">🛒 POS</button>
-    <button onclick="Controller.openSettings(); Controller.toggleMobileMenu()" class="text-left font-bold text-lg p-3 rounded-xl hover:bg-slate-50 text-secondary">⚙️ Settings</button>
-    <button onclick="Controller.toggleMobileMenu(); Controller.lockApp()" class="text-left font-bold text-lg p-3 rounded-xl hover:bg-red-50 text-red-500">🔒 ล็อกหน้าจอ (ออกจากระบบ)</button>
   </div>
 
   <main class="flex-1 relative overflow-hidden">
@@ -244,19 +252,21 @@
         <p class="text-sm text-slate-400" id="settings-user-label"></p>
       </div>
 
-      <div class="shrink-0 flex flex-nowrap gap-2 mb-6 bg-white p-1 rounded-2xl border border-[#fce8e0] max-w-full overflow-x-auto hide-scroll">
-        <button id="settings-tab-stock" onclick="Controller.switchSettingsTab('stock')" class="shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap bg-primary text-white">🔓 AVAILABLE</button>
-        <button id="settings-tab-printer" onclick="Controller.switchSettingsTab('printer')" class="shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap text-slate-500 hover:bg-accent">🖨️ Printer</button>
-        <button id="settings-tab-history" onclick="Controller.switchSettingsTab('history')" class="shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap text-slate-500 hover:bg-accent">📜 History</button>
-        <button id="settings-tab-summary" onclick="Controller.switchSettingsTab('summary')" class="shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap text-slate-500 hover:bg-accent">📊 Summary</button>
-        <button id="settings-tab-report" onclick="Controller.switchSettingsTab('report')" class="shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap text-slate-500 hover:bg-accent">📈 Report</button>
-        <button id="settings-tab-inventory" onclick="Controller.switchSettingsTab('inventory')" class="shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap text-slate-500 hover:bg-accent">📦 Inventory</button>
-        <button id="settings-tab-employees" onclick="Controller.switchSettingsTab('employees')" class="shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap text-slate-500 hover:bg-accent">👤 Employee</button>
-        <button id="settings-tab-bestseller" onclick="Controller.switchSettingsTab('bestseller')" class="shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap text-slate-500 hover:bg-accent">🏆 BEST SELLER</button>
-        <button id="settings-tab-log" onclick="Controller.switchSettingsTab('log')" class="shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap text-slate-500 hover:bg-accent">📋 Log</button>
-        <button id="settings-tab-addons" onclick="Controller.switchSettingsTab('addons')" class="shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap text-slate-500 hover:bg-accent">🧩 Add-ons</button>
-        <button id="settings-tab-payment" onclick="Controller.switchSettingsTab('payment')" class="shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap text-slate-500 hover:bg-accent">💳 Payment</button>
-        <button id="settings-tab-backup" onclick="Controller.switchSettingsTab('backup')" class="shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-all whitespace-nowrap text-slate-500 hover:bg-accent">💾 Backup</button>
+      <div class="relative shrink-0 flex flex-nowrap gap-2 mb-6 bg-white p-1 rounded-2xl border border-[#fce8e0] max-w-full overflow-x-auto hide-scroll">
+        <!-- แถบสีลอยที่ไหลลื่นไปหาแท็บที่เลือก (liquid navigation) แทนการสลับสีทีละปุ่มแบบเดิม -->
+        <div id="settings-tab-indicator" class="absolute top-1 bottom-1 left-1 rounded-xl bg-primary shadow-md shadow-primary/30 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] pointer-events-none" style="width:0"></div>
+        <button id="settings-tab-stock" onclick="Controller.switchSettingsTab('stock')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">🔓 AVAILABLE</button>
+        <button id="settings-tab-printer" onclick="Controller.switchSettingsTab('printer')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">🖨️ Printer</button>
+        <button id="settings-tab-history" onclick="Controller.switchSettingsTab('history')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">📜 History</button>
+        <button id="settings-tab-summary" onclick="Controller.switchSettingsTab('summary')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">📊 Summary</button>
+        <button id="settings-tab-report" onclick="Controller.switchSettingsTab('report')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">📈 Report</button>
+        <button id="settings-tab-inventory" onclick="Controller.switchSettingsTab('inventory')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">📦 Inventory</button>
+        <button id="settings-tab-employees" onclick="Controller.switchSettingsTab('employees')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">👤 Employee</button>
+        <button id="settings-tab-bestseller" onclick="Controller.switchSettingsTab('bestseller')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">🏆 BEST SELLER</button>
+        <button id="settings-tab-log" onclick="Controller.switchSettingsTab('log')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">📋 Log</button>
+        <button id="settings-tab-addons" onclick="Controller.switchSettingsTab('addons')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">🧩 Add-ons</button>
+        <button id="settings-tab-payment" onclick="Controller.switchSettingsTab('payment')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">💳 Payment</button>
+        <button id="settings-tab-backup" onclick="Controller.switchSettingsTab('backup')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">💾 Backup</button>
       </div>
 
       <div id="settings-panel-history" class="settings-panel hidden flex flex-col">
@@ -2259,7 +2269,7 @@
 
         document.getElementById('settings-user-label').innerText = `เข้าสู่ระบบในฐานะ: ${user.name} (${user.role})`;
 
-        document.querySelectorAll('[id^="settings-tab-"]').forEach(btn => {
+        document.querySelectorAll('button[id^="settings-tab-"]').forEach(btn => {
           const tabKey = btn.id.replace('settings-tab-', '');
           btn.classList.toggle('hidden', !allowedTabs.includes(tabKey));
         });
@@ -2274,13 +2284,19 @@
         document.querySelectorAll('.settings-panel').forEach(p => p.classList.add('hidden'));
         document.getElementById(`settings-panel-${tab}`).classList.remove('hidden');
 
-        document.querySelectorAll('[id^="settings-tab-"]').forEach(btn => {
-          btn.classList.remove('bg-primary', 'text-white');
+        document.querySelectorAll('button[id^="settings-tab-"]').forEach(btn => {
+          btn.classList.remove('text-white');
           btn.classList.add('text-slate-500');
         });
         const activeTabBtn = document.getElementById(`settings-tab-${tab}`);
-        activeTabBtn.classList.add('bg-primary', 'text-white');
+        activeTabBtn.classList.add('text-white');
         activeTabBtn.classList.remove('text-slate-500');
+        // แถบสีลอย (liquid navigation) ไหลไปเกาะใต้แท็บที่เพิ่งเลือกแทนการสลับสีปุ่มทันที
+        const indicator = document.getElementById('settings-tab-indicator');
+        if (indicator) {
+          indicator.style.left = activeTabBtn.offsetLeft + 'px';
+          indicator.style.width = activeTabBtn.offsetWidth + 'px';
+        }
         // แถบแท็บมี ~12 ปุ่มเลื่อนแนวนอน มือถือกดแท็บที่โผล่แค่ครึ่งเดียวแล้วจะงงว่าอยู่ตรงไหน เลยเลื่อนให้เข้ากลางจอเสมอ
         activeTabBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
 
@@ -3941,6 +3957,7 @@
         const disconnectBtn = document.getElementById('btn-bt-disconnect');
         const testBtn = document.getElementById('btn-bt-test');
         const navIcon = document.getElementById('nav-printer-status');
+        const userMenuBtn = document.getElementById('user-menu-printer-btn');
 
         if (BluetoothPrinter.isConnected) {
           if (statusEl) statusEl.innerHTML = '✅ เชื่อมต่ออยู่: <strong>' + BluetoothPrinter.deviceName + '</strong>';
@@ -3948,12 +3965,14 @@
           if (disconnectBtn) disconnectBtn.classList.remove('hidden');
           if (testBtn) testBtn.classList.remove('hidden');
           if (navIcon) { navIcon.classList.remove('text-slate-300'); navIcon.classList.add('text-emerald-500'); }
+          if (userMenuBtn) userMenuBtn.innerText = '🔌 ตัดการเชื่อมต่อเครื่องพิมพ์';
         } else {
           if (statusEl) statusEl.innerHTML = '❌ ยังไม่ได้เชื่อมต่อ';
           if (connectBtn) connectBtn.classList.remove('hidden');
           if (disconnectBtn) disconnectBtn.classList.add('hidden');
           if (testBtn) testBtn.classList.add('hidden');
           if (navIcon) { navIcon.classList.remove('text-emerald-500'); navIcon.classList.add('text-slate-300'); }
+          if (userMenuBtn) userMenuBtn.innerText = '🖨️ เชื่อมต่อเครื่องพิมพ์';
         }
       },
 
@@ -4124,12 +4143,42 @@
 
       updateLoggedInUserLabel() {
         const el = document.getElementById('current-user-label');
-        if (!el) return;
+        const wrap = document.getElementById('user-menu-wrap');
+        if (!el || !wrap) return;
         if (this.loggedInEmployee) {
           el.innerText = this.loggedInEmployee.name;
-          el.classList.remove('hidden');
+          wrap.classList.remove('hidden');
         } else {
-          el.classList.add('hidden');
+          wrap.classList.add('hidden');
+          this.closeUserMenu();
+        }
+      },
+
+      toggleUserMenu() {
+        const dropdown = document.getElementById('user-menu-dropdown');
+        const backdrop = document.getElementById('user-menu-backdrop');
+        const chevron = document.getElementById('user-menu-chevron');
+        const opening = dropdown.classList.contains('hidden');
+        dropdown.classList.toggle('hidden', !opening);
+        backdrop.classList.toggle('hidden', !opening);
+        if (chevron) chevron.style.transform = opening ? 'rotate(180deg)' : '';
+        if (opening) this.updatePrinterStatusUI();
+      },
+
+      closeUserMenu() {
+        const dropdown = document.getElementById('user-menu-dropdown');
+        const backdrop = document.getElementById('user-menu-backdrop');
+        const chevron = document.getElementById('user-menu-chevron');
+        if (dropdown) dropdown.classList.add('hidden');
+        if (backdrop) backdrop.classList.add('hidden');
+        if (chevron) chevron.style.transform = '';
+      },
+
+      togglePrinterFromUserMenu() {
+        if (BluetoothPrinter.isConnected) {
+          this.disconnectBTPrinter();
+        } else {
+          this.connectBTPrinter();
         }
       },
 
