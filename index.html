@@ -1873,6 +1873,8 @@
         this.activeCategory = catName;
         this.renderCategories(); // อัปเดตสีปุ่ม
         this.renderMenu();       // อัปเดตตารางสินค้า
+        const activeBtn = document.querySelector('#menu-categories button.bg-primary');
+        if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       },
 
       toggleStockMode() {
@@ -2273,8 +2275,11 @@
           btn.classList.remove('bg-primary', 'text-white');
           btn.classList.add('text-slate-500');
         });
-        document.getElementById(`settings-tab-${tab}`).classList.add('bg-primary', 'text-white');
-        document.getElementById(`settings-tab-${tab}`).classList.remove('text-slate-500');
+        const activeTabBtn = document.getElementById(`settings-tab-${tab}`);
+        activeTabBtn.classList.add('bg-primary', 'text-white');
+        activeTabBtn.classList.remove('text-slate-500');
+        // แถบแท็บมี ~12 ปุ่มเลื่อนแนวนอน มือถือกดแท็บที่โผล่แค่ครึ่งเดียวแล้วจะงงว่าอยู่ตรงไหน เลยเลื่อนให้เข้ากลางจอเสมอ
+        activeTabBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
 
         if (tab === 'printer') {
           document.getElementById('printer-header').value = this.receiptSettings.header || '';
@@ -3152,7 +3157,10 @@
             <div onclick="Controller.selectProduct(${originalIdx})" class="${cardStyle}">
               ${soldOutBadge}
               <div class="h-32 bg-slate-100 w-full relative overflow-hidden">
-                <div class="absolute inset-0 bg-cover bg-center transition-transform duration-300 ${!isSoldOut && !this.isStockMode ? 'group-hover:scale-105' : ''}" style="background-image: url('${item.image || ''}');"></div>
+                ${item.image
+                  ? `<div class="absolute inset-0 bg-cover bg-center transition-transform duration-300 ${!isSoldOut && !this.isStockMode ? 'group-hover:scale-105' : ''}" style="background-image: url('${item.image}');"></div>`
+                  : `<div class="absolute inset-0 flex items-center justify-center text-4xl text-slate-300">🥤</div>`
+                }
               </div>
               <div class="p-4 flex flex-col justify-between flex-1">
                 <div>
