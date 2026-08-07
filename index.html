@@ -158,14 +158,6 @@
           <span id="current-user-label"></span>
           <span id="user-menu-chevron" class="text-[9px] transition-transform duration-200">▾</span>
         </button>
-        <!-- แตะพื้นที่นี้เพื่อปิดเมนู (บทเรียนจากเมนูแฮมเบอร์เกอร์ที่แต่ก่อนไม่มีทางปิด) -->
-        <div id="user-menu-backdrop" class="hidden fixed inset-0 z-30" onclick="Controller.toggleUserMenu()"></div>
-        <div id="user-menu-dropdown" class="hidden absolute right-0 mt-2 w-60 bg-white rounded-2xl shadow-xl border border-[#fce8e0] z-40 overflow-hidden">
-          <button onclick="Controller.toggleUserMenu(); Controller.openSettings()" class="w-full text-left px-4 py-3 text-sm font-bold text-secondary hover:bg-accent transition">⚙️ ตั้งค่า</button>
-          <button id="user-menu-printer-btn" onclick="Controller.toggleUserMenu(); Controller.togglePrinterFromUserMenu()" class="w-full text-left px-4 py-3 text-sm font-bold text-secondary hover:bg-accent transition">🖨️ เชื่อมต่อเครื่องพิมพ์</button>
-          <div class="border-t border-[#fce8e0]"></div>
-          <button onclick="Controller.toggleUserMenu(); Controller.lockApp()" class="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition">🔒 ออกจากระบบ</button>
-        </div>
       </div>
       <div onclick="Controller.showSyncQueueInfo()" class="flex items-center gap-3 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 cursor-pointer hover:bg-slate-100 transition">
         <span class="text-xs font-bold text-slate-400">STATUS</span>
@@ -174,6 +166,16 @@
       </div>
     </div>
   </nav>
+
+  <!-- เมนู dropdown ของพนักงาน: วางเป็น fixed ระดับ body แยกจาก nav ทั้งหมด (ตำแหน่งคำนวณด้วย JS ตอนเปิด)
+       เพราะตอนวางซ้อนอยู่ใน nav แบบ absolute โดนกล่องอื่นในหน้า (เช่นแผงตะกร้า) วาดทับ -->
+  <div id="user-menu-backdrop" class="hidden fixed inset-0 z-40" onclick="Controller.toggleUserMenu()"></div>
+  <div id="user-menu-dropdown" class="hidden fixed w-60 bg-white rounded-2xl shadow-xl border border-[#fce8e0] z-50 overflow-hidden">
+    <button onclick="Controller.toggleUserMenu(); Controller.openSettings()" class="w-full text-left px-4 py-3 text-sm font-bold text-secondary hover:bg-accent transition">⚙️ ตั้งค่า</button>
+    <button id="user-menu-printer-btn" onclick="Controller.toggleUserMenu(); Controller.togglePrinterFromUserMenu()" class="w-full text-left px-4 py-3 text-sm font-bold text-secondary hover:bg-accent transition">🖨️ เชื่อมต่อเครื่องพิมพ์</button>
+    <div class="border-t border-[#fce8e0]"></div>
+    <button onclick="Controller.toggleUserMenu(); Controller.lockApp()" class="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition">🔒 ออกจากระบบ</button>
+  </div>
 
   <!-- แตะพื้นที่มืดนี้เพื่อปิดเมนู (เดิมไม่มี ทำให้เปิดเมนูมือถือแล้วหาทางปิดไม่เจอ) -->
   <div id="mobile-menu-backdrop" class="fixed left-0 right-0 bottom-0 bg-secondary/40 z-20 opacity-0 pointer-events-none transition-opacity duration-300" onclick="Controller.toggleMobileMenu()"></div>
@@ -4162,7 +4164,16 @@
         dropdown.classList.toggle('hidden', !opening);
         backdrop.classList.toggle('hidden', !opening);
         if (chevron) chevron.style.transform = opening ? 'rotate(180deg)' : '';
-        if (opening) this.updatePrinterStatusUI();
+
+        if (opening) {
+          // คำนวณตำแหน่งจากปุ่มจริงตอนเปิดทุกครั้ง (dropdown เป็น fixed แยกจาก nav ไม่ใช่ absolute ซ้อนข้างใน
+          // เพราะแบบเดิมโดนกล่องอื่นในหน้า เช่น แผงตะกร้า วาดทับตอนหน้าจอกว้าง)
+          const btn = document.querySelector('#user-menu-wrap button');
+          const rect = btn.getBoundingClientRect();
+          dropdown.style.top = (rect.bottom + 8) + 'px';
+          dropdown.style.left = Math.max(8, rect.right - dropdown.offsetWidth) + 'px';
+          this.updatePrinterStatusUI();
+        }
       },
 
       closeUserMenu() {
