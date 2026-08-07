@@ -50,6 +50,12 @@
       padding-top: env(safe-area-inset-top) !important;
       height: calc(4rem + env(safe-area-inset-top)) !important;
     }
+    #mobile-menu, #mobile-menu-backdrop {
+      top: calc(4rem + env(safe-area-inset-top)) !important;
+    }
+    @media (min-width: 1024px) {
+      #mobile-menu, #mobile-menu-backdrop { display: none !important; }
+    }
     @media (max-width: 1023.98px) {
       /* ปักตะกร้าไว้ที่ขอบล่างจริงของจอเสมอ ไม่พึ่ง h-full/dvh ที่ไล่มาจาก body
          เพราะ Safari บนมือถือ (โดยเฉพาะ iOS) บางทีไม่รีเฟลตความสูงที่คำนวณผ่าน dvh
@@ -159,7 +165,14 @@
     </div>
   </nav>
 
-  <div id="mobile-menu" class="hidden absolute top-16 left-0 w-64 h-full bg-white shadow-2xl z-30 p-6 transition-transform border-r border-slate-100 flex flex-col gap-2">
+  <!-- แตะพื้นที่มืดนี้เพื่อปิดเมนู (เดิมไม่มี ทำให้เปิดเมนูมือถือแล้วหาทางปิดไม่เจอ) -->
+  <div id="mobile-menu-backdrop" class="fixed left-0 right-0 bottom-0 bg-secondary/40 z-20 opacity-0 pointer-events-none transition-opacity duration-300" onclick="Controller.toggleMobileMenu()"></div>
+
+  <div id="mobile-menu" class="fixed left-0 bottom-0 w-64 max-w-[80%] bg-white shadow-2xl z-30 p-6 -translate-x-full transition-transform duration-300 border-r border-slate-100 flex flex-col gap-2">
+    <div class="flex items-center justify-between mb-2">
+      <span class="font-bold text-lg text-secondary">เมนู</span>
+      <button onclick="Controller.toggleMobileMenu()" aria-label="ปิดเมนู" class="w-9 h-9 flex items-center justify-center rounded-full bg-[#fdf6f2] text-slate-400 hover:bg-accent hover:text-slate-600 text-2xl leading-none">&times;</button>
+    </div>
     <button onclick="Controller.switchView('pos'); Controller.toggleMobileMenu()" class="text-left font-bold text-lg p-3 rounded-xl hover:bg-slate-50 text-secondary">🛒 POS</button>
     <button onclick="Controller.openSettings(); Controller.toggleMobileMenu()" class="text-left font-bold text-lg p-3 rounded-xl hover:bg-slate-50 text-secondary">⚙️ Settings</button>
     <button onclick="Controller.toggleMobileMenu(); Controller.lockApp()" class="text-left font-bold text-lg p-3 rounded-xl hover:bg-red-50 text-red-500">🔒 ล็อกหน้าจอ (ออกจากระบบ)</button>
@@ -1905,7 +1918,15 @@
       },
 
       toggleMobileMenu() {
-        document.getElementById('mobile-menu').classList.toggle('hidden');
+        const menu = document.getElementById('mobile-menu');
+        const backdrop = document.getElementById('mobile-menu-backdrop');
+        const opening = menu.classList.contains('-translate-x-full');
+        menu.classList.toggle('-translate-x-full', !opening);
+        menu.classList.toggle('translate-x-0', opening);
+        backdrop.classList.toggle('opacity-0', !opening);
+        backdrop.classList.toggle('pointer-events-none', !opening);
+        backdrop.classList.toggle('opacity-100', opening);
+        backdrop.classList.toggle('pointer-events-auto', opening);
       },
       openModal(id) { document.getElementById(id).classList.remove('hidden'); },
       closeModal(id) { document.getElementById(id).classList.add('hidden'); },
