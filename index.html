@@ -4771,10 +4771,7 @@
         this.showAlert('บันทึกรายการสำเร็จ!', '');
         this.logPinAttempt(`${action === 'IN' ? 'นำเงินเข้า' : 'นำเงินออก'}: ฿${total}`, true, userName);
 
-        // 3. รีเฟรชหน้า Summary เพื่อให้เลขโชว์
-        this.fetchSummary();
-
-        // 4. พยายามส่งไป Google Sheet ทันที (Background)
+        // 3. ส่งขึ้นเซิร์ฟเวอร์ แล้วค่อยรีเฟรช Summary ตอนสำเร็จ
         this.processFloatCashQueue();
       },
 
@@ -4795,6 +4792,7 @@
               
               // ถ้ายอดเข้ามาระหว่างที่ทำ ก็ซิงค์ต่อ
               if (this.floatCashQueue.length > 0) this.processFloatCashQueue();
+              else this.fetchSummary();
             }
           })
           .withFailureHandler(() => {
