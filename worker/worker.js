@@ -342,7 +342,7 @@ async function summaryByRange(env, start, end) {
   const avgPerBill = billCount ? total / billCount : 0;
   return {
     success: true, total, totalProfit, billCount, cupCount, totalCost,
-    avgPerBill, cash, other, byType, topSellers, daily: dailyList,
+    avgPerBill, cash, other, qr: other, byType, topSellers, daily: dailyList,
   };
 }
 
