@@ -330,8 +330,18 @@ async function posDataForDay(env, day) {
 
   history.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
+  const voidInvoices = new Set(
+    payR.results
+      .filter((p) =>
+        ["cancelled", "waste"].includes(String(p.status || "").toLowerCase())
+      )
+      .map((p) => p.invoice)
+  );
   const cupCount = saleR.results.reduce(
-    (sum, row) => (row.cancelled ? sum : sum + Number(row.qty || 0)),
+    (sum, row) =>
+      row.cancelled || voidInvoices.has(row.invoice)
+        ? sum
+        : sum + Number(row.qty || 0),
     0
   );
   return { history, cupCount };
@@ -376,6 +386,18 @@ async function summaryByRange(env, start, end) {
     d.bills += 1;
   }
 
+  let floatCash = 0;
+  try {
+    const floatR = await env.DB.prepare(
+      "SELECT IFNULL(SUM(CASE WHEN LOWER(action) = 'out' THEN -total_amount ELSE total_amount END), 0) AS bal FROM float_log WHERE date(timestamp, '+7 hours') <= ? AND NOT (LOWER(action) = 'close_day' AND date(timestamp, '+7 hours') BETWEEN ? AND ?)"
+    )
+      .bind(endDay, startDay, endDay)
+      .first();
+    floatCash = Number((floatR && floatR.bal) || 0);
+  } catch (err) {
+    floatCash = 0;
+  }
+
   const menuR = await env.DB.prepare("SELECT sku, cost FROM menu").all();
   const costMap = {};
   for (const m of menuR.results) costMap[m.sku] = m.cost || 0;
@@ -401,7 +423,7 @@ async function summaryByRange(env, start, end) {
   const avgPerBill = billCount ? total / billCount : 0;
   return {
     success: true, total, totalProfit, billCount, cupCount, totalCost,
-    avgPerBill, cash, other, qr: other, byType, topSellers, daily: dailyList,
+    avgPerBill, cash, other, qr: other, byType, topSellers, daily: dailyList, floatCash,
   };
 }
 
@@ -451,14 +473,29 @@ handlers.getBestSellers = async (env, args) => {
 async function syncFloatCashLogs(env, args) {
   const raw = args[0];
   const logs = Array.isArray(raw) ? raw : [raw];
+  const num = (a, b) => Number(a ?? b ?? 0) || 0;
   for (const l of logs) {
-    await env.DB.prepare('INSERT INTO float_log (timestamp, user, action, total_amount, note, b1000,b500,b100,b50,b20,c10,c5,c2,c1) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+    const d = l.denominations || {};
+    await env.DB.prepare(
+      "INSERT INTO float_log (timestamp, user, action, total_amount, note, b1000,b500,b100,b50,b20,c10,c5,c2,c1) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)"
+    )
       .bind(
-        l.timestamp || nowIso(), l.user || '', l.action || '',
-        Number(l.total_amount ?? l.totalAmount ?? 0), l.note || '',
-        Number(l.b1000 || 0), Number(l.b500 || 0), Number(l.b100 || 0), Number(l.b50 || 0), Number(l.b20 || 0),
-        Number(l.c10 || 0), Number(l.c5 || 0), Number(l.c2 || 0), Number(l.c1 || 0)
-      ).run();
+        l.timestamp || nowIso(),
+        l.user || "",
+        l.action || "",
+        num(l.total_amount ?? l.totalAmount, l.total),
+        l.note || "",
+        num(l.b1000, d.B1000),
+        num(l.b500, d.B500),
+        num(l.b100, d.B100),
+        num(l.b50, d.B50),
+        num(l.b20, d.B20),
+        num(l.c10, d.C10),
+        num(l.c5, d.C5),
+        num(l.c2, d.C2),
+        num(l.c1, d.C1)
+      )
+      .run();
   }
   return { success: true };
 }
