@@ -12,12 +12,12 @@
             }
       })();
   </script>
-  <!-- 🍎 สำหรับฝั่ง iOS (iPad, iPhone) -->
+  <!--  สำหรับฝั่ง iOS (iPad, iPhone) -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="PUKFU">
 
-  <!-- 🤖 สำหรับฝั่ง Android (Chrome) -->
+  <!--  สำหรับฝั่ง Android (Chrome) -->
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="theme-color" content="#f2685c"> <!-- สีนี้จะเปลี่ยนแถบด้านบนสุดของเครื่อง Android ให้เป็นสีส้มพีชของร้านคุณ -->
   <meta charset="UTF-8">
@@ -55,7 +55,7 @@
       .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
     }
 
-    /* 📱 iOS: เผื่อพื้นที่ปลอดภัย กันเนื้อหามุดใต้ status bar และ home indicator ตอนเปิดเป็นแอปเต็มจอ */
+    /* <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg> iOS: เผื่อพื้นที่ปลอดภัย กันเนื้อหามุดใต้ status bar และ home indicator ตอนเปิดเป็นแอปเต็มจอ */
     html { background: #ffffff; }
     body > nav {
       padding-top: env(safe-area-inset-top) !important;
@@ -107,10 +107,10 @@
 </head>
 <body class="font-sarabun bg-[#fdf6f2] h-[100dvh] flex flex-col overflow-hidden text-[#6b5f6a]">
 
-  <!-- 🔒 หน้าจอล็อก PIN (แสดงทับทุกอย่างจนกว่าจะใส่ PIN ถูก) -->
+  <!--  หน้าจอล็อก PIN (แสดงทับทุกอย่างจนกว่าจะใส่ PIN ถูก) -->
   <div id="pin-lock-screen" class="fixed inset-0 bg-[#fdf6f2] z-[100] flex flex-col items-center justify-center p-6">
     <div class="w-full max-w-xs text-center">
-      <div class="w-16 h-16 bg-primary/15 rounded-3xl flex items-center justify-center text-primary font-bold text-2xl mx-auto mb-4">☕</div>
+      <div class="w-16 h-16 bg-primary/15 rounded-3xl flex items-center justify-center text-primary font-bold text-2xl mx-auto mb-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M5 8h11v6a5 5 0 0 1-10 0z"/><path d="M16 9h2a2 2 0 0 1 0 4h-2"/><path d="M4 21h14"/></svg></div>
       <h2 class="text-xl font-bold text-secondary mb-1">POS Pukfu</h2>
       <p class="text-sm text-slate-400 mb-6">ใส่ PIN เพื่อเข้าใช้งาน</p>
 
@@ -146,7 +146,6 @@
     <div class="flex items-center gap-4">
       <!-- กด PUKFU เพื่อกลับหน้า POS แทนปุ่ม POS/แฮมเบอร์เกอร์เดิม ให้แถบบนดูโล่งขึ้น -->
       <button onclick="Controller.switchView('pos')" class="flex items-center gap-2 hover:opacity-75 transition-opacity">
-        <div class="w-9 h-9 bg-primary/15 rounded-2xl flex items-center justify-center text-primary font-bold">☕</div>
         <h1 class="text-xl font-bold text-secondary">PUKFU</h1>
       </button>
     </div>
@@ -171,10 +170,10 @@
        เพราะตอนวางซ้อนอยู่ใน nav แบบ absolute โดนกล่องอื่นในหน้า (เช่นแผงตะกร้า) วาดทับ -->
   <div id="user-menu-backdrop" class="hidden fixed inset-0 z-40" onclick="Controller.toggleUserMenu()"></div>
   <div id="user-menu-dropdown" class="hidden fixed w-60 bg-white rounded-2xl shadow-xl border border-[#fce8e0] z-50 overflow-hidden">
-    <button onclick="Controller.toggleUserMenu(); Controller.openSettings()" class="w-full text-left px-4 py-3 text-sm font-bold text-secondary hover:bg-accent transition">⚙️ ตั้งค่า</button>
-    <button id="user-menu-printer-btn" onclick="Controller.toggleUserMenu(); Controller.togglePrinterFromUserMenu()" class="w-full text-left px-4 py-3 text-sm font-bold text-secondary hover:bg-accent transition">🖨️ เชื่อมต่อเครื่องพิมพ์</button>
+    <button onclick="Controller.toggleUserMenu(); Controller.openSettings()" class="w-full text-left px-4 py-3 text-sm font-bold text-secondary hover:bg-accent transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg> ตั้งค่า</button>
+    <button id="user-menu-printer-btn" onclick="Controller.toggleUserMenu(); Controller.togglePrinterFromUserMenu()" class="w-full text-left px-4 py-3 text-sm font-bold text-secondary hover:bg-accent transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg> เชื่อมต่อเครื่องพิมพ์</button>
     <div class="border-t border-[#fce8e0]"></div>
-    <button onclick="Controller.toggleUserMenu(); Controller.lockApp()" class="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition">🔒 ออกจากระบบ</button>
+    <button onclick="Controller.toggleUserMenu(); Controller.lockApp()" class="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> ออกจากระบบ</button>
   </div>
 
   <main class="flex-1 relative overflow-hidden">
@@ -184,7 +183,7 @@
       <div id="pos-content-scroll" class="flex-1 overflow-y-auto p-4 lg:p-6 bg-[#fdf6f2] relative">
         
         <div id="stock-mode-alert" class="hidden mb-4 bg-amber-500 text-white font-bold px-4 py-3 rounded-xl shadow-md flex justify-between items-center">
-          <span>⚠️ อยู่ในโหมดจัดการสต๊อก: คลิกที่สินค้าเพื่อสลับสถานะ Sold Out</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M12 3l9 16H3z"/><path d="M12 9v5M12 17h.01"/></svg> อยู่ในโหมดจัดการสต๊อก: คลิกที่สินค้าเพื่อสลับสถานะ Sold Out</span>
           <button onclick="Controller.toggleStockMode()" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg text-sm">Finish</button>
         </div>
 
@@ -210,7 +209,7 @@
           <div class="flex items-center gap-3">
             <span id="cart-total-mobile" class="text-primary font-bold lg:hidden">฿0.00</span>
             <span id="cart-toggle-icon" class="text-slate-400 lg:hidden font-bold">▲</span>
-            <div class="hidden lg:flex w-8 h-8 bg-slate-50 rounded-full items-center justify-center text-slate-400 text-xs">🛒</div>
+            <div class="hidden lg:flex w-8 h-8 bg-slate-50 rounded-full items-center justify-center text-slate-400 text-xs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.5 11h10L20 7H6"/></svg></div>
           </div>
         </div>
         
@@ -239,25 +238,24 @@
     <!-- หน้า Settings -->
     <div id="view-settings" class="view hidden h-full p-4 lg:p-8 flex flex-col max-w-5xl mx-auto overflow-y-auto">
       <div class="shrink-0 mb-6 pt-2 lg:pt-0">
-        <h2 class="text-2xl font-bold text-secondary">⚙️ Settings</h2>
+        <h2 class="text-2xl font-bold text-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg> Settings</h2>
         <p class="text-sm text-slate-400" id="settings-user-label"></p>
       </div>
 
       <div class="relative shrink-0 flex flex-nowrap gap-2 mb-6 bg-white p-1 rounded-2xl border border-[#fce8e0] max-w-full overflow-x-auto hide-scroll">
         <!-- แถบสีลอยที่ไหลลื่นไปหาแท็บที่เลือก (liquid navigation) แทนการสลับสีทีละปุ่มแบบเดิม -->
         <div id="settings-tab-indicator" class="absolute top-1 bottom-1 left-1 rounded-xl bg-primary shadow-md shadow-primary/30 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] pointer-events-none" style="width:0"></div>
-        <button id="settings-tab-stock" onclick="Controller.switchSettingsTab('stock')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">🔓 AVAILABLE</button>
-        <button id="settings-tab-printer" onclick="Controller.switchSettingsTab('printer')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">🖨️ Printer</button>
-        <button id="settings-tab-history" onclick="Controller.switchSettingsTab('history')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">📜 History</button>
-        <button id="settings-tab-summary" onclick="Controller.switchSettingsTab('summary')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">📊 Summary</button>
-        <button id="settings-tab-report" onclick="Controller.switchSettingsTab('report')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">📈 Report</button>
-        <button id="settings-tab-inventory" onclick="Controller.switchSettingsTab('inventory')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">📦 Inventory</button>
-        <button id="settings-tab-employees" onclick="Controller.switchSettingsTab('employees')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">👤 Employee</button>
-        <button id="settings-tab-bestseller" onclick="Controller.switchSettingsTab('bestseller')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">🏆 BEST SELLER</button>
-        <button id="settings-tab-log" onclick="Controller.switchSettingsTab('log')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">📋 Log</button>
-        <button id="settings-tab-addons" onclick="Controller.switchSettingsTab('addons')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">🧩 Add-ons</button>
-        <button id="settings-tab-payment" onclick="Controller.switchSettingsTab('payment')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">💳 Payment</button>
-        <button id="settings-tab-backup" onclick="Controller.switchSettingsTab('backup')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent">💾 Backup</button>
+        <button id="settings-tab-stock" onclick="Controller.switchSettingsTab('stock')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> AVAILABLE</button>
+        <button id="settings-tab-printer" onclick="Controller.switchSettingsTab('printer')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg> Printer</button>
+        <button id="settings-tab-history" onclick="Controller.switchSettingsTab('history')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/></svg> History</button>
+        <button id="settings-tab-summary" onclick="Controller.switchSettingsTab('summary')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M3 3v18h18"/><path d="M7 18v-6M12 18V8M17 18V5"/></svg> Summary</button>
+        <button id="settings-tab-report" onclick="Controller.switchSettingsTab('report')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> Report</button>
+        <button id="settings-tab-inventory" onclick="Controller.switchSettingsTab('inventory')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> Inventory</button>
+        <button id="settings-tab-employees" onclick="Controller.switchSettingsTab('employees')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg> Employee</button>
+        <button id="settings-tab-log" onclick="Controller.switchSettingsTab('log')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/></svg> Log</button>
+        <button id="settings-tab-addons" onclick="Controller.switchSettingsTab('addons')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg> Add-ons</button>
+        <button id="settings-tab-payment" onclick="Controller.switchSettingsTab('payment')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> Payment</button>
+        <button id="settings-tab-backup" onclick="Controller.switchSettingsTab('backup')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 13h8v6H8z"/></svg> Backup</button>
       </div>
 
       <div id="settings-panel-history" class="settings-panel hidden flex flex-col">
@@ -280,35 +278,35 @@
       <div id="settings-panel-summary" class="settings-panel hidden">
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6">
           <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm">
-            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-primary/15 rounded-2xl flex items-center justify-center text-primary mb-2 lg:mb-4 text-base lg:text-lg">💰</div>
+            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-primary/15 rounded-2xl flex items-center justify-center text-primary mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg></div>
             <p class="text-slate-400 font-bold text-xs lg:text-sm">Total Sales</p>
             <p id="sum-total" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
           </div>
           <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm">
-            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-500 mb-2 lg:mb-4 text-base lg:text-lg">💵</div>
+            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg></div>
             <p class="text-slate-400 font-bold text-xs lg:text-sm">Cash</p>
             <p id="sum-cash" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
           </div>
           <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm">
-            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-sky-100 rounded-2xl flex items-center justify-center text-sky-500 mb-2 lg:mb-4 text-base lg:text-lg">📱</div>
+            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-sky-100 rounded-2xl flex items-center justify-center text-sky-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></div>
             <p class="text-slate-400 font-bold text-xs lg:text-sm">PromptPay QR</p>
             <p id="sum-qr" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
           </div>
           <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm relative group">
             <button onclick="Controller.resetCupCount()" class="absolute top-3 right-3 lg:top-6 lg:right-6 text-[10px] lg:text-xs font-bold text-slate-300 hover:text-red-500 transition-colors bg-accent px-2 py-1 rounded-full">Reset</button>
-            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-500 mb-2 lg:mb-4 text-base lg:text-lg">🥤</div>
+            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M5 8h11v6a5 5 0 0 1-10 0z"/><path d="M16 9h2a2 2 0 0 1 0 4h-2"/><path d="M4 21h14"/></svg></div>
             <p class="text-slate-400 font-bold text-xs lg:text-sm">Cups Sold</p>
             <p id="sum-cups" class="text-xl lg:text-3xl font-black text-secondary mt-1">0</p>
           </div>
         </div>
         <div class="grid grid-cols-2 gap-3 lg:gap-6 mt-3 lg:mt-6">
           <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm">
-            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-500 mb-2 lg:mb-4 text-base lg:text-lg">📉</div>
+            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M3 3v18h18"/><path d="M7 9l4 5 3-3 5 7"/></svg></div>
             <p class="text-slate-400 font-bold text-xs lg:text-sm">ต้นทุนรวม (Cost)</p>
             <p id="sum-cost" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
           </div>
           <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm">
-            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-500 mb-2 lg:mb-4 text-base lg:text-lg">📈</div>
+            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></div>
             <p class="text-slate-400 font-bold text-xs lg:text-sm">กำไรสุทธิ (Profit)</p>
             <p id="sum-profit" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
           </div>
@@ -334,7 +332,7 @@
         <button onclick="Controller.fetchSummary(this)" class="mt-6 w-full sm:w-auto justify-center items-center flex bg-primary text-white px-6 py-3 rounded-2xl shadow shadow-primary/30 font-bold hover:brightness-95 transition">Refresh Stats</button>
 
         <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm mt-4">
-          <h3 class="font-bold text-secondary mb-1">🔒 ปิดยอดประจำวัน</h3>
+          <h3 class="font-bold text-secondary mb-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> ปิดยอดประจำวัน</h3>
           <p class="text-xs text-slate-400 mb-3">เอายอดขายสด (เงินสดเท่านั้น) ของวันนี้ไปรวมเป็นเงินทอนสำหรับวันถัดไป ทำอัตโนมัติทุกคืนตอน 23:55 อยู่แล้ว กดปุ่มนี้เฉพาะกรณีต้องการปิดยอดก่อนเวลา หรือระบบอัตโนมัติไม่ทำงาน (ปิดซ้ำในวันเดียวกันไม่ได้)</p>
           <button id="btn-close-day" onclick="Controller.closeDayCashManual(this)" class="w-full sm:w-auto bg-secondary text-white px-6 py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md">ปิดยอดประจำวันตอนนี้</button>
         </div>
@@ -384,7 +382,7 @@
           </div>
 
           <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
-            <label class="text-sm font-bold text-slate-500 mb-1 block">🔒 ล็อกหน้าจออัตโนมัติ</label>
+            <label class="text-sm font-bold text-slate-500 mb-1 block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> ล็อกหน้าจออัตโนมัติ</label>
             <p class="text-xs text-slate-400 mb-2">ล็อกหน้าจอเมื่อไม่มีการใช้งานนานเกินกำหนด (ใส่ 0 = ปิดใช้งาน)</p>
             <div class="flex items-center gap-2">
               <input type="number" id="auto-lock-minutes" min="0" max="240" class="w-24 border border-[#fce8e0] rounded-xl p-2 text-center font-bold focus:outline-none focus:border-primary bg-white" placeholder="20">
@@ -463,15 +461,15 @@
              <input type="checkbox" id="printer-print-order-slip" class="w-5 h-5 rounded text-primary">
              <label for="printer-print-order-slip" class="text-sm font-bold text-slate-500">พิมพ์ใบสั่งทำเครื่องดื่ม (สำหรับบาริสต้า/ห้องครัว)</label>
           </div>
-          <!-- 🔵 Bluetooth Printer -->
+          <!--  Bluetooth Printer -->
           <div class="border-t border-[#fce8e0] pt-4 mt-2 mb-4">
             <label class="text-sm font-bold text-slate-500 mb-2 block">เครื่องพิมพ์ Bluetooth</label>
             <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <p id="bt-printer-status" class="text-sm text-slate-500 mb-3">❌ ยังไม่ได้เชื่อมต่อ</p>
+              <p id="bt-printer-status" class="text-sm text-slate-500 mb-3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M6 6l12 12M18 6L6 18"/></svg> ยังไม่ได้เชื่อมต่อ</p>
               <div class="flex flex-wrap gap-2">
-                <button id="btn-bt-connect" onclick="Controller.connectBTPrinter()" class="bg-blue-500 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-blue-600 transition">🔗 เชื่อมต่อเครื่องพิมพ์</button>
-                <button id="btn-bt-disconnect" onclick="Controller.disconnectBTPrinter()" class="hidden bg-red-50 text-red-500 px-4 py-2 rounded-xl font-bold text-sm hover:bg-red-100 transition">🔌 ตัดการเชื่อมต่อ</button>
-                <button id="btn-bt-test" onclick="Controller.testBTPrint()" class="hidden bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-emerald-100 transition">🖨️ ทดสอบพิมพ์</button>
+                <button id="btn-bt-connect" onclick="Controller.connectBTPrinter()" class="bg-blue-500 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-blue-600 transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M10 14a4 4 0 0 0 6 .5l2-2a4 4 0 0 0-6-6l-1 1"/><path d="M14 10a4 4 0 0 0-6-.5l-2 2a4 4 0 0 0 6 6l1-1"/></svg> เชื่อมต่อเครื่องพิมพ์</button>
+                <button id="btn-bt-disconnect" onclick="Controller.disconnectBTPrinter()" class="hidden bg-red-50 text-red-500 px-4 py-2 rounded-xl font-bold text-sm hover:bg-red-100 transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M9 3v6M15 3v6"/><path d="M6 9h12v3a6 6 0 0 1-12 0z"/><path d="M12 18v3"/></svg> ตัดการเชื่อมต่อ</button>
+                <button id="btn-bt-test" onclick="Controller.testBTPrint()" class="hidden bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-emerald-100 transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg> ทดสอบพิมพ์</button>
               </div>
             </div>
           </div>
@@ -498,15 +496,6 @@
         <div id="employee-list" class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm divide-y divide-[#fce8e0]"></div>
       </div>
 
-      <div id="settings-panel-bestseller" class="settings-panel hidden">
-        <div class="flex flex-nowrap gap-2 mb-4 bg-white p-1 rounded-2xl border border-[#fce8e0] max-w-full overflow-x-auto hide-scroll">
-          <button id="bs-period-today" onclick="Controller.fetchBestSellers('today')" class="shrink-0 px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all bg-primary text-white">วันนี้</button>
-          <button id="bs-period-week" onclick="Controller.fetchBestSellers('week')" class="shrink-0 px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all text-slate-500 hover:bg-accent">สัปดาห์นี้</button>
-          <button id="bs-period-month" onclick="Controller.fetchBestSellers('month')" class="shrink-0 px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all text-slate-500 hover:bg-accent">เดือนนี้</button>
-          <button id="bs-period-all" onclick="Controller.fetchBestSellers('all')" class="shrink-0 px-4 py-2 rounded-xl font-bold text-sm whitespace-nowrap transition-all text-slate-500 hover:bg-accent">ทั้งหมด</button>
-        </div>
-        <div id="bestseller-list" class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm divide-y divide-[#fce8e0]"></div>
-      </div>
       <div id="settings-panel-log" class="settings-panel hidden">
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
           <p class="text-sm text-slate-400">ประวัติการใส่ PIN ล่าสุด 100 รายการ</p>
@@ -581,7 +570,7 @@
           </div>
 
           <div class="bg-white rounded-2xl border border-[#fce8e0] shadow-sm p-4 mb-4">
-            <p class="text-sm font-bold text-slate-500 mb-3">🏆 เมนูขายดี 10 อันดับ</p>
+            <p class="text-sm font-bold text-slate-500 mb-3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 5H5v2a3 3 0 0 0 3 3M16 5h3v2a3 3 0 0 1-3 3"/><path d="M10 17h4M12 13v4M9 20h6"/></svg> เมนูขายดี 10 อันดับ</p>
             <div id="rp-topsellers" class="space-y-2"></div>
           </div>
 
@@ -602,7 +591,7 @@
 
       <div id="settings-panel-backup" class="settings-panel hidden">
         <div class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm p-6 mb-4">
-          <h3 class="font-bold text-lg text-secondary mb-2">💾 สำรองข้อมูล</h3>
+          <h3 class="font-bold text-lg text-secondary mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 13h8v6H8z"/></svg> สำรองข้อมูล</h3>
           <p class="text-sm text-slate-400 mb-4">ระบบสำรองข้อมูลทั้งหมด (Sheet) อัตโนมัติทุกวันตอนตี 3 และเก็บไว้ 30 วันย้อนหลัง สามารถกดสำรองด้วยตัวเองได้ตลอดเวลา</p>
           <button id="btn-manual-backup" onclick="Controller.manualBackupNow(this)" class="w-full sm:w-auto bg-primary text-white px-6 py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md shadow-primary/30">สำรองข้อมูลเดี๋ยวนี้</button>
         </div>
@@ -614,7 +603,7 @@
         <div id="backup-list" class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm divide-y divide-[#fce8e0] max-h-[50vh] overflow-y-auto mb-6"></div>
 
         <div class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm p-6 mb-4">
-          <h3 class="font-bold text-lg text-secondary mb-2">📦 เก็บข้อมูลปีต่อปี (Archive)</h3>
+          <h3 class="font-bold text-lg text-secondary mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> เก็บข้อมูลปีต่อปี (Archive)</h3>
           <p class="text-sm text-slate-400 mb-4">ย้ายข้อมูล Sales, Payments, Log ต่างๆ ของปีเก่ากว่าปัจจุบัน ไปเก็บไว้ในไฟล์แยกตามปี ช่วยให้ Sheet หลักไม่บวมและระบบทำงานเร็วขึ้น เช็คให้ทำงานอัตโนมัติทุกต้นปีมกราคม</p>
           <button id="btn-manual-archive" onclick="Controller.manualArchiveNow(this)" class="w-full sm:w-auto bg-amber-500 text-white px-6 py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md shadow-amber-500/30">เก็บข้อมูลปีเก่าเดี๋ยวนี้</button>
         </div>
@@ -688,7 +677,7 @@
         </select>
       </div>
       <div class="mb-3">
-        <p id="emp-form-full-access-note" class="hidden text-xs font-bold text-primary bg-accent px-3 py-2 rounded-xl">👑 ตำแหน่งนี้เข้าถึงได้ทุกอย่างเสมอ ไม่สามารถจำกัดสิทธิ์ได้</p>
+        <p id="emp-form-full-access-note" class="hidden text-xs font-bold text-primary bg-accent px-3 py-2 rounded-xl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg> ตำแหน่งนี้เข้าถึงได้ทุกอย่างเสมอ ไม่สามารถจำกัดสิทธิ์ได้</p>
         <div id="emp-form-permissions-wrap">
           <label class="text-sm font-bold text-slate-500 mb-2 block">เข้าถึงเมนูไหนได้บ้าง</label>
           <div class="grid grid-cols-2 gap-2 text-sm">
@@ -698,7 +687,6 @@
             <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="inventory"> Inventory</label>
             <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="stock"> Available</label>
             <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="employees"> Employee</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="bestseller"> Bestseller</label>
             <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="log"> Log</label>
             <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="addons"> Add-ons</label>
             <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="payment"> Payment</label>
@@ -768,7 +756,7 @@
   <div id="modal-held-orders" class="hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[65] flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
       <div class="p-5 border-b border-slate-100 font-bold text-xl text-secondary flex justify-between items-center">
-        📋 บิลที่พักไว้ชั่วคราว
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/></svg> บิลที่พักไว้ชั่วคราว
         <button onclick="Controller.closeModal('modal-held-orders')" class="text-slate-400 hover:text-red-500 text-2xl leading-none">&times;</button>
       </div>
       <div id="held-orders-list" class="p-3 flex-1 overflow-y-auto divide-y divide-slate-100"></div>
@@ -795,7 +783,7 @@
 
   <div id="modal-checkout" class="hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md flex flex-col overflow-hidden max-h-[90vh]">
-      <div class="p-5 bg-primary text-white font-bold text-xl text-center rounded-t-2xl shrink-0">💳 Payment</div>
+      <div class="p-5 bg-primary text-white font-bold text-xl text-center rounded-t-2xl shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> Payment</div>
       <div class="p-6 overflow-y-auto flex-1">
         <p class="text-center text-sm font-bold text-slate-400 mb-1">ยอดรวมที่ต้องชำระ</p>
         <h3 class="text-4xl font-black text-center mb-2 text-secondary" id="checkout-total">฿0.00</h3>
@@ -857,7 +845,7 @@
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
       <!-- Header -->
       <div class="p-5 bg-[#fdf6f2] border-b border-[#fce8e0] flex justify-between items-center">
-        <h3 class="font-bold text-xl text-secondary">💵 นำเงินเข้า / นำเงินออก</h3>
+        <h3 class="font-bold text-xl text-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg> นำเงินเข้า / นำเงินออก</h3>
         <button onclick="Controller.closeModal('modal-float-cash')" class="text-slate-400 hover:text-red-500 text-2xl font-bold">&times;</button>
       </div>
 
@@ -865,8 +853,8 @@
       <div class="p-6 flex-1 overflow-y-auto">
         <!-- ประเภทรายการ (IN/OUT) -->
         <div class="flex gap-2 mb-4 bg-slate-100 p-1 rounded-xl">
-          <button id="btn-float-in" onclick="Controller.setFloatAction('IN')" class="flex-1 py-2 rounded-lg bg-white shadow-sm font-bold text-emerald-500 transition-all border border-slate-200">🟢 นำเงินเข้า</button>
-          <button id="btn-float-out" onclick="Controller.setFloatAction('OUT')" class="flex-1 py-2 rounded-lg font-bold text-slate-400 hover:text-slate-600 transition-all border border-transparent">🔴 นำเงินออก</button>
+          <button id="btn-float-in" onclick="Controller.setFloatAction('IN')" class="flex-1 py-2 rounded-lg bg-white shadow-sm font-bold text-emerald-500 transition-all border border-slate-200"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="12" cy="12" r="5" fill="currentColor" stroke="none"/></svg> นำเงินเข้า</button>
+          <button id="btn-float-out" onclick="Controller.setFloatAction('OUT')" class="flex-1 py-2 rounded-lg font-bold text-slate-400 hover:text-slate-600 transition-all border border-transparent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="12" cy="12" r="5" fill="currentColor" stroke="none"/></svg> นำเงินออก</button>
         </div>
 
         <div id="float-available-display" class="hidden mb-4 bg-amber-50 text-amber-700 text-sm font-bold px-4 py-2.5 rounded-xl text-center"></div>
@@ -888,7 +876,7 @@
 
         <!-- ตัวช่วยนับ (Cash Counter) -->
         <h4 class="font-bold text-slate-600 mb-4 flex items-center gap-2">
-          <span>🧮 ตัวช่วยนับแบงค์/เหรียญ</span>
+          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M8 7h8M8 12h2M12 12h2M16 12h.01M8 16h2M12 16h2M16 16h.01"/></svg> ตัวช่วยนับแบงค์/เหรียญ</span>
           <button onclick="Controller.clearDenominations()" class="text-xs bg-slate-100 hover:bg-slate-200 text-slate-500 px-2 py-1 rounded-lg transition-colors">Clear</button>
         </h4>
         
@@ -1073,7 +1061,7 @@
       });
     }
     // ==========================================================
-    // 🧾 ReceiptImage — วาดใบเสร็จลง canvas แล้วพิมพ์เป็นรูปภาพ
+    //  ReceiptImage — วาดใบเสร็จลง canvas แล้วพิมพ์เป็นรูปภาพ
     //    (แก้ปัญหาภาษาไทยเพี้ยน เพราะไม่พึ่ง code page ของเครื่องพิมพ์)
     // ==========================================================
     const ReceiptImage = {
@@ -1251,7 +1239,7 @@
     };
 
     // =============================================
-    // 🖨️ BluetoothPrinter — จัดการเครื่องพิมพ์ BLE
+    //  BluetoothPrinter — จัดการเครื่องพิมพ์ BLE
     // =============================================
     const BluetoothPrinter = {
       device: null,
@@ -1287,7 +1275,7 @@
             try {
               const service = await this.server.getPrimaryService(uuidSet.service);
               this.characteristic = await service.getCharacteristic(uuidSet.char);
-              console.log('✅ ใช้ UUID:', uuidSet.service);
+              console.log(' ใช้ UUID:', uuidSet.service);
               break;
             } catch (e) { continue; }
           }
@@ -1339,7 +1327,7 @@
             await this.characteristic.writeValueWithoutResponse(probe);
             this.chunkSize = size;
             this.chunkDelay = size >= 182 ? 2 : (size >= 100 ? 6 : 15);
-            console.log('🖨️ ขนาดก้อนที่ใช้ได้:', size, 'bytes');
+            console.log(' ขนาดก้อนที่ใช้ได้:', size, 'bytes');
             return size;
           } catch (e) { /* ใหญ่ไป ลองขนาดถัดไป */ }
         }
@@ -1696,7 +1684,7 @@
         
         // ถ้าวันที่เปลี่ยนไป (แปลว่าข้ามเที่ยงคืนมาแล้ว)
         if (lastClearDate !== today) {
-           // 🌟 ต้องเช็คว่า "ไม่มี" บิลค้าง Sync อยู่ (คิวเป็น 0) ถึงจะอนุญาตให้ลบได้
+           //  ต้องเช็คว่า "ไม่มี" บิลค้าง Sync อยู่ (คิวเป็น 0) ถึงจะอนุญาตให้ลบได้
            if (this.syncQueue.length === 0) {
              this.history = []; // ล้างประวัติในแอป
              this.heldOrders = [];
@@ -1827,7 +1815,7 @@
             this.menuData = data;
             localStorage.setItem('pos_menuData', JSON.stringify(data));
             
-            // 🌟 ซิงก์ข้อมูลของหมดจาก Google Sheet มาอัปเดตใส่หน้าจอ
+            //  ซิงก์ข้อมูลของหมดจาก Google Sheet มาอัปเดตใส่หน้าจอ
             this.soldOutItems = data.filter(item => item.isSoldOut).map(item => item.name);
             localStorage.setItem('pos_soldOut', JSON.stringify(this.soldOutItems));
             
@@ -1840,7 +1828,7 @@
             console.warn("Offline Mode: ใช้ข้อมูลเมนูที่เซฟไว้ในเครื่อง");
             this.setIndicator('error');
             if (this.menuData.length === 0) {
-              this.showAlert("ไม่สามารถดึงข้อมูลเมนูได้ และไม่มีข้อมูลเก่าอยู่ในเครื่อง กรุณาต่ออินเทอร์เน็ต", '📡');
+              this.showAlert("ไม่สามารถดึงข้อมูลเมนูได้ และไม่มีข้อมูลเก่าอยู่ในเครื่อง กรุณาต่ออินเทอร์เน็ต", '');
             }
             this.hideLoading();
           })
@@ -1849,7 +1837,7 @@
         this.processFloatCashQueue();
       },
 
-      // ✅ ดึงรายชื่อหมวดหมู่จากข้อมูลสินค้า
+      //  ดึงรายชื่อหมวดหมู่จากข้อมูลสินค้า
       extractCategories() {
         if (this.menuData.length === 0) return;
         
@@ -1863,7 +1851,7 @@
         this.renderMenu();
       },
 
-      // ✅ วาดปุ่มหมวดหมู่
+      //  วาดปุ่มหมวดหมู่
       renderCategories() {
         const container = document.getElementById('menu-categories');
         container.innerHTML = this.categories.map(cat => {
@@ -1877,7 +1865,7 @@
         }).join('');
       },
 
-      // ✅ ฟังก์ชันเมื่อคลิกเลือกหมวดหมู่
+      //  ฟังก์ชันเมื่อคลิกเลือกหมวดหมู่
       selectCategory(catName) {
         this.activeCategory = catName;
         this.renderCategories(); // อัปเดตสีปุ่ม
@@ -1914,12 +1902,12 @@
 
       // เพิ่มฟังก์ชันสำหรับปุ่ม Reset ยอดแก้ว
       async resetCupCount() {
-        const ok = await this.showConfirm('ต้องการรีเซ็ตยอดขายแก้วกลับเป็น 0 ใช่หรือไม่?', '🥤');
+        const ok = await this.showConfirm('ต้องการรีเซ็ตยอดขายแก้วกลับเป็น 0 ใช่หรือไม่?', '');
         if (ok) {
           this.serverCupCount = 0;
           this.updateCupUI();
           localStorage.setItem('pos_serverCupCount', '0');
-          this.showAlert('รีเซ็ตยอดแก้วเรียบร้อยแล้ว', '✅');
+          this.showAlert('รีเซ็ตยอดแก้วเรียบร้อยแล้ว', '');
         }
       },
 
@@ -1950,7 +1938,7 @@
         if (!btn) return;
         if (isLoading) {
           btn.dataset.oldText = btn.innerHTML; // จำข้อความเดิมไว้
-          btn.innerHTML = '⏳ Loading...'; // เปลี่ยนข้อความเป็นโหลด
+          btn.innerHTML = ' Loading...'; // เปลี่ยนข้อความเป็นโหลด
           btn.classList.add('opacity-50', 'pointer-events-none'); // ทำให้ปุ่มจางและกดเบิ้ลไม่ได้
         } else {
           btn.innerHTML = btn.dataset.oldText; // คืนค่าข้อความเดิม
@@ -1963,7 +1951,7 @@
       showAlert(message, icon) {
         return new Promise(resolve => {
           this._openAlertModal({
-            message, icon: icon || 'ℹ️', input: false,
+            message, icon: icon || 'ℹ', input: false,
             buttons: [{ label: 'ตกลง', style: 'primary', value: true }]
           });
           this._alertResolve = resolve;
@@ -1973,7 +1961,7 @@
       showConfirm(message, icon) {
         return new Promise(resolve => {
           this._openAlertModal({
-            message, icon: icon || '❓', input: false,
+            message, icon: icon || '', input: false,
             buttons: [
               { label: 'ยกเลิก', style: 'ghost', value: false },
               { label: 'ยืนยัน', style: 'primary', value: true }
@@ -1987,7 +1975,7 @@
         opts = opts || {};
         return new Promise(resolve => {
           this._openAlertModal({
-            message, icon: opts.icon || '✏️', input: true,
+            message, icon: opts.icon || '', input: true,
             inputType: opts.type || 'text', placeholder: opts.placeholder || '',
             buttons: [
               { label: 'ยกเลิก', style: 'ghost', value: null },
@@ -2047,11 +2035,11 @@
 
       async showSyncQueueInfo() {
         if (this.syncQueue.length === 0) {
-          await this.showAlert('บิลทั้งหมด sync เข้าระบบเรียบร้อยแล้ว', '✅');
+          await this.showAlert('บิลทั้งหมด sync เข้าระบบเรียบร้อยแล้ว', '');
           return;
         }
         const list = this.syncQueue.map(o => `- ${o.invoice} (฿${o.total})`).join('\n');
-        const retry = await this.showConfirm(`มี ${this.syncQueue.length} บิลที่ยังไม่ได้ sync เข้า Google Sheet:\n\n${list}\n\nกดยืนยันเพื่อลอง sync ใหม่ตอนนี้`, '⚠️');
+        const retry = await this.showConfirm(`มี ${this.syncQueue.length} บิลที่ยังไม่ได้ sync เข้า Google Sheet:\n\n${list}\n\nกดยืนยันเพื่อลอง sync ใหม่ตอนนี้`, '');
         if (retry) this.processSyncQueue();
       },
 
@@ -2071,7 +2059,7 @@
           })
           .withFailureHandler(() => {
              this.setBtnLoading(btn, false);
-             this.showAlert('ไม่สามารถโหลดข้อมูลสต๊อกได้ กรุณาตรวจสอบอินเทอร์เน็ต', '📡');
+             this.showAlert('ไม่สามารถโหลดข้อมูลสต๊อกได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
              this.setIndicator('error');
           })
           .getInventoryData();
@@ -2156,10 +2144,10 @@
           updates.push({ id: item.id, name: item.name, oldStock: item.stock, newStock, withdraw, restock });
         });
 
-        if (updates.length === 0) return this.showAlert('ไม่มีรายการที่แก้ไขครับ', 'ℹ️');
+        if (updates.length === 0) return this.showAlert('ไม่มีรายการที่แก้ไขครับ', 'ℹ');
 
         const negativeItem = updates.find(u => u.newStock < 0);
-        if (negativeItem) return this.showAlert(`❌ "${negativeItem.name}" เบิกเกินจำนวนคงเหลือ กรุณาตรวจสอบตัวเลขอีกครั้ง`, '⚠️');
+        if (negativeItem) return this.showAlert(` "${negativeItem.name}" เบิกเกินจำนวนคงเหลือ กรุณาตรวจสอบตัวเลขอีกครั้ง`, '');
 
         const summary = updates.map(u => {
           const parts = [];
@@ -2168,7 +2156,7 @@
           return `- ${u.name}: ${u.oldStock} ➜ ${u.newStock} (${parts.join(', ')})`;
         }).join('\n');
         
-        const ok = await this.showConfirm(`ยืนยันบันทึกสต๊อก ${updates.length} รายการ:\n${summary}`, '📦');
+        const ok = await this.showConfirm(`ยืนยันบันทึกสต๊อก ${updates.length} รายการ:\n${summary}`, '');
         if (!ok) return;
 
         const userName = this.currentSettingsUser ? this.currentSettingsUser.name : 'พนักงาน';
@@ -2189,7 +2177,7 @@
             settled = true;
             unlock();
             this.setIndicator('error');
-            this.showAlert('การบันทึกใช้เวลานานเกินไป กรุณากด Refresh เพื่อตรวจสอบข้อมูลอีกครั้ง', '⏱️');
+            this.showAlert('การบันทึกใช้เวลานานเกินไป กรุณากด Refresh เพื่อตรวจสอบข้อมูลอีกครั้ง', '');
           }
         }, 20000);
 
@@ -2202,7 +2190,7 @@
               this.logPinAttempt(`อัปเดตสต๊อก ${updates.length} รายการ`, true, userName);
               this.fetchInventory();
             } else {
-              this.showAlert('บันทึกล้มเหลว กรุณาลองใหม่', '❌');
+              this.showAlert('บันทึกล้มเหลว กรุณาลองใหม่', '');
               unlock();
               this.setIndicator('synced');
             }
@@ -2211,7 +2199,7 @@
             if (settled) return;
             settled = true;
             clearTimeout(timeoutId);
-            this.showAlert('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่', '📡');
+            this.showAlert('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่', '');
             unlock();
             this.setIndicator('error');
           })
@@ -2230,16 +2218,16 @@
       },
 
       getAllowedTabs(user) {
-        const allTabs = ['printer', 'history', 'summary', 'report', 'inventory', 'stock', 'employees', 'bestseller', 'log', 'addons', 'payment', 'backup'];
+        const allTabs = ['printer', 'history', 'summary', 'report', 'inventory', 'stock', 'employees', 'log', 'addons', 'payment', 'backup'];
         if (user.role === 'Owner' || user.role === 'Admin') return allTabs;
         return user.permissions ? user.permissions.split(',').filter(t => allTabs.includes(t)) : [];
       },
 
       async openSettings() {
-        // 🌟 ใช้ผู้ใช้ที่ล็อกอินอยู่แล้วจากหน้า PIN Lock ไม่ต้องใส่ PIN ซ้ำ
+        //  ใช้ผู้ใช้ที่ล็อกอินอยู่แล้วจากหน้า PIN Lock ไม่ต้องใส่ PIN ซ้ำ
         const user = this.loggedInEmployee;
         if (!user) {
-          this.showAlert('กรุณาเข้าสู่ระบบก่อนใช้งาน', '🔒');
+          this.showAlert('กรุณาเข้าสู่ระบบก่อนใช้งาน', '');
           this.showPinLockScreen();
           return;
         }
@@ -2248,7 +2236,7 @@
         const allowedTabs = this.getAllowedTabs(user);
 
         if (allowedTabs.length === 0) {
-          this.showAlert('คุณยังไม่ได้รับสิทธิ์เข้าถึงเมนูใดๆ กรุณาติดต่อ Admin', '🚫');
+          this.showAlert('คุณยังไม่ได้รับสิทธิ์เข้าถึงเมนูใดๆ กรุณาติดต่อ Admin', '');
           return;
         }
 
@@ -2315,7 +2303,6 @@
         if (tab === 'employees') this.fetchEmployeeList();
         if (tab === 'stock') this.renderStockPanel();
         if (tab === 'log') this.fetchAccessLog();
-        if (tab === 'bestseller') this.fetchBestSellers('today');
         if (tab === 'addons') { this.renderAddonList(); this.fetchAddons(); }
         if (tab === 'payment') this.fetchPaymentMethods();
         if (tab === 'report') this.initReportTab();
@@ -2346,7 +2333,7 @@
             this.hideLoading();
           })
           .withFailureHandler(() => {
-            this.showAlert('โหลดรายชื่อพนักงานไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '📡');
+            this.showAlert('โหลดรายชื่อพนักงานไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
             this.hideLoading();
           })
           .getEmployees();
@@ -2355,7 +2342,7 @@
       renderEmployeeList() {
         const list = document.getElementById('employee-list');
         
-        // 🌟 กรองเฉพาะพนักงานที่ User คนนี้มีสิทธิ์มองเห็น
+        //  กรองเฉพาะพนักงานที่ User คนนี้มีสิทธิ์มองเห็น
         const visibleEmployees = this.employeeList.filter(emp => this.canSeeEmployee(emp));
 
         if (visibleEmployees.length === 0) {
@@ -2373,14 +2360,14 @@
               <p class="text-xs text-slate-400">
                 ${emp.role} • PIN: <span id="pin-display-${emp.id}">${maskedPin}</span>
                 ${canManage ? `<button onclick="Controller.togglePinVisibility('${emp.id}', '${emp.pin}')" class="text-primary font-bold hover:underline ml-1">ดู</button>` : ''}
-                ${(emp.role === 'Owner' || emp.role === 'Admin') ? '• 👑 เข้าถึงทุกอย่าง' : `• เข้าถึง: ${emp.permissions || 'ยังไม่กำหนด'}`}
+                ${(emp.role === 'Owner' || emp.role === 'Admin') ? '•  เข้าถึงทุกอย่าง' : `• เข้าถึง: ${emp.permissions || 'ยังไม่กำหนด'}`}
               </p>
             </div>
             <div class="flex gap-3 shrink-0">
               ${canManage ? `
                 <button onclick="Controller.openEmployeeForm('${emp.id}')" class="text-sm font-bold text-primary hover:underline">แก้ไข</button>
                 <button onclick="Controller.deleteEmployeeConfirm('${emp.id}')" class="text-sm font-bold text-red-400 hover:underline">ลบ</button>
-              ` : `<span class="text-xs text-slate-300 font-bold">🔒 ดูได้อย่างเดียว</span>`}
+              ` : `<span class="text-xs text-slate-300 font-bold"> ดูได้อย่างเดียว</span>`}
             </div>
           </div>
         `}).join('');
@@ -2407,7 +2394,7 @@
         return this.currentSettingsUser && (this.currentSettingsUser.role === 'Owner' || this.currentSettingsUser.role === 'Admin');
       },
 
-      // 🌟 ระบบจัดลำดับขั้น (Rank) เพื่อเช็คสิทธิ์การมองเห็น/แก้ไข
+      //  ระบบจัดลำดับขั้น (Rank) เพื่อเช็คสิทธิ์การมองเห็น/แก้ไข
       getRoleRank(role) {
         const ranks = { 'Owner': 100, 'Admin': 90, 'Manager': 50, 'Team Leader': 30, 'Staff': 10 };
         return ranks[role] || 0;
@@ -2431,7 +2418,7 @@
         const emp = id ? this.employeeList.find(e => e.id === id) : null;
 
         if (emp && !this.canManageEmployee(emp)) {
-          this.showAlert('คุณไม่มีสิทธิ์แก้ไขพนักงานคนนี้', '🚫');
+          this.showAlert('คุณไม่มีสิทธิ์แก้ไขพนักงานคนนี้', '');
           return;
         }
 
@@ -2474,7 +2461,7 @@
       async saveEmployeeForm() {
         const name = document.getElementById('emp-form-name').value.trim();
         const pin = document.getElementById('emp-form-pin').value.trim();
-        if (!name || !pin) return this.showAlert('กรุณากรอกชื่อและ PIN ให้ครบ', '⚠️');
+        if (!name || !pin) return this.showAlert('กรุณากรอกชื่อและ PIN ให้ครบ', '');
 
         const role = document.getElementById('emp-form-role').value;
         const isFullAccess = (role === 'Owner' || role === 'Admin');
@@ -2482,7 +2469,7 @@
         if (!this.isCurrentUserTopLevel()) {
           // ถ้าไม่ใช่ Owner/Admin ต้องเช็คว่าแอบตั้งตำแหน่งพนักงาน ให้เทียบเท่าหรือสูงกว่าตัวเองหรือไม่
           if (this.getRoleRank(this.currentSettingsUser.role) <= this.getRoleRank(role)) {
-            return this.showAlert('คุณไม่สามารถตั้งตำแหน่งพนักงานให้เท่ากับหรือสูงกว่าตัวเองได้', '🚫');
+            return this.showAlert('คุณไม่สามารถตั้งตำแหน่งพนักงานให้เท่ากับหรือสูงกว่าตัวเองได้', '');
           }
         }
 
@@ -2491,7 +2478,7 @@
         if (empId) {
           const existing = this.employeeList.find(e => e.id === empId);
           if (existing && !this.canManageEmployee(existing)) {
-            return this.showAlert('คุณไม่มีสิทธิ์แก้ไขพนักงานคนนี้', '🚫');
+            return this.showAlert('คุณไม่มีสิทธิ์แก้ไขพนักงานคนนี้', '');
           }
         }
 
@@ -2525,7 +2512,7 @@
           })
           .withFailureHandler(() => {
             this.hideLoading();
-            this.showAlert('บันทึกไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '📡');
+            this.showAlert('บันทึกไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
           })
           .saveEmployee(emp);
       },
@@ -2533,10 +2520,10 @@
       async deleteEmployeeConfirm(id) {
         const emp = this.employeeList.find(e => e.id === id);
         if (emp && !this.canManageEmployee(emp)) {
-          return this.showAlert('คุณไม่มีสิทธิ์ลบพนักงานคนนี้', '🚫');
+          return this.showAlert('คุณไม่มีสิทธิ์ลบพนักงานคนนี้', '');
         }
 
-        const ok = await this.showConfirm('ต้องการลบพนักงานคนนี้ใช่หรือไม่?', '🗑️');
+        const ok = await this.showConfirm('ต้องการลบพนักงานคนนี้ใช่หรือไม่?', '');
         if (!ok) return;
 
         this.showLoading();
@@ -2548,7 +2535,7 @@
           })
           .withFailureHandler(() => {
             this.hideLoading();
-            this.showAlert('ลบไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '📡');
+            this.showAlert('ลบไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
           })
           .deleteEmployee(id);
       },
@@ -2562,7 +2549,7 @@
           })
           .withFailureHandler(() => {
             this.setBtnLoading(btn, false);
-            this.showAlert('โหลดประวัติไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '📡');
+            this.showAlert('โหลดประวัติไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
           })
           .getAccessLogs();
       },
@@ -2571,7 +2558,7 @@
         const list = document.getElementById('access-log-list');
         const pendingCount = this.accessLogQueue.length;
         const pendingHtml = pendingCount > 0
-          ? `<div class="p-3 bg-amber-50 text-amber-600 text-xs font-bold text-center">⏳ มี ${pendingCount} รายการรอ sync เข้าระบบ</div>`
+          ? `<div class="p-3 bg-amber-50 text-amber-600 text-xs font-bold text-center"> มี ${pendingCount} รายการรอ sync เข้าระบบ</div>`
           : '';
 
         if (data.length === 0) {
@@ -2585,7 +2572,7 @@
               <p class="font-bold text-secondary">${log.context} ${log.result === 'สำเร็จ' ? `— ${log.name}` : ''}</p>
               <p class="text-xs text-slate-400 mt-1">${new Date(log.timestamp).toLocaleString()}</p>
             </div>
-            <span class="text-xs font-bold px-3 py-1 rounded-full ${log.result === 'สำเร็จ' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'}">${log.result === 'สำเร็จ' ? '✅ สำเร็จ' : '❌ ล้มเหลว'}</span>
+            <span class="text-xs font-bold px-3 py-1 rounded-full ${log.result === 'สำเร็จ' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'}">${log.result === 'สำเร็จ' ? ' สำเร็จ' : ' ล้มเหลว'}</span>
           </div>
         `).join('');
       },
@@ -2610,7 +2597,7 @@
             this.hideLoading();
           })
           .withFailureHandler(() => {
-            this.showAlert('โหลดข้อมูลยอดขายไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '📡');
+            this.showAlert('โหลดข้อมูลยอดขายไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
             this.hideLoading();
           })
           .getBestSellers(period);
@@ -2628,9 +2615,9 @@
         let html = '';
         data.forEach((item, index) => {
           let rankIcon = `<span class="text-slate-400 font-bold text-lg">${index + 1}</span>`;
-          if (index === 0) rankIcon = '🥇';
-          else if (index === 1) rankIcon = '🥈';
-          else if (index === 2) rankIcon = '🥉';
+          if (index === 0) rankIcon = '';
+          else if (index === 1) rankIcon = '';
+          else if (index === 2) rankIcon = '';
 
           html += `
             <div class="flex items-center p-4 hover:bg-[#fdf6f2] transition-colors">
@@ -2658,7 +2645,7 @@
           })
           .withFailureHandler(() => {
             this.setIndicator('error');
-            this.showAlert('ดึงข้อมูล Add-ons ล้มเหลว', '❌');
+            this.showAlert('ดึงข้อมูล Add-ons ล้มเหลว', '');
           })
           .getAddons();
       },
@@ -2721,7 +2708,7 @@
         const active = document.getElementById('addon-form-active').checked;
 
         if (!name) {
-          await this.showAlert('กรุณากรอกชื่อส่วนเสริม', '⚠️');
+          await this.showAlert('กรุณากรอกชื่อส่วนเสริม', '');
           return;
         }
 
@@ -2736,18 +2723,18 @@
               this.fetchAddons();
             } else {
               this.setIndicator('error');
-              this.showAlert('บันทึกข้อมูลไม่สำเร็จ', '❌');
+              this.showAlert('บันทึกข้อมูลไม่สำเร็จ', '');
             }
           })
           .withFailureHandler(() => {
             this.setIndicator('error');
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '📡');
+            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
           })
           .saveAddon(addon);
       },
 
       async deleteAddon(id) {
-        const confirmDelete = await this.showConfirm('คุณแน่ใจหรือไม่ว่าต้องการลบ Add-on นี้?', '🗑️');
+        const confirmDelete = await this.showConfirm('คุณแน่ใจหรือไม่ว่าต้องการลบ Add-on นี้?', '');
         if (!confirmDelete) return;
 
         this.setIndicator('syncing');
@@ -2759,12 +2746,12 @@
               this.fetchAddons();
             } else {
               this.setIndicator('error');
-              this.showAlert('ลบข้อมูลไม่สำเร็จ', '❌');
+              this.showAlert('ลบข้อมูลไม่สำเร็จ', '');
             }
           })
           .withFailureHandler(() => {
             this.setIndicator('error');
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '📡');
+            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
           })
           .deleteAddon(id);
       },
@@ -2806,8 +2793,8 @@
       fetchReport(btn) {
         const start = document.getElementById('report-start').value;
         const end = document.getElementById('report-end').value;
-        if (!start || !end) return this.showAlert('กรุณาเลือกช่วงวันที่ให้ครบ', '⚠️');
-        if (start > end) return this.showAlert('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด', '⚠️');
+        if (!start || !end) return this.showAlert('กรุณาเลือกช่วงวันที่ให้ครบ', '');
+        if (start > end) return this.showAlert('วันที่เริ่มต้นต้องไม่เกินวันที่สิ้นสุด', '');
 
         this.setBtnLoading(btn, true);
         this.setIndicator('syncing');
@@ -2819,13 +2806,13 @@
               this.setIndicator('synced');
             } else {
               this.setIndicator('error');
-              this.showAlert(res.message || 'โหลดรายงานไม่สำเร็จ', '❌');
+              this.showAlert(res.message || 'โหลดรายงานไม่สำเร็จ', '');
             }
           })
           .withFailureHandler(() => {
             this.setBtnLoading(btn, false);
             this.setIndicator('error');
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ (รายงานต้องใช้อินเทอร์เน็ต)', '📡');
+            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ (รายงานต้องใช้อินเทอร์เน็ต)', '');
           })
           .getSummaryByRange(start, end);
       },
@@ -2887,7 +2874,7 @@
           })
           .withFailureHandler(() => {
             this.setBtnLoading(btn, false);
-            this.showAlert('โหลดวิธีชำระเงินไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '📡');
+            this.showAlert('โหลดวิธีชำระเงินไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
           })
           .getPaymentMethods();
       },
@@ -2945,7 +2932,7 @@
         const enabled = document.getElementById('pm-form-enabled').checked;
 
         if (!name) {
-          await this.showAlert('กรุณากรอกชื่อวิธีชำระเงิน', '⚠️');
+          await this.showAlert('กรุณากรอกชื่อวิธีชำระเงิน', '');
           return;
         }
 
@@ -2960,12 +2947,12 @@
               this.fetchPaymentMethods();
             } else {
               this.setIndicator('error');
-              this.showAlert(res.message || 'บันทึกไม่สำเร็จ', '❌');
+              this.showAlert(res.message || 'บันทึกไม่สำเร็จ', '');
             }
           })
           .withFailureHandler(() => {
             this.setIndicator('error');
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '📡');
+            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
           })
           .savePaymentMethod(method);
       },
@@ -2981,18 +2968,18 @@
               this.fetchPaymentMethods();
             } else {
               this.setIndicator('error');
-              this.showAlert(res.message || 'อัปเดตไม่สำเร็จ', '❌');
+              this.showAlert(res.message || 'อัปเดตไม่สำเร็จ', '');
             }
           })
           .withFailureHandler(() => {
             this.setIndicator('error');
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '📡');
+            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
           })
           .savePaymentMethod(updated);
       },
 
       async deletePaymentMethodConfirm(id) {
-        const ok = await this.showConfirm('ต้องการลบวิธีชำระเงินนี้ใช่หรือไม่?', '🗑️');
+        const ok = await this.showConfirm('ต้องการลบวิธีชำระเงินนี้ใช่หรือไม่?', '');
         if (!ok) return;
 
         this.setIndicator('syncing');
@@ -3002,12 +2989,12 @@
               this.fetchPaymentMethods();
             } else {
               this.setIndicator('error');
-              this.showAlert(res.message || 'ลบไม่สำเร็จ', '❌');
+              this.showAlert(res.message || 'ลบไม่สำเร็จ', '');
             }
           })
           .withFailureHandler(() => {
             this.setIndicator('error');
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '📡');
+            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
           })
           .deletePaymentMethod(id);
       },
@@ -3021,7 +3008,7 @@
           })
           .withFailureHandler(() => {
             this.setBtnLoading(btn, false);
-            this.showAlert('โหลดรายการ backup ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '📡');
+            this.showAlert('โหลดรายการ backup ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
           })
           .getBackupList();
       },
@@ -3053,15 +3040,15 @@
             this.setBtnLoading(btn, false);
             if (res.success) {
               this.logPinAttempt('สำรองข้อมูลด้วยตนเอง', true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
-              this.showAlert('สำรองข้อมูลสำเร็จแล้ว: ' + res.fileName, '✅');
+              this.showAlert('สำรองข้อมูลสำเร็จแล้ว: ' + res.fileName, '');
               this.fetchBackupList();
             } else {
-              this.showAlert(res.message || 'สำรองข้อมูลไม่สำเร็จ', '❌');
+              this.showAlert(res.message || 'สำรองข้อมูลไม่สำเร็จ', '');
             }
           })
           .withFailureHandler(() => {
             this.setBtnLoading(btn, false);
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', '📡');
+            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
           })
           .createBackup();
       },
@@ -3075,7 +3062,7 @@
           })
           .withFailureHandler(() => {
             this.setBtnLoading(btn, false);
-            this.showAlert('โหลดรายการ archive ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '📡');
+            this.showAlert('โหลดรายการ archive ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
           })
           .getArchiveList();
       },
@@ -3103,7 +3090,7 @@
       async manualArchiveNow(btn) {
         const ok = await this.showConfirm(
           'จะย้ายข้อมูล Sales, Payments, Log ต่างๆ ของปีเก่ากว่าปัจจุบัน ไปเก็บไว้ในไฟล์ archive แยกตามปี และลบออกจาก Sheet หลัก แนะนำให้กด "สำรองข้อมูลเดี๋ยวนี้" ไว้ก่อนเผื่อไว้ ต้องการดำเนินการต่อหรือไม่?',
-          '📦'
+          ''
         );
         if (!ok) return;
 
@@ -3114,16 +3101,16 @@
             if (res.success) {
               const yearsText = res.archivedYears.length > 0 ? res.archivedYears.join(', ') : 'ไม่มี';
               this.logPinAttempt(`Archive ข้อมูลปี: ${yearsText}`, true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
-              this.showAlert(`เก็บข้อมูลเรียบร้อยแล้ว\nปีที่ archive: ${yearsText}\nจำนวนแถวที่ย้าย: ${res.totalArchivedRows}`, '✅');
+              this.showAlert(`เก็บข้อมูลเรียบร้อยแล้ว\nปีที่ archive: ${yearsText}\nจำนวนแถวที่ย้าย: ${res.totalArchivedRows}`, '');
               this.fetchArchiveList();
               this.fetchServerData();
             } else {
-              this.showAlert(res.message || 'เก็บข้อมูลไม่สำเร็จ', '❌');
+              this.showAlert(res.message || 'เก็บข้อมูลไม่สำเร็จ', '');
             }
           })
           .withFailureHandler(() => {
             this.setBtnLoading(btn, false);
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', '📡');
+            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
           })
           .archiveOldData();
       },
@@ -3163,7 +3150,7 @@
               <div class="h-32 bg-slate-100 w-full relative overflow-hidden">
                 ${item.image
                   ? `<div class="absolute inset-0 bg-cover bg-center transition-transform duration-300 ${!isSoldOut && !this.isStockMode ? 'group-hover:scale-105' : ''}" style="background-image: url('${item.image}');"></div>`
-                  : `<div class="absolute inset-0 flex items-center justify-center text-4xl text-slate-300">🥤</div>`
+                  : `<div class="absolute inset-0 flex items-center justify-center text-4xl text-slate-300"></div>`
                 }
               </div>
               <div class="p-4 flex flex-col justify-between flex-1">
@@ -3174,7 +3161,7 @@
                 <div class="flex justify-between items-center mt-3 pt-3 border-t border-[#fce8e0] relative z-20">
                   <p class="text-primary font-black text-lg">฿${item.price}</p>
                   ${!this.isStockMode && !isSoldOut ? `<div class="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg group-hover:bg-primary group-hover:text-white transition-colors">+</div>` : ''}
-                  ${this.isStockMode ? `<div class="text-xs font-bold ${isSoldOut ? 'text-red-500' : 'text-emerald-500'}">${isSoldOut ? '🔴 หมด' : '🟢 มีของ'}</div>` : ''}
+                  ${this.isStockMode ? `<div class="text-xs font-bold ${isSoldOut ? 'text-red-500' : 'text-emerald-500'}">${isSoldOut ? ' หมด' : ' มีของ'}</div>` : ''}
                 </div>
               </div>
             </div>
@@ -3197,7 +3184,7 @@
           localStorage.setItem('pos_soldOut', JSON.stringify(this.soldOutItems));
           this.renderMenu();
           
-          // 🌟 ส่งคำสั่งไปอัปเดตสถานะของหมดบน Google Sheet 
+          //  ส่งคำสั่งไปอัปเดตสถานะของหมดบน Google Sheet 
           this.setIndicator('syncing');
           google.script.run
             .withSuccessHandler(res => {
@@ -3275,7 +3262,7 @@
       async addToCartFromModal() {
         const selectedSweetnessBtn = document.querySelector('.mod-btn[data-selected="true"]');
         if (!selectedSweetnessBtn) {
-          await this.showAlert('กรุณาเลือกระดับความหวาน (Sweetness Level) ก่อนทำรายการครับ', '🍯');
+          await this.showAlert('กรุณาเลือกระดับความหวาน (Sweetness Level) ก่อนทำรายการครับ', '');
           return;
         }
 
@@ -3381,7 +3368,7 @@
           items: [...this.cart], total, summary: name
         });
         this.cart = []; this.saveLocalState(); this.renderCart();
-        this.showAlert('พักบิลเรียบร้อยแล้วครับ', '⏸️');
+        this.showAlert('พักบิลเรียบร้อยแล้วครับ', '');
       },
 
       openHeldOrdersModal(e) {
@@ -3412,7 +3399,7 @@
 
       async restoreHeldOrder(idx) {
         if (this.cart.length > 0) {
-          const ok = await this.showConfirm('มีสินค้าค้างอยู่ในตะกร้า ต้องการ "พักบิลปัจจุบัน" แล้วดึงบิลนี้มาแทนที่ไหม?', '⚠️');
+          const ok = await this.showConfirm('มีสินค้าค้างอยู่ในตะกร้า ต้องการ "พักบิลปัจจุบัน" แล้วดึงบิลนี้มาแทนที่ไหม?', '');
           if (!ok) return;
           this.holdCurrentOrder(); 
         }
@@ -3422,7 +3409,7 @@
       },
 
       async deleteHeldOrder(idx) {
-        const ok = await this.showConfirm('ต้องการลบบิลที่พักไว้นี้ทิ้งใช่ไหม?', '🗑️');
+        const ok = await this.showConfirm('ต้องการลบบิลที่พักไว้นี้ทิ้งใช่ไหม?', '');
         if (ok) {
           this.heldOrders.splice(idx, 1);
           this.saveLocalState(); this.renderHeldOrders(); this.renderCart(); 
@@ -3435,14 +3422,14 @@
         const newQty = item.qty + change;
         
         if (newQty <= 0) {
-          const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกจากตะกร้าใช่ไหม?', '🗑️');
+          const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกจากตะกร้าใช่ไหม?', '');
           if (ok) {
             this.cart.splice(idx, 1);
           }
         } 
         else {
           if (change > 0 && item.stock !== undefined && item.stock !== null && newQty > item.stock) {
-             await this.showAlert('❌ ไม่สามารถบวกเพิ่มได้ สต๊อกคงเหลือไม่เพียงพอครับ', '📦');
+             await this.showAlert(' ไม่สามารถบวกเพิ่มได้ สต๊อกคงเหลือไม่เพียงพอครับ', '');
              return;
           }
           item.qty = newQty;
@@ -3452,7 +3439,7 @@
       },
 
       async removeFromCart(idx) {
-        const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกจากตะกร้าใช่ไหม?', '🗑️');
+        const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกจากตะกร้าใช่ไหม?', '');
         if (ok) {
           this.cart.splice(idx, 1);
           this.renderCart();
@@ -3460,7 +3447,7 @@
       },
       
       async openCheckout() {
-        if (this.cart.length === 0) return this.showAlert('ยังไม่มีสินค้าในตะกร้าเลยครับ', '🛒');
+        if (this.cart.length === 0) return this.showAlert('ยังไม่มีสินค้าในตะกร้าเลยครับ', '');
         this.checkoutDiscount = 0;
         this.checkoutDiscountRaw = 0;
         document.getElementById('checkout-discount-input').value = '';
@@ -3657,7 +3644,7 @@
           this.printReceipt(orderData, qStr);
         } else {
           // ถามลูกค้าว่าจะพิมพ์บิลหรือไม่
-          const ok = await this.showConfirm('ต้องการพิมพ์ใบเสร็จสำหรับออเดอร์นี้หรือไม่?', '🖨️');
+          const ok = await this.showConfirm('ต้องการพิมพ์ใบเสร็จสำหรับออเดอร์นี้หรือไม่?', '');
           if (ok) {
             this.printReceipt(orderData, qStr);
           }
@@ -3672,18 +3659,18 @@
       },
 
         async printReceipt(order, queueStr) {
-        // ⭐ ถ้า Bluetooth เชื่อมต่ออยู่ → พิมพ์ผ่าน BLE (Silent Print!)
+        //  ถ้า Bluetooth เชื่อมต่ออยู่ → พิมพ์ผ่าน BLE (Silent Print!)
         if (BluetoothPrinter.isConnected) {
           try {
             await BluetoothPrinter.printReceipt(order, queueStr, { ...this.receiptSettings, ...this.shopInfo });
           } catch (e) {
             console.warn('BT Print Error:', e.message);
-            this.showAlert('พิมพ์ผ่าน Bluetooth ไม่สำเร็จ: ' + e.message, '⚠️');
+            this.showAlert('พิมพ์ผ่าน Bluetooth ไม่สำเร็จ: ' + e.message, '');
           }
           return;
         }
 
-        // 📄 Fallback: ไม่ได้เชื่อมต่อ BT → ใช้ window.print() แบบเดิม
+        //  Fallback: ไม่ได้เชื่อมต่อ BT → ใช้ window.print() แบบเดิม
         const container = document.getElementById('receipt-container');
         if (!container) return;
         
@@ -3729,7 +3716,7 @@
           let slipItems = order.items.map(item => `
             <div style="margin-bottom: 8px; font-weight: bold; font-size: 1.1em;">
               <div>- ${item.qty}x ${item.name}</div>
-              ${item.note ? `<div style="font-size: 0.9em; padding-left: 10px; font-weight: normal;">📝 ${item.note}</div>` : ''}
+              ${item.note ? `<div style="font-size: 0.9em; padding-left: 10px; font-weight: normal;"> ${item.note}</div>` : ''}
             </div>
           `).join('');
 
@@ -3856,10 +3843,10 @@
 
         google.script.run
           .withSuccessHandler(() => {})
-          .withFailureHandler(() => this.showAlert('บันทึกข้อมูลร้านลง Google Sheet ไม่สำเร็จ (จะเก็บไว้ในเครื่องก่อน)', '📡'))
+          .withFailureHandler(() => this.showAlert('บันทึกข้อมูลร้านลง Google Sheet ไม่สำเร็จ (จะเก็บไว้ในเครื่องก่อน)', ''))
           .saveShopInfo(this.shopInfo);
 
-        this.showAlert('บันทึกการตั้งค่าเครื่องพิมพ์แล้ว', '🖨️');
+        this.showAlert('บันทึกการตั้งค่าเครื่องพิมพ์แล้ว', '');
       },
 
       async handleLogoUpload(event) {
@@ -3873,10 +3860,10 @@
           localStorage.setItem('pos_receiptSettings', JSON.stringify(this.receiptSettings));
           this.renderLogoPreview();
           this.hideLoading();
-          this.showAlert('อัปโหลดโลโก้เรียบร้อยแล้ว', '✅');
+          this.showAlert('อัปโหลดโลโก้เรียบร้อยแล้ว', '');
         } catch (e) {
           this.hideLoading();
-          this.showAlert('อัปโหลดโลโก้ไม่สำเร็จ: ' + e.message, '❌');
+          this.showAlert('อัปโหลดโลโก้ไม่สำเร็จ: ' + e.message, '');
         }
       },
 
@@ -3918,15 +3905,15 @@
       },
 
       // =============================================
-      // 🔵 Bluetooth Printer Controls
+      //  Bluetooth Printer Controls
       // =============================================
       async connectBTPrinter() {
         const res = await BluetoothPrinter.connect();
         if (res.success) {
-          this.showAlert('เชื่อมต่อสำเร็จ: ' + res.name, '✅');
+          this.showAlert('เชื่อมต่อสำเร็จ: ' + res.name, '');
           localStorage.setItem('pos_btPrinterName', res.name);
         } else {
-          this.showAlert('เชื่อมต่อไม่สำเร็จ: ' + res.message, '❌');
+          this.showAlert('เชื่อมต่อไม่สำเร็จ: ' + res.message, '');
         }
         this.updatePrinterStatusUI();
       },
@@ -3935,18 +3922,18 @@
         await BluetoothPrinter.disconnect();
         localStorage.removeItem('pos_btPrinterName');
         this.updatePrinterStatusUI();
-        this.showAlert('ตัดการเชื่อมต่อแล้ว', 'ℹ️');
+        this.showAlert('ตัดการเชื่อมต่อแล้ว', 'ℹ');
       },
 
       async testBTPrint() {
         if (!BluetoothPrinter.isConnected) {
-          return this.showAlert('กรุณาเชื่อมต่อเครื่องพิมพ์ก่อน', '⚠️');
+          return this.showAlert('กรุณาเชื่อมต่อเครื่องพิมพ์ก่อน', '');
         }
         try {
           await BluetoothPrinter.printTest(this.receiptSettings);
-          this.showAlert('ส่งหน้าทดสอบสำเร็จ!', '🖨️');
+          this.showAlert('ส่งหน้าทดสอบสำเร็จ!', '');
         } catch (e) {
-          this.showAlert('พิมพ์ไม่สำเร็จ: ' + e.message, '❌');
+          this.showAlert('พิมพ์ไม่สำเร็จ: ' + e.message, '');
         }
       },
 
@@ -3959,24 +3946,24 @@
         const userMenuBtn = document.getElementById('user-menu-printer-btn');
 
         if (BluetoothPrinter.isConnected) {
-          if (statusEl) statusEl.innerHTML = '✅ เชื่อมต่ออยู่: <strong>' + BluetoothPrinter.deviceName + '</strong>';
+          if (statusEl) statusEl.innerHTML = ' เชื่อมต่ออยู่: <strong>' + BluetoothPrinter.deviceName + '</strong>';
           if (connectBtn) connectBtn.classList.add('hidden');
           if (disconnectBtn) disconnectBtn.classList.remove('hidden');
           if (testBtn) testBtn.classList.remove('hidden');
           if (navIcon) { navIcon.classList.remove('text-slate-300'); navIcon.classList.add('text-emerald-500'); }
-          if (userMenuBtn) userMenuBtn.innerText = '🔌 ตัดการเชื่อมต่อเครื่องพิมพ์';
+          if (userMenuBtn) userMenuBtn.innerText = ' ตัดการเชื่อมต่อเครื่องพิมพ์';
         } else {
-          if (statusEl) statusEl.innerHTML = '❌ ยังไม่ได้เชื่อมต่อ';
+          if (statusEl) statusEl.innerHTML = ' ยังไม่ได้เชื่อมต่อ';
           if (connectBtn) connectBtn.classList.remove('hidden');
           if (disconnectBtn) disconnectBtn.classList.add('hidden');
           if (testBtn) testBtn.classList.add('hidden');
           if (navIcon) { navIcon.classList.remove('text-emerald-500'); navIcon.classList.add('text-slate-300'); }
-          if (userMenuBtn) userMenuBtn.innerText = '🖨️ เชื่อมต่อเครื่องพิมพ์';
+          if (userMenuBtn) userMenuBtn.innerText = ' เชื่อมต่อเครื่องพิมพ์';
         }
       },
 
       async resetQueue() {
-        const ok = await this.showConfirm('คุณต้องการรีเซ็ตเลขคิวกลับไปเริ่มต้นที่ Q01 ใหม่ ใช่หรือไม่?', '⚠️');
+        const ok = await this.showConfirm('คุณต้องการรีเซ็ตเลขคิวกลับไปเริ่มต้นที่ Q01 ใหม่ ใช่หรือไม่?', '');
         if (ok) {
           this.queueNumber = 1;
           localStorage.setItem('pos_queueNumber', this.queueNumber);
@@ -3984,7 +3971,7 @@
           const qDisplay = document.getElementById('current-queue-display');
           if (qDisplay) qDisplay.innerText = 'Q01';
           
-          this.showAlert('รีเซ็ตเลขคิวเป็น Q01 เรียบร้อยแล้ว', '✅');
+          this.showAlert('รีเซ็ตเลขคิวเป็น Q01 เรียบร้อยแล้ว', '');
         }
       },
 
@@ -4032,7 +4019,7 @@
       },
 
       // =============================================
-      // 🔒 PIN Lock Screen (ล็อกหน้าแรกทั้งแอป)
+      //  PIN Lock Screen (ล็อกหน้าแรกทั้งแอป)
       // =============================================
       initPinLock() {
         const savedUserId = localStorage.getItem('pos_loggedInUserId');
@@ -4116,7 +4103,7 @@
 
         if (user) {
           this.loggedInEmployee = user;
-          this.currentSettingsUser = user; // 🌟 ใช้คนนี้เป็นผู้ใช้ของทุกการกระทำในระบบ
+          this.currentSettingsUser = user; //  ใช้คนนี้เป็นผู้ใช้ของทุกการกระทำในระบบ
           localStorage.setItem('pos_loggedInUserId', user.id);
           this.logPinAttempt('เข้าใช้งานระบบ (Lock Screen)', true, user.name);
           this.pinBuffer = '';
@@ -4240,7 +4227,7 @@
       },
 
       async lockApp() {
-        const ok = await this.showConfirm('ต้องการล็อกหน้าจอและออกจากระบบผู้ใช้ปัจจุบันหรือไม่?', '🔒');
+        const ok = await this.showConfirm('ต้องการล็อกหน้าจอและออกจากระบบผู้ใช้ปัจจุบันหรือไม่?', '');
         if (!ok) return;
         localStorage.removeItem('pos_loggedInUserId');
         this.loggedInEmployee = null;
@@ -4383,11 +4370,11 @@
               </div>
             ` : ''}
             ${isCancelled
-              ? `<div class="mt-2 bg-red-50 text-red-500 text-xs font-bold px-3 py-2 rounded-lg">🚫 ยกเลิกแล้ว: ${h.cancelReason}</div>`
+              ? `<div class="mt-2 bg-red-50 text-red-500 text-xs font-bold px-3 py-2 rounded-lg"> ยกเลิกแล้ว: ${h.cancelReason}</div>`
               : isWaste
-              ? `<div class="mt-2 bg-orange-50 text-orange-500 text-xs font-bold px-3 py-2 rounded-lg">⚠️ ของเสีย: ${h.cancelReason}</div>`
+              ? `<div class="mt-2 bg-orange-50 text-orange-500 text-xs font-bold px-3 py-2 rounded-lg"> ของเสีย: ${h.cancelReason}</div>`
               : `<div class="mt-2 flex flex-wrap justify-end gap-x-3 gap-y-1">
-                   <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.printReceiptByInvoice(this.dataset.invoice)" class="text-xs font-bold text-slate-400 hover:text-slate-600 hover:underline whitespace-nowrap">🖨️ พิมพ์</button>
+                   <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.printReceiptByInvoice(this.dataset.invoice)" class="text-xs font-bold text-slate-400 hover:text-slate-600 hover:underline whitespace-nowrap"> พิมพ์</button>
                    <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.markAsWaste(this.dataset.invoice)" class="text-xs font-bold text-orange-400 hover:text-orange-600 hover:underline whitespace-nowrap">บันทึกของเสีย</button>
                    <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.cancelOrder(this.dataset.invoice)" class="text-xs font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ยกเลิกบิล</button>
                  </div>`
@@ -4409,11 +4396,11 @@
         if (!order || order.status === 'cancelled' || order.status === 'waste') return;
 
         const actionText = status === 'waste' ? 'บันทึกของเสีย' : 'ยกเลิกบิล';
-        const icon = status === 'waste' ? '⚠️' : '🚫';
+        const icon = status === 'waste' ? '' : '';
 
         const reason = await this.showPrompt(`ระบุเหตุผลที่ต้องการ${actionText} ${order.invoice}:`, { icon: icon });
         if (reason === null) return;
-        if (reason.trim() === '') return this.showAlert(`กรุณาระบุเหตุผลก่อน${actionText}`, '⚠️');
+        if (reason.trim() === '') return this.showAlert(`กรุณาระบุเหตุผลก่อน${actionText}`, '');
 
         const userName = this.currentSettingsUser ? this.currentSettingsUser.name : 'พนักงาน';
 
@@ -4454,13 +4441,13 @@
               // ดึงข้อมูลมายืนยันให้ตรงกับเซิร์ฟเวอร์อีกครั้ง
               this.fetchServerData();
             } else {
-              this.showAlert(res.message || `${actionText}ไม่สำเร็จ`, '❌');
+              this.showAlert(res.message || `${actionText}ไม่สำเร็จ`, '');
               this.setIndicator('synced');
             }
           })
           .withFailureHandler(() => {
             // ถ้าเน็ตหลุด ไม่เปลี่ยนสถานะ เพื่อป้องกันหน้าจอกับเซิร์ฟเวอร์ข้อมูลไม่ตรงกัน
-            this.showAlert(`เชื่อมต่อไม่สำเร็จ (ไม่มีอินเทอร์เน็ต) บิลยังไม่ถูก${actionText} กรุณาลองใหม่เมื่อมีอินเทอร์เน็ต`, '📡');
+            this.showAlert(`เชื่อมต่อไม่สำเร็จ (ไม่มีอินเทอร์เน็ต) บิลยังไม่ถูก${actionText} กรุณาลองใหม่เมื่อมีอินเทอร์เน็ต`, '');
             this.setIndicator('error');
           })
           .updateOrderStatus({ invoice: order.invoice, status: status, reason: reason.trim(), user: userName });
@@ -4480,7 +4467,7 @@
       printReceiptByInvoice(invoice) {
         const order = this.findOrderByInvoice(invoice);
         if (!order) {
-          this.showAlert('ไม่พบข้อมูลบิลนี้ (อาจถูกล้างแคชไปแล้ว ลองกด Refresh ในหน้า History)', '⚠️');
+          this.showAlert('ไม่พบข้อมูลบิลนี้ (อาจถูกล้างแคชไปแล้ว ลองกด Refresh ในหน้า History)', '');
           return;
         }
         this.printReceipt(order, order.queue || '');
@@ -4492,9 +4479,9 @@
         const item = order.items.find(i => i.sku === sku && (i.note || '') === (note || ''));
         if (!item || item.cancelled) return;
 
-        const reason = await this.showPrompt(`ระบุเหตุผลที่ต้องการยกเลิกรายการ "${item.name}" ในบิล ${invoice}:`, { icon: '🚫' });
+        const reason = await this.showPrompt(`ระบุเหตุผลที่ต้องการยกเลิกรายการ "${item.name}" ในบิล ${invoice}:`, { icon: '' });
         if (reason === null) return;
-        if (reason.trim() === '') return this.showAlert('กรุณาระบุเหตุผลก่อนยกเลิกรายการ', '⚠️');
+        if (reason.trim() === '') return this.showAlert('กรุณาระบุเหตุผลก่อนยกเลิกรายการ', '');
 
         const userName = this.currentSettingsUser ? this.currentSettingsUser.name : 'พนักงาน';
 
@@ -4527,26 +4514,26 @@
               this.fetchServerData();
 
               if (res.wholeBillCancelled) {
-                await this.showAlert(`บิล ${invoice} ถูกยกเลิกครบทุกรายการแล้ว ระบบยกเลิกทั้งบิลให้อัตโนมัติ`, '🚫');
+                await this.showAlert(`บิล ${invoice} ถูกยกเลิกครบทุกรายการแล้ว ระบบยกเลิกทั้งบิลให้อัตโนมัติ`, '');
               }
             } else {
-              this.showAlert(res.message || 'ยกเลิกรายการไม่สำเร็จ', '❌');
+              this.showAlert(res.message || 'ยกเลิกรายการไม่สำเร็จ', '');
               this.setIndicator('synced');
             }
           })
           .withFailureHandler(() => {
-            this.showAlert('เชื่อมต่อไม่สำเร็จ (ไม่มีอินเทอร์เน็ต) รายการยังไม่ถูกยกเลิก กรุณาลองใหม่เมื่อมีอินเทอร์เน็ต', '📡');
+            this.showAlert('เชื่อมต่อไม่สำเร็จ (ไม่มีอินเทอร์เน็ต) รายการยังไม่ถูกยกเลิก กรุณาลองใหม่เมื่อมีอินเทอร์เน็ต', '');
             this.setIndicator('error');
           })
           .cancelSalesItems({ invoice: invoice, items: [{ sku: sku, note: note }], reason: reason.trim(), user: userName });
       },
 
       async clearHistory() {
-        const pin = await this.showPrompt("กรุณาใส่รหัส PIN เพื่อล้างข้อมูล History (Clear Cache):", { type: 'password', icon: '🔒' });
+        const pin = await this.showPrompt("กรุณาใส่รหัส PIN เพื่อล้างข้อมูล History (Clear Cache):", { type: 'password', icon: '' });
         const user = this.checkSettingsAccess(pin);
         if (user && this.getAllowedTabs(user).includes('history')) {
           this.logPinAttempt('Clear History', true, user.name);
-          const ok = await this.showConfirm("ยืนยันการล้างข้อมูล? บิลที่ยังไม่ซิงค์เข้าระบบจะหายไปทั้งหมด!", '⚠️');
+          const ok = await this.showConfirm("ยืนยันการล้างข้อมูล? บิลที่ยังไม่ซิงค์เข้าระบบจะหายไปทั้งหมด!", '');
           if (ok) {
             this.history = [];
             this.saveLocalState();
@@ -4554,7 +4541,7 @@
           }
         } else if (pin !== null) {
           this.logPinAttempt('Clear History', false, null);
-          this.showAlert("รหัส PIN ไม่ถูกต้องครับ การล้างข้อมูลถูกยกเลิก", '❌');
+          this.showAlert("รหัส PIN ไม่ถูกต้องครับ การล้างข้อมูลถูกยกเลิก", '');
         }
       },
 
@@ -4594,7 +4581,7 @@
               if (orderDateStr === todayStr && order.status !== 'cancelled' && order.status !== 'waste') {
                 order.items.forEach(item => {
                    if (item.cancelled) return; // ข้ามรายการที่ถูกยกเลิกไปแล้ว
-                   // 🌟 หาต้นทุนจาก menuData โดยใช้ SKU (เพราะประวัติที่ดึงจากเซิร์ฟเวอร์ไม่ได้เก็บต้นทุนไว้)
+                   //  หาต้นทุนจาก menuData โดยใช้ SKU (เพราะประวัติที่ดึงจากเซิร์ฟเวอร์ไม่ได้เก็บต้นทุนไว้)
                    const menuProduct = this.menuData.find(m => m.sku === item.sku);
                    const itemCost = menuProduct ? (menuProduct.cost || 0) : (item.cost || 0);
                    
@@ -4644,15 +4631,15 @@
             this.setBtnLoading(btn, false);
             if (res.success) {
               this.logPinAttempt(`ปิดยอดประจำวัน: ฿${res.amount}`, true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
-              this.showAlert(`ปิดยอดประจำวันสำเร็จ นำยอดขายสด ฿${res.amount.toLocaleString(undefined, {minimumFractionDigits: 2})} เข้าเป็นเงินทอนแล้ว`, '✅');
+              this.showAlert(`ปิดยอดประจำวันสำเร็จ นำยอดขายสด ฿${res.amount.toLocaleString(undefined, {minimumFractionDigits: 2})} เข้าเป็นเงินทอนแล้ว`, '');
               this.fetchSummary();
             } else {
-              this.showAlert(res.message || 'ปิดยอดไม่สำเร็จ', '❌');
+              this.showAlert(res.message || 'ปิดยอดไม่สำเร็จ', '');
             }
           })
           .withFailureHandler(() => {
             this.setBtnLoading(btn, false);
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', '📡');
+            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
           })
           .closeDayCash();
       },
@@ -4738,13 +4725,13 @@
         const action = this.floatAction;
         
         if (isNaN(total) || total <= 0) {
-          return this.showAlert('กรุณากรอกยอดเงินให้ถูกต้อง', '⚠️');
+          return this.showAlert('กรุณากรอกยอดเงินให้ถูกต้อง', '');
         }
 
         if (action === 'OUT' && this.combinedAvailable !== null && total > this.combinedAvailable) {
           return this.showAlert(
             `ไม่สามารถนำเงินออกได้ครับ ยอดที่กรอก (฿${total.toLocaleString(undefined, {minimumFractionDigits: 2})}) เกินยอดเงินสดที่มีในลิ้นชัก (เงินทอน + เงินขายสด = ฿${this.combinedAvailable.toLocaleString(undefined, {minimumFractionDigits: 2})})`,
-            '⚠️'
+            ''
           );
         }
 
@@ -4781,7 +4768,7 @@
 
         // 2. ปิดหน้าต่างและแจ้งเตือนทันที
         this.closeModal('modal-float-cash');
-        this.showAlert('บันทึกรายการสำเร็จ!', '✅');
+        this.showAlert('บันทึกรายการสำเร็จ!', '');
         this.logPinAttempt(`${action === 'IN' ? 'นำเงินเข้า' : 'นำเงินออก'}: ฿${total}`, true, userName);
 
         // 3. รีเฟรชหน้า Summary เพื่อให้เลขโชว์
