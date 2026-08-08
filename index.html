@@ -268,6 +268,12 @@
             <button onclick="Controller.clearHistory()" class="flex-1 sm:flex-none justify-center items-center flex bg-red-50 text-red-400 hover:bg-red-400 hover:text-white px-4 py-2 rounded-2xl font-bold transition">Clear Cache</button>
           </div>
         </div>
+        <div class="flex flex-wrap items-center gap-2 mb-3">
+          <label class="text-xs font-bold text-slate-400">ดูย้อนหลัง</label>
+          <input type="date" id="history-date" onchange="Controller.loadHistoryDate(this.value)" class="px-3 py-2 rounded-xl border border-[#fce8e0] text-sm font-bold text-secondary">
+          <button onclick="Controller.loadHistoryDate('')" class="px-3 py-2 rounded-xl bg-accent text-secondary text-sm font-bold">วันนี้</button>
+          <span id="history-date-note" class="text-xs text-slate-400"></span>
+        </div>
         <div id="history-list" class="flex-1 overflow-y-auto bg-white rounded-3xl border border-[#fce8e0] shadow-sm p-4 divide-y divide-[#fce8e0] max-h-[65vh]"></div>
       </div>
 
@@ -1550,6 +1556,10 @@
 
         // ── วิธีชำระเงิน ──
         R.lr(doc, order.paymentType || '-', money(order.total), { size: small });
+        if (order.cashReceived) {
+          R.lr(doc, 'Received:', money(order.cashReceived), { size: small });
+          R.lr(doc, 'Change:', money(order.changeAmount || 0), { size: small });
+        }
         R.rule(doc);
 
         // ── ข้อความท้ายใบเสร็จ ──
@@ -3606,6 +3616,12 @@
           : (discount > 0 ? `-${discount.toFixed(0)}` : '');
         
         const qStr = this.getQueueNumber();
+
+        const pmObj = this.paymentMethods.find(m => m.id === this.currentPaymentMethodId);
+        const isCashPay = !!(pmObj && pmObj.isCash);
+        const cashPaid = isCashPay ? (parseInt(this.cashInput, 10) || 0) : 0;
+        const changeDue = isCashPay ? Math.max(0, cashPaid - total) : 0;
+
         const orderData = {
           timestamp: new Date().toISOString(),
           invoice: invoiceId,
@@ -3615,6 +3631,8 @@
           discountLabel: discountLabel,
           total: total,
           paymentType: this.paymentMode,
+          cashReceived: cashPaid,
+          changeAmount: changeDue,
           status: 'active',
           queue: qStr,
           cashier: this.loggedInEmployee ? this.loggedInEmployee.name : ''
@@ -3784,6 +3802,15 @@
               <div>การชำระเงิน</div>
               <div>${order.paymentType}</div>
             </div>
+            ${order.cashReceived ? `
+            <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-top: 5px;">
+              <div>รับเงิน</div>
+              <div>฿${Number(order.cashReceived).toFixed(2)}</div>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
+              <div>เงินทอน</div>
+              <div>฿${Number(order.changeAmount || 0).toFixed(2)}</div>
+            </div>` : ''}
             ${queueHtml}
             <div style="text-align: center; font-size: 0.9em; margin-top: 15px;">${footer}</div>
           </div>
@@ -4244,8 +4271,74 @@
           .syncAccessLogs(snapshot);
       },
 
+      loadHistoryDate(dateStr) {
+        const note = document.getElementById('history-date-note');
+        const input = document.getElementById('history-date');
+        if (!dateStr) {
+          this.historyViewDate = null;
+          this.historyViewData = null;
+          if (input) input.value = '';
+          if (note) note.innerText = '';
+          this.renderHistory();
+          return;
+        }
+        this.historyViewDate = dateStr;
+        if (note) note.innerText = 'กำลังโหลด...';
+        google.script.run
+          .withSuccessHandler(data => {
+            if (this.historyViewDate !== dateStr) return;
+            this.historyViewData = (data && data.history) || [];
+            if (note) note.innerText = 'ข้อมูลวันที่ ' + dateStr + ' (อ่านอย่างเดียว)';
+            this.renderHistory();
+          })
+          .withFailureHandler(() => {
+            if (note) note.innerText = 'โหลดไม่สำเร็จ ลองใหม่อีกครั้ง';
+          })
+          .getPOSDataByDate(dateStr);
+      },
+
+      renderHistoryReadOnly(rows) {
+        const list = document.getElementById('history-list');
+        if (!list) return;
+        const sorted = rows.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        if (sorted.length === 0) {
+          list.innerHTML = '<div class="p-8 text-center text-slate-400">ไม่มีบิลในวันที่เลือก</div>';
+          return;
+        }
+        let html = '';
+        for (const h of sorted) {
+          const off = h.status === 'cancelled' || h.status === 'waste';
+          html += '<div class="py-4' + (off ? ' opacity-60' : '') + '">';
+          html += '<div class="flex justify-between items-center"><div>';
+          html += '<p class="font-bold text-secondary' + (off ? ' line-through' : '') + '">' + h.invoice + '</p>';
+          html += '<p class="text-xs text-slate-400 mt-0.5">' + new Date(h.timestamp).toLocaleString() + '</p>';
+          html += '</div><div class="text-right">';
+          html += '<p class="font-black text-lg ' + (off ? 'text-slate-400 line-through' : 'text-primary') + '">฿' + h.total + '</p>';
+          html += '<span class="inline-block px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[10px] font-bold mt-1">' + (h.paymentType || 'ไม่ระบุ') + '</span>';
+          html += '</div></div>';
+          if (h.items && h.items.length > 0) {
+            html += '<div class="mt-2 pl-2 border-l-2 border-slate-200 space-y-1">';
+            for (const it of h.items) {
+              html += '<div class="flex justify-between items-center text-sm ' + (it.cancelled ? 'text-slate-400 line-through' : 'text-slate-600') + '">';
+              html += '<span>' + it.qty + 'x ' + it.name + (it.note ? ' <span class="text-xs text-slate-400">(' + it.note + ')</span>' : '') + '</span>';
+              html += '<span>฿' + (it.price * it.qty) + '</span></div>';
+            }
+            html += '</div>';
+          }
+          if (h.cancelReason) {
+            html += '<div class="mt-2 bg-red-50 text-red-500 text-xs font-bold px-3 py-2 rounded-lg">ยกเลิกแล้ว: ' + h.cancelReason + '</div>';
+          }
+          html += '</div>';
+        }
+        list.innerHTML = html;
+      },
+
       renderHistory() {
         const list = document.getElementById('history-list');
+        if (this.historyViewData) {
+          this.renderHistoryReadOnly(this.historyViewData);
+          return;
+        }
         
         // นำบิลที่รอซิงค์ (ออฟไลน์) มารวมกับประวัติบิลในเครื่อง/เซิร์ฟเวอร์
         const offlineInvoices = new Set(this.syncQueue.map(o => o.invoice));
