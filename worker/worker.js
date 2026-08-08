@@ -389,7 +389,7 @@ async function summaryByRange(env, start, end) {
   let floatCash = 0;
   try {
     const floatR = await env.DB.prepare(
-      "SELECT IFNULL(SUM(CASE WHEN LOWER(action) = 'out' THEN -total_amount ELSE total_amount END), 0) AS bal FROM float_log WHERE date(timestamp, '+7 hours') <= ? AND NOT (LOWER(action) = 'close_day' AND date(timestamp, '+7 hours') BETWEEN ? AND ?)"
+      "SELECT IFNULL(SUM(CASE WHEN LOWER(action) = 'out' THEN -total_amount ELSE total_amount END), 0) AS bal FROM float_log WHERE substr(timestamp, 1, 10) <= ? AND NOT (LOWER(action) = 'close_day' AND substr(timestamp, 1, 10) BETWEEN ? AND ?)"
     )
       .bind(endDay, startDay, endDay)
       .first();
