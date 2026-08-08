@@ -208,22 +208,73 @@ async function syncOfflineOrders(env, args) {
 }
 
 async function updateOrderStatus(env, args) {
-  const [invoice, status, reason] = args;
-  await env.DB.prepare('UPDATE payments SET status = ?, cancel_reason = ? WHERE invoice = ?')
-    .bind(status || '', reason || '', invoice).run();
+  const a0 = args && args[0];
+  const isObj = a0 && typeof a0 === "object" && !Array.isArray(a0);
+  const invoice = isObj ? a0.invoice : a0;
+  const status = (isObj ? a0.status : args[1]) || "";
+  const reason = (isObj ? a0.reason : args[2]) || "";
+  const user = (isObj ? a0.user : args[3]) || "";
+  const now = nowIso();
+  await env.DB.prepare(
+    "UPDATE payments SET status = ?, cancel_reason = ?, cancelled_by = ?, cancelled_at = ? WHERE invoice = ?"
+  )
+    .bind(status, reason, user, now, invoice)
+    .run();
+  if (status === "cancelled") {
+    await env.DB.prepare("UPDATE sales SET cancelled = 1, cancel_reason = ? WHERE invoice = ?")
+      .bind(reason, invoice)
+      .run();
+  }
   return { success: true };
 }
 
 
 async function cancelSalesItems(env, args) {
-  const invoice = args[0];
-  const reason = args[1] || '';
-  const cancelledBy = args[2] || '';
+  const a0 = args && args[0];
+  const isObj = a0 && typeof a0 === "object" && !Array.isArray(a0);
+  const invoice = isObj ? a0.invoice : a0;
+  const reason = (isObj ? a0.reason : args[1]) || "";
+  const cancelledBy = (isObj ? a0.user : args[2]) || "";
+  const items = isObj && Array.isArray(a0.items) ? a0.items : [];
   const now = nowIso();
-  await env.DB.prepare('UPDATE sales SET cancelled = 1, cancel_reason = ? WHERE invoice = ?').bind(reason, invoice).run();
-  await env.DB.prepare('UPDATE payments SET status = ?, cancel_reason = ?, cancelled_by = ?, cancelled_at = ? WHERE invoice = ?')
-    .bind('cancelled', reason, cancelledBy, now, invoice).run();
-  return { success: true };
+
+  if (items.length === 0) {
+    await env.DB.prepare("UPDATE sales SET cancelled = 1, cancel_reason = ? WHERE invoice = ?")
+      .bind(reason, invoice)
+      .run();
+  } else {
+    for (const it of items) {
+      const row = await env.DB.prepare(
+        "SELECT id FROM sales WHERE invoice = ? AND sku = ? AND IFNULL(note, '') = ? AND IFNULL(cancelled, 0) = 0 ORDER BY id ASC LIMIT 1"
+      )
+        .bind(invoice, it.sku || "", it.note || "")
+        .first();
+      if (row) {
+        await env.DB.prepare("UPDATE sales SET cancelled = 1, cancel_reason = ? WHERE id = ?")
+          .bind(reason, row.id)
+          .run();
+      }
+    }
+  }
+
+  const remain = await env.DB.prepare(
+    "SELECT IFNULL(SUM(qty * price), 0) AS total, COUNT(*) AS n FROM sales WHERE invoice = ? AND IFNULL(cancelled, 0) = 0"
+  )
+    .bind(invoice)
+    .first();
+  const newTotal = Number((remain && remain.total) || 0);
+  const wholeBillCancelled = Number((remain && remain.n) || 0) === 0;
+
+  await env.DB.prepare("UPDATE payments SET total = ? WHERE invoice = ?").bind(newTotal, invoice).run();
+  if (wholeBillCancelled) {
+    await env.DB.prepare(
+      "UPDATE payments SET status = ?, cancel_reason = ?, cancelled_by = ?, cancelled_at = ? WHERE invoice = ?"
+    )
+      .bind("cancelled", reason, cancelledBy, now, invoice)
+      .run();
+  }
+
+  return { success: true, newTotal: newTotal, wholeBillCancelled: wholeBillCancelled };
 }
 
 handlers.getTodayPOSData = async (env) => {
