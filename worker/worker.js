@@ -305,7 +305,7 @@ async function posDataForDay(env, day) {
     timestamp: p.timestamp,
     total: Number(p.total || 0),
     paymentType: p.payment_type || "",
-    status: p.status || "active",
+    status: String(p.status || "active").toLowerCase(),
     cancelReason: p.cancel_reason || "",
     note: p.order_note || "",
     items: itemsByInvoice[p.invoice] || [],
@@ -350,10 +350,10 @@ async function summaryByRange(env, start, end) {
   const endDay = dayStr(end, startDay);
 
   const sales = await env.DB.prepare(
-    "SELECT *, date(timestamp, '+7 hours') AS bkk_date FROM sales WHERE date(timestamp, '+7 hours') BETWEEN ? AND ? AND cancelled = 0"
+    "SELECT *, date(timestamp, '+7 hours') AS bkk_date FROM sales WHERE date(timestamp, '+7 hours') BETWEEN ? AND ? AND cancelled = 0 AND invoice NOT IN (SELECT invoice FROM payments WHERE LOWER(IFNULL(status, '')) IN ('cancelled', 'waste'))"
   ).bind(startDay, endDay).all();
   const paymentsR = await env.DB.prepare(
-    "SELECT *, date(timestamp, '+7 hours') AS bkk_date FROM payments WHERE date(timestamp, '+7 hours') BETWEEN ? AND ? AND (status IS NULL OR status != 'cancelled')"
+    "SELECT *, date(timestamp, '+7 hours') AS bkk_date FROM payments WHERE date(timestamp, '+7 hours') BETWEEN ? AND ? AND (status IS NULL OR LOWER(status) NOT IN ('cancelled', 'waste'))"
   ).bind(startDay, endDay).all();
   const pmR = await env.DB.prepare("SELECT * FROM payment_methods").all();
   const cashTypes = new Set(
@@ -430,7 +430,7 @@ handlers.getBestSellers = async (env, args) => {
   else if (period === "week") start = addDays(today, -6);
   else if (period === "month") start = today.slice(0, 8) + "01";
 
-  let sql = "SELECT sku, name, SUM(qty) AS qty, SUM(qty * price) AS amount FROM sales WHERE cancelled = 0";
+  let sql = "SELECT sku, name, SUM(qty) AS qty, SUM(qty * price) AS amount FROM sales WHERE cancelled = 0 AND invoice NOT IN (SELECT invoice FROM payments WHERE LOWER(IFNULL(status, '')) IN ('cancelled', 'waste'))";
   const binds = [];
   if (start) {
     sql += " AND date(timestamp, '+7 hours') >= ?";
