@@ -142,7 +142,7 @@ handlers.deleteAddon = async (env, args) => {
 
 handlers.getPaymentMethods = async (env) => {
   const r = await env.DB.prepare("SELECT * FROM payment_methods ORDER BY sort_order").all();
-  return r.results;
+  return r.results.map((m) => ({ ...m, isCash: !!m.is_cash }));
 };
 
 handlers.savePaymentMethod = async (env, args) => {
@@ -151,11 +151,11 @@ handlers.savePaymentMethod = async (env, args) => {
   if (existing) {
     await env.DB.prepare(
       "UPDATE payment_methods SET name=?, is_cash=?, enabled=?, sort_order=? WHERE id=?"
-    ).bind(pm.name, pm.is_cash ? 1 : 0, pm.enabled ? 1 : 0, pm.sort_order || 0, pm.id).run();
+    ).bind(pm.name, (pm.isCash ?? pm.is_cash) ? 1 : 0, pm.enabled ? 1 : 0, pm.sort_order || 0, pm.id).run();
   } else {
     await env.DB.prepare(
       "INSERT INTO payment_methods (id, name, is_cash, enabled, sort_order, created_by) VALUES (?,?,?,?,?,?)"
-    ).bind(pm.id, pm.name, pm.is_cash ? 1 : 0, pm.enabled ? 1 : 0, pm.sort_order || 0, pm.created_by || "").run();
+    ).bind(pm.id, pm.name, (pm.isCash ?? pm.is_cash) ? 1 : 0, pm.enabled ? 1 : 0, pm.sort_order || 0, pm.created_by || "").run();
   }
   return { success: true };
 };
@@ -192,7 +192,7 @@ async function syncOfflineOrders(env, args) {
     const invoice = o.invoice || o.id || ('INV-' + Date.now() + '-' + count);
     const timestamp = o.timestamp || nowIso();
     const total = Number(o.total || 0);
-    const paymentType = o.paymentMethod || o.payment_type || '';
+    const paymentType = o.paymentType || o.paymentMethod || o.payment_type || '';
     const status = o.status || 'completed';
     const orderNote = o.note || o.employeeId || '';
     await env.DB.prepare('INSERT INTO payments (timestamp, invoice, total, payment_type, order_note, status) VALUES (?, ?, ?, ?, ?, ?)')
