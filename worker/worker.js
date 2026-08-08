@@ -277,8 +277,8 @@ async function cancelSalesItems(env, args) {
   return { success: true, newTotal: newTotal, wholeBillCancelled: wholeBillCancelled };
 }
 
-handlers.getTodayPOSData = async (env) => {
-  const today = bkkToday();
+async function posDataForDay(env, day) {
+  const today = day || bkkToday();
   const payR = await env.DB.prepare(
     "SELECT * FROM payments WHERE date(timestamp, '+7 hours') = ? ORDER BY id DESC"
   ).bind(today).all();
@@ -335,6 +335,14 @@ handlers.getTodayPOSData = async (env) => {
     0
   );
   return { history, cupCount };
+}
+
+handlers.getTodayPOSData = async (env) => posDataForDay(env, null);
+
+handlers.getPOSDataByDate = async (env, args) => {
+  const a0 = args && args[0];
+  const day = a0 && typeof a0 === "object" ? a0.date : a0;
+  return posDataForDay(env, day || bkkToday());
 };
 
 async function summaryByRange(env, start, end) {
