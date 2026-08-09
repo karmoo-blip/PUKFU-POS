@@ -71,49 +71,92 @@ handlers.getInventoryStats = async (env) => {
 async function updateInventoryStock(env, args) {
   const raw = args[0];
   const changes = Array.isArray(raw) ? raw : [raw];
-  const recordedBy = args[1] || '';
+  const recordedBy = args[1] || "";
   const now = nowIso();
   for (const c of changes) {
     const id = c.id;
-    const delta = Number(c.delta ?? c.qty ?? c.amount ?? 0);
-    const item = await env.DB.prepare('SELECT name, current_stock FROM inventory WHERE id = ?').bind(id).first();
+    const item = await env.DB.prepare("SELECT name, current_stock FROM inventory WHERE id = ?").bind(id).first();
     if (!item) continue;
-    const newStock = (item.current_stock || 0) + delta;
-    await env.DB.prepare('UPDATE inventory SET current_stock = ? WHERE id = ?').bind(newStock, id).run();
-    await env.DB.prepare('INSERT INTO inventory_log (timestamp, item_name, change, new_stock, recorded_by) VALUES (?, ?, ?, ?, ?)').bind(now, item.name, delta, newStock, recordedBy).run();
+    const cur = Number(item.current_stock || 0);
+    const hasAbs = c.newStock !== undefined && c.newStock !== null;
+    const newStock = hasAbs ? Number(c.newStock) || 0 : cur + Number(c.delta ?? c.qty ?? c.amount ?? 0);
+    const delta = newStock - cur;
+    await env.DB.prepare("UPDATE inventory SET current_stock = ? WHERE id = ?").bind(newStock, id).run();
+    await env.DB.prepare(
+      "INSERT INTO inventory_log (timestamp, item_name, change, new_stock, recorded_by) VALUES (?, ?, ?, ?, ?)"
+    ).bind(now, item.name, delta, newStock, c.user || recordedBy).run();
   }
   return { success: true };
 }
 
+function normPermission(v) {
+  const s = v === null || v === undefined ? "" : String(v).trim();
+  if (!s || s === "{}" || s === "[]" || s === "null" || s === "undefined") return "";
+  if (s.charAt(0) === "{") return "";
+  if (s.charAt(0) === "[") {
+    try {
+      const a = JSON.parse(s);
+      return Array.isArray(a) ? a.join(",") : "";
+    } catch (e) {
+      return "";
+    }
+  }
+  return s;
+}
+
+function mapEmployeeRow(row) {
+  const perm = normPermission(row.permission);
+  return Object.assign({}, row, {
+    permission: perm,
+    permissions: perm,
+    createdBy: row.created_by || "",
+  });
+}
+
 handlers.getEmployees = async (env) => {
   const r = await env.DB.prepare("SELECT * FROM employees").all();
-  return r.results;
+  return r.results.map(mapEmployeeRow);
 };
 
 handlers.getEmployeesForCache = async (env) => {
   const r = await env.DB.prepare("SELECT id, name, pin, role, active, permission FROM employees").all();
-  return r.results;
+  return r.results.map(mapEmployeeRow);
 };
 
 handlers.saveEmployee = async (env, args) => {
-  const emp = args[0];
-  const existing = await env.DB.prepare("SELECT id FROM employees WHERE id = ?").bind(emp.id).first();
+  const emp = args[0] || {};
+  const id = emp.id || "EMP-" + Date.now();
+  const rawPerm = emp.permissions !== undefined && emp.permissions !== null ? emp.permissions : emp.permission;
+  const perm = normPermission(Array.isArray(rawPerm) ? rawPerm.join(",") : rawPerm);
+  const createdBy = emp.createdBy || emp.created_by || "";
+  const existing = await env.DB.prepare("SELECT id FROM employees WHERE id = ?").bind(id).first();
   if (existing) {
     await env.DB.prepare(
       "UPDATE employees SET name=?, pin=?, role=?, active=?, permission=? WHERE id=?"
-    ).bind(emp.name, emp.pin, emp.role, emp.active ? 1 : 0, JSON.stringify(emp.permission || {}), emp.id).run();
+    ).bind(emp.name, emp.pin, emp.role, emp.active ? 1 : 0, perm, id).run();
   } else {
     await env.DB.prepare(
       "INSERT INTO employees (id, name, pin, role, active, permission, created_by) VALUES (?,?,?,?,?,?,?)"
-    ).bind(emp.id, emp.name, emp.pin, emp.role, emp.active ? 1 : 0, JSON.stringify(emp.permission || {}), emp.created_by || "").run();
+    ).bind(id, emp.name, emp.pin, emp.role, emp.active ? 1 : 0, perm, createdBy).run();
   }
-  return { success: true };
+  return { success: true, id: id };
 };
 
 handlers.deleteEmployee = async (env, args) => {
-  const id = args[0];
-  await env.DB.prepare("DELETE FROM employees WHERE id = ?").bind(id).run();
-  return { success: true };
+  const a0 = args[0];
+  const isObj = a0 && typeof a0 === "object" && !Array.isArray(a0);
+  const id = isObj ? a0.id : a0;
+  const name = isObj ? a0.name : args[1];
+  const blank = id === null || id === undefined || id === "" || id === "null" || id === "undefined";
+  let r;
+  if (blank) {
+    if (!name) return { success: false, error: "missing id" };
+    r = await env.DB.prepare("DELETE FROM employees WHERE id IS NULL AND name = ?").bind(name).run();
+  } else {
+    r = await env.DB.prepare("DELETE FROM employees WHERE id = ?").bind(id).run();
+  }
+  const changed = (r && r.meta && r.meta.changes) || 0;
+  return { success: changed > 0, deleted: changed };
 };
 
 handlers.getAddons = async (env) => {
@@ -291,6 +334,7 @@ async function posDataForDay(env, day) {
     const key = s.invoice || "";
     if (!itemsByInvoice[key]) itemsByInvoice[key] = [];
     itemsByInvoice[key].push({
+      id: s.id,
       sku: s.sku || "",
       name: s.name || "",
       qty: Number(s.qty || 0),
@@ -583,6 +627,66 @@ handlers.syncOfflineOrders = syncOfflineOrders;
 handlers.updateOrderStatus = updateOrderStatus;
 handlers.cancelSalesItems = cancelSalesItems;
 handlers.syncFloatCashLogs = syncFloatCashLogs;
+
+
+handlers.saveInventoryItem = async (env, args) => {
+  const it = args[0] || {};
+  const name = String(it.name || "").trim();
+  if (!name) return { success: false, error: "missing name" };
+  const unit = String(it.unit || "").trim();
+  const stock = Number(it.stock ?? it.current_stock ?? 0) || 0;
+  const id = it.id || "ITM-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+  const existing = await env.DB.prepare("SELECT id FROM inventory WHERE id = ?").bind(id).first();
+  if (existing) {
+    await env.DB.prepare("UPDATE inventory SET name = ?, unit = ?, current_stock = ? WHERE id = ?").bind(name, unit, stock, id).run();
+  } else {
+    await env.DB.prepare("INSERT INTO inventory (id, name, current_stock, unit) VALUES (?, ?, ?, ?)").bind(id, name, stock, unit).run();
+  }
+  return { success: true, id: id };
+};
+
+handlers.deleteInventoryItem = async (env, args) => {
+  const a0 = args[0];
+  const id = a0 && typeof a0 === "object" ? a0.id : a0;
+  if (id === null || id === undefined || id === "") return { success: false, error: "missing id" };
+  const r = await env.DB.prepare("DELETE FROM inventory WHERE id = ?").bind(id).run();
+  const changed = (r && r.meta && r.meta.changes) || 0;
+  return { success: changed > 0, deleted: changed };
+};
+
+handlers.updateOrderDetails = async (env, args) => {
+  const a0 = args[0] || {};
+  const invoice = a0.invoice;
+  if (!invoice) return { success: false, error: "missing invoice" };
+  const items = Array.isArray(a0.items) ? a0.items : [];
+  for (const it of items) {
+    const qty = Number(it.qty || 0);
+    const price = Number(it.price || 0);
+    if (it.remove || qty <= 0) {
+      await env.DB.prepare("DELETE FROM sales WHERE id = ? AND invoice = ?").bind(it.id, invoice).run();
+    } else {
+      await env.DB.prepare("UPDATE sales SET qty = ?, price = ?, note = ? WHERE id = ? AND invoice = ?").bind(qty, price, it.note || "", it.id, invoice).run();
+    }
+  }
+  const sumR = await env.DB.prepare(
+    "SELECT IFNULL(SUM(qty * price), 0) AS t FROM sales WHERE invoice = ? AND cancelled = 0"
+  ).bind(invoice).first();
+  const total = Number((sumR && sumR.t) || 0);
+  const sets = ["total = ?"];
+  const binds = [total];
+  if (a0.paymentType) {
+    sets.push("payment_type = ?");
+    binds.push(a0.paymentType);
+    await env.DB.prepare("UPDATE sales SET payment_type = ? WHERE invoice = ?").bind(a0.paymentType, invoice).run();
+  }
+  if (a0.note !== undefined && a0.note !== null) {
+    sets.push("order_note = ?");
+    binds.push(a0.note);
+  }
+  binds.push(invoice);
+  await env.DB.prepare("UPDATE payments SET " + sets.join(", ") + " WHERE invoice = ?").bind(...binds).run();
+  return { success: true, total: total };
+};
 
 export default {
   async fetch(request, env) {
