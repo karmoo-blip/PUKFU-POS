@@ -506,17 +506,6 @@
               </div>
             </div>
           </div>
-          <div class="border-t border-[#efe3c4] pt-4 mt-2 mb-4">
-            <label class="text-sm font-bold text-slate-500 mb-2 block">เครื่องพิมพ์ Bluetooth (ใบสั่งครัว/ออเดอร์)</label>
-            <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <p id="bt-printer-status-2" class="text-sm text-slate-500 mb-3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M6 6l12 12M18 6L6 18"/></svg> ยังไม่ได้เชื่อมต่อ</p>
-              <div class="flex flex-wrap gap-2">
-                <button id="btn-bt-connect-2" onclick="Controller.connectBTPrinterOrder()" class="bg-blue-500 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-blue-600 transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M10 14a4 4 0 0 0 6 .5l2-2a4 4 0 0 0-6-6l-1 1"/><path d="M14 10a4 4 0 0 0-6-.5l-2 2a4 4 0 0 0 6 6l1-1"/></svg> เชื่อมต่อเครื่องพิมพ์</button>
-                <button id="btn-bt-disconnect-2" onclick="Controller.disconnectBTPrinterOrder()" class="hidden bg-red-50 text-red-500 px-4 py-2 rounded-xl font-bold text-sm hover:bg-red-100 transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M9 3v6M15 3v6"/><path d="M6 9h12v3a6 6 0 0 1-12 0z"/><path d="M12 18v3"/></svg> ตัดการเชื่อมต่อ</button>
-                <button id="btn-bt-test-2" onclick="Controller.testBTPrintOrder()" class="hidden bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-emerald-100 transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg> ทดสอบพิมพ์</button>
-              </div>
-            </div>
-          </div>
           
           <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
             <label class="text-sm font-bold text-slate-500 mb-1 block">หัวข้อที่แสดงบนใบเสร็จ</label>
@@ -1381,8 +1370,7 @@
     // =============================================
     //  BluetoothPrinter — จัดการเครื่องพิมพ์ BLE
     // =============================================
-    function createBluetoothPrinter() {
-      return {
+    const BluetoothPrinter = {
       device: null,
       server: null,
       characteristic: null,
@@ -1742,8 +1730,7 @@
         await this.sendData(await this.buildReceipt(order, queueStr, settings));
         if (settings.printOrderSlip) {
           await new Promise(r => setTimeout(r, 150));
-          const orderTarget = (OrderPrinter.isConnected && OrderPrinter.characteristic) ? OrderPrinter : this;
-          await orderTarget.sendData(await this.buildOrderSlip(order, queueStr, settings));
+          await this.sendData(await this.buildOrderSlip(order, queueStr, settings));
         }
       },
 
@@ -1751,10 +1738,6 @@
         await this.sendData(await this.buildTestPage(settings));
       }
     };
-    }
-    const BluetoothPrinter = createBluetoothPrinter();
-    const OrderPrinter = createBluetoothPrinter();
-    
     
     const Controller = {
       employees: [], // cache รายชื่อพนักงาน+PIN สำหรับเช็คสิทธิ์เข้า Settings แบบออฟไลน์
@@ -4416,36 +4399,6 @@ renderReport(r) {
         }
       },
 
-      async connectBTPrinterOrder() {
-        const res = await OrderPrinter.connect();
-        if (res.success) {
-          this.showAlert('เชื่อมต่อเครื่องพิมพ์ออเดอร์สำเร็จ: ' + res.name, '');
-          localStorage.setItem('pos_btPrinterNameOrder', res.name);
-        } else {
-          this.showAlert('เชื่อมต่อไม่สำเร็จ: ' + res.message, '');
-        }
-        this.updatePrinterStatusUI();
-      },
-
-      async disconnectBTPrinterOrder() {
-        await OrderPrinter.disconnect();
-        localStorage.removeItem('pos_btPrinterNameOrder');
-        this.updatePrinterStatusUI();
-        this.showAlert('ตัดการเชื่อมต่อแล้ว', 'ℹ');
-      },
-
-      async testBTPrintOrder() {
-        if (!OrderPrinter.isConnected) {
-          return this.showAlert('กรุณาเชื่อมต่อเครื่องพิมพ์ออเดอร์ก่อน', '');
-        }
-        try {
-          await OrderPrinter.printTest(this.receiptSettings);
-          this.showAlert('ส่งหน้าทดสอบสำเร็จ!', '');
-        } catch (e) {
-          this.showAlert('พิมพ์ไม่สำเร็จ: ' + e.message, '');
-        }
-      },
-
       updatePrinterStatusUI() {
         const statusEl = document.getElementById('bt-printer-status');
         const connectBtn = document.getElementById('btn-bt-connect');
@@ -4468,24 +4421,6 @@ renderReport(r) {
           if (testBtn) testBtn.classList.add('hidden');
           if (navIcon) { navIcon.classList.remove('text-emerald-500'); navIcon.classList.add('text-slate-300'); }
           if (userMenuBtn) userMenuBtn.innerText = ' เชื่อมต่อเครื่องพิมพ์';
-        }
-      
-        // เครื่องพิมพ์ใบสั่งครัว/ออเดอร์ (เครื่องที่ 2)
-        const statusEl2 = document.getElementById('bt-printer-status-2');
-        const connectBtn2 = document.getElementById('btn-bt-connect-2');
-        const disconnectBtn2 = document.getElementById('btn-bt-disconnect-2');
-        const testBtn2 = document.getElementById('btn-bt-test-2');
-
-        if (OrderPrinter.isConnected) {
-          if (statusEl2) statusEl2.innerHTML = 'เชื่อมต่ออยู่: <strong>' + OrderPrinter.deviceName + '</strong>';
-          if (connectBtn2) connectBtn2.classList.add('hidden');
-          if (disconnectBtn2) disconnectBtn2.classList.remove('hidden');
-          if (testBtn2) testBtn2.classList.remove('hidden');
-        } else {
-          if (statusEl2) statusEl2.innerHTML = 'ยังไม่ได้เชื่อมต่อ';
-          if (connectBtn2) connectBtn2.classList.remove('hidden');
-          if (disconnectBtn2) disconnectBtn2.classList.add('hidden');
-          if (testBtn2) testBtn2.classList.add('hidden');
         }
       },
 
