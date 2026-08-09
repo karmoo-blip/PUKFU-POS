@@ -2843,7 +2843,9 @@
           return;
         }
 
-        const addon = { id, name, price, active, createdBy: this.currentSettingsUser ? this.currentSettingsUser.name : '' };
+        /* กัน id ว่างแบบเดียวกับวิธีชำระเงิน */
+        const addonId = id || ('ADDON-' + Date.now());
+        const addon = { id: addonId, name, price, active, createdBy: this.currentSettingsUser ? this.currentSettingsUser.name : '' };
         
         this.closeModal('modal-addon-form');
         this.setIndicator('syncing');
@@ -3279,7 +3281,10 @@ renderReport(r) {
           return;
         }
 
-        const method = { id, name, isCash, enabled, createdBy: this.currentSettingsUser ? this.currentSettingsUser.name : '' };
+        /* ถ้าไม่มี id แปลว่าเป็นการเพิ่มใหม่ ต้องสร้าง id ที่นี่
+           ไม่งั้นจะส่ง id ว่างไปทับรายการเดิมที่ id ว่างเหมือนกัน */
+        const methodId = id || ('PM-' + Date.now());
+        const method = { id: methodId, name, isCash, enabled, createdBy: this.currentSettingsUser ? this.currentSettingsUser.name : '' };
 
         this.closeModal('modal-payment-method-form');
         this.setIndicator('syncing');
