@@ -342,7 +342,8 @@
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
           <p class="text-sm text-slate-400">เช็คสต๊อกวัตถุดิบและรับของเข้า</p>
           <div class="flex gap-2 w-full sm:w-auto">
-            <button onclick="Controller.fetchInventory(this)" class="flex-1 sm:flex-none justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
+            <button onclick="Controller.showInventoryItemForm(null)" class="flex-1 sm:flex-none justify-center items-center flex bg-emerald-500 text-white hover:brightness-95 px-4 py-2 rounded-2xl font-bold transition">+ เพิ่มวัตถุดิบ</button>
+              <button onclick="Controller.fetchInventory(this)" class="flex-1 sm:flex-none justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
             <button onclick="Controller.saveAllInventory()" class="flex-1 sm:flex-none justify-center items-center flex bg-primary text-white hover:brightness-95 px-4 py-2 rounded-2xl font-bold transition shadow-md shadow-primary/30">Save All</button>
           </div>
         </div>
@@ -379,15 +380,6 @@
             </div>
             <button id="btn-remove-logo" onclick="Controller.removeLogo()" class="hidden mt-2 text-xs font-bold text-red-400 hover:underline">ลบโลโก้</button>
             <p class="text-xs text-slate-400 mt-1">แนะนำ: รูปขาวดำ/คอนทราสต์สูง จะพิมพ์ออกมาชัดกว่า</p>
-          </div>
-
-          <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
-            <label class="text-sm font-bold text-slate-500 mb-1 block"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> ล็อกหน้าจออัตโนมัติ</label>
-            <p class="text-xs text-slate-400 mb-2">ล็อกหน้าจอเมื่อไม่มีการใช้งานนานเกินกำหนด (ใส่ 0 = ปิดใช้งาน)</p>
-            <div class="flex items-center gap-2">
-              <input type="number" id="auto-lock-minutes" min="0" max="240" class="w-24 border border-[#fce8e0] rounded-xl p-2 text-center font-bold focus:outline-none focus:border-primary bg-white" placeholder="20">
-              <span class="text-sm font-bold text-slate-400">นาที</span>
-            </div>
           </div>
 
           <div class="mb-4">
@@ -473,6 +465,82 @@
               </div>
             </div>
           </div>
+          
+          <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <label class="text-sm font-bold text-slate-500 mb-1 block">หัวข้อที่แสดงบนใบเสร็จ</label>
+            <p class="text-xs text-slate-400 mb-3">ติ๊กออกเพื่อไม่ให้หัวข้อนั้นพิมพ์ลงใบเสร็จ</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showLogo" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showLogo" class="text-sm font-bold text-slate-500">โลโก้ร้าน</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showHeader" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showHeader" class="text-sm font-bold text-slate-500">ชื่อร้าน (Header)</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showBranch" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showBranch" class="text-sm font-bold text-slate-500">สาขา</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showCompany" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showCompany" class="text-sm font-bold text-slate-500">ชื่อนิติบุคคล</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showBranchNo" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showBranchNo" class="text-sm font-bold text-slate-500">เลขที่สาขา</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showAddress" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showAddress" class="text-sm font-bold text-slate-500">ที่อยู่ร้าน</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showTaxId" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showTaxId" class="text-sm font-bold text-slate-500">เลขประจำตัวผู้เสียภาษี</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showPhone" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showPhone" class="text-sm font-bold text-slate-500">เบอร์โทร</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showDocTitle" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showDocTitle" class="text-sm font-bold text-slate-500">หัวเอกสาร</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showPosId" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showPosId" class="text-sm font-bold text-slate-500">POS ID</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showInvoiceNo" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showInvoiceNo" class="text-sm font-bold text-slate-500">เลขที่บิล (NO.)</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showStaff" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showStaff" class="text-sm font-bold text-slate-500">ชื่อพนักงาน</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showDateTime" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showDateTime" class="text-sm font-bold text-slate-500">วันที่ / เวลา</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showItemNote" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showItemNote" class="text-sm font-bold text-slate-500">หมายเหตุรายการ</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showSummary" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showSummary" class="text-sm font-bold text-slate-500">สรุปจำนวน / ยอดก่อนรวม</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showPayment" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showPayment" class="text-sm font-bold text-slate-500">วิธีชำระเงิน / เงินทอน</label>
+              </div>
+              <div class="flex items-center gap-2">
+                <input type="checkbox" id="rs-showFooter" class="w-4 h-4 rounded text-primary" checked>
+                <label for="rs-showFooter" class="text-sm font-bold text-slate-500">ข้อความส่วนท้าย</label>
+              </div>
+            </div>
+          </div>
+
           <button onclick="Controller.savePrinterSettings()" class="w-full bg-primary text-white py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md shadow-primary/30 mb-4">บันทึกการตั้งค่า</button>
           
           <div class="border-t border-[#fce8e0] pt-4 mt-2">
@@ -486,6 +554,17 @@
             </div>
           </div>
         </div>
+        <div class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm p-6 max-w-md mt-4">
+          <h3 class="font-bold text-lg text-secondary mb-1">ความปลอดภัย</h3>
+          <p class="text-xs text-slate-400 mb-4">ล็อกหน้าจอเมื่อไม่มีการใช้งานนานเกินกำหนด (ใส่ 0 = ปิดใช้งาน)</p>
+          <div class="mb-5 flex items-center gap-2">
+            <label class="text-sm font-bold text-slate-500">ล็อกหน้าจออัตโนมัติ</label>
+            <input type="number" id="auto-lock-minutes" min="0" max="240" class="w-24 border border-[#fce8e0] rounded-xl p-2 text-center font-bold focus:outline-none focus:border-primary bg-white" placeholder="20">
+            <span class="text-sm font-bold text-slate-400">นาที</span>
+          </div>
+          <button onclick="Controller.saveAutoLockSetting()" class="w-full bg-primary text-white py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md shadow-primary/30">บันทึกความปลอดภัย</button>
+        </div>
+
       </div>
 
       <div id="settings-panel-employees" class="settings-panel hidden">
@@ -534,6 +613,9 @@
         </div>
 
         <div id="report-result" class="hidden">
+          <div class="flex justify-end mb-3">
+            <button onclick="Controller.exportReportPDF()" class="bg-secondary text-white px-4 py-2 rounded-xl font-bold text-sm hover:brightness-110 transition">Export PDF</button>
+          </div>
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
             <div class="bg-white p-4 rounded-2xl border border-[#fce8e0] shadow-sm">
               <p class="text-xs text-slate-400 font-bold mb-1">ยอดขายรวม</p>
@@ -1488,32 +1570,32 @@
         }
 
         // ── โลโก้ ──
-        if (settings.logoBase64) {
+        if (settings.logoBase64 && settings.showLogo !== false) {
           try { R.image(doc, await R.loadImage(settings.logoBase64), Math.round(doc.width * 0.45)); }
           catch (e) { console.warn('โหลดโลโก้ไม่สำเร็จ', e); }
         }
 
         // ── ข้อมูลร้าน ──
-        R.text(doc, settings.header || 'Pukfu Coffee', { size: Math.round(S * 1.35), bold: true, align: 'center' });
-        if (settings.branch)   R.text(doc, settings.branch, { size: small, align: 'center' });
-        if (settings.company)  R.text(doc, settings.company, { size: small, align: 'center' });
-        if (settings.branchNo) R.text(doc, 'No. Branch: ' + settings.branchNo, { size: small, align: 'center' });
-        if (settings.address)  R.text(doc, settings.address, { size: small, align: 'center' });
-        if (settings.taxId)    R.text(doc, 'TAX ID: ' + settings.taxId, { size: small, align: 'center' });
-        if (settings.phone)    R.text(doc, 'Tel: ' + settings.phone, { size: small, align: 'center' });
+        if (settings.showHeader !== false) R.text(doc, settings.header || 'Pukfu Coffee', { size: Math.round(S * 1.35), bold: true, align: 'center' });
+        if (settings.branch && settings.showBranch !== false)   R.text(doc, settings.branch, { size: small, align: 'center' });
+        if (settings.company && settings.showCompany !== false)  R.text(doc, settings.company, { size: small, align: 'center' });
+        if (settings.branchNo && settings.showBranchNo !== false) R.text(doc, 'No. Branch: ' + settings.branchNo, { size: small, align: 'center' });
+        if (settings.address && settings.showAddress !== false)  R.text(doc, settings.address, { size: small, align: 'center' });
+        if (settings.taxId && settings.showTaxId !== false)    R.text(doc, 'TAX ID: ' + settings.taxId, { size: small, align: 'center' });
+        if (settings.phone && settings.showPhone !== false)    R.text(doc, 'Tel: ' + settings.phone, { size: small, align: 'center' });
 
         // ── หัวเอกสาร ──
         R.gap(doc, 10);
-        R.text(doc, settings.docTitle || 'Receipt / TAX Invoice (ABB)', { size: Math.round(S * 1.05), bold: true, align: 'center' });
+        if (settings.showDocTitle !== false) R.text(doc, settings.docTitle || 'Receipt / TAX Invoice (ABB)', { size: Math.round(S * 1.05), bold: true, align: 'center' });
         if (settings.vatEnabled) R.text(doc, 'VAT Included', { size: Math.round(S * 1.05), bold: true, align: 'center' });
         R.rule(doc);
 
         // ── ข้อมูลบิล ──
-        if (settings.posId) R.text(doc, 'POS ID: ' + settings.posId, { size: small });
-        R.text(doc, 'NO.: ' + order.invoice, { size: small });
+        if (settings.posId && settings.showPosId !== false) R.text(doc, 'POS ID: ' + settings.posId, { size: small });
+        if (settings.showInvoiceNo !== false) R.text(doc, 'NO.: ' + order.invoice, { size: small });
         if (q) R.text(doc, 'Queue: ' + q, { size: small });
-        if (order.cashier) R.text(doc, 'Staff: ' + order.cashier, { size: small });
-        R.lr(doc, 'Date: ' + dateStr, 'Time: ' + timeStr, { size: small });
+        if (order.cashier && settings.showStaff !== false) R.text(doc, 'Staff: ' + order.cashier, { size: small });
+        if (settings.showDateTime !== false) R.lr(doc, 'Date: ' + dateStr, 'Time: ' + timeStr, { size: small });
         R.rule(doc);
 
         // ── รายการสินค้า ──
@@ -1521,15 +1603,15 @@
           if (doc._hasItem) R.gap(doc, 17);
           doc._hasItem = true;
           R.row3(doc, item.qty, item.name, money(item.price * item.qty), { size: small });
-          if (item.note) R.text(doc, item.note, { size: Math.round(S * 0.8), indent: Math.round(S * 1.7) });
+          if (item.note && settings.showItemNote !== false) R.text(doc, item.note, { size: Math.round(S * 0.8), indent: Math.round(S * 1.7) });
         });
         R.rule(doc);
 
         // ── สรุปยอด ──
         const count = order.items.reduce((s, i) => s + Number(i.qty || 0), 0);
         const subtotal = order.subtotal || (order.total + (order.discount || 0));
-        R.text(doc, 'Items: ' + count, { size: small });
-        R.lr(doc, 'Subtotal:', money(subtotal), { size: small, indent: Math.round(doc.width * 0.35) });
+        if (settings.showSummary !== false) R.text(doc, 'Items: ' + count, { size: small });
+        if (settings.showSummary !== false) R.lr(doc, 'Subtotal:', money(subtotal), { size: small, indent: Math.round(doc.width * 0.35) });
         if (order.discount && order.discount > 0) {
           R.lr(doc, 'Discount:', order.discountLabel || ('-' + money(order.discount)), { size: small, indent: Math.round(doc.width * 0.35) });
         }
@@ -1543,8 +1625,8 @@
         R.rule(doc);
 
         // ── วิธีชำระเงิน ──
-        R.lr(doc, order.paymentType || '-', money(order.total), { size: small });
-        if (order.cashReceived) {
+        if (settings.showPayment !== false) R.lr(doc, order.paymentType || '-', money(order.total), { size: small });
+        if (order.cashReceived && settings.showPayment !== false) {
           R.lr(doc, 'Received:', money(order.cashReceived), { size: small });
           R.lr(doc, 'Change:', money(order.changeAmount || 0), { size: small });
         }
@@ -1552,7 +1634,7 @@
 
         // ── ข้อความท้ายใบเสร็จ ──
         R.gap(doc, 6);
-        R.text(doc, settings.footer || 'Thank You', { size: small, align: 'center' });
+        if (settings.showFooter !== false) R.text(doc, settings.footer || 'Thank You', { size: small, align: 'center' });
         return await this.docToBytes(doc);
       },
       // ─── สร้างใบสั่งทำ (Order Slip) ───
@@ -2082,7 +2164,8 @@
               
               <div class="flex-1 min-w-0 flex items-center justify-between lg:block">
                 <p class="font-bold text-secondary text-lg truncate">${item.name}</p>
-                <span id="inv-changed-${idx}" class="lg:hidden hidden text-amber-500 font-bold text-xs whitespace-nowrap ml-2">● แก้ไข</span>
+                <button onclick="Controller.deleteInventoryItemConfirm('${item.id}')" class="ml-2 text-xs font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ลบ</button>
+                  <span id="inv-changed-${idx}" class="lg:hidden hidden text-amber-500 font-bold text-xs whitespace-nowrap ml-2">● แก้ไข</span>
               </div>
 
               <div class="flex items-center justify-between lg:justify-center bg-slate-100 lg:bg-transparent p-2.5 lg:p-0 rounded-xl">
@@ -2287,6 +2370,7 @@
           document.getElementById('printer-paper-size').value = this.receiptSettings.paperSize || '80mm';
           this.renderLogoPreview();
           document.getElementById('auto-lock-minutes').value = this.autoLockMinutes;
+            this.applyReceiptToggles();
           document.getElementById('shop-address').value = this.shopInfo.address || '';
           document.getElementById('shop-phone').value = this.shopInfo.phone || '';
           document.getElementById('shop-tax-id').value = this.shopInfo.taxId || '';
@@ -2366,7 +2450,7 @@
             <div class="flex gap-3 shrink-0">
               ${canManage ? `
                 <button onclick="Controller.openEmployeeForm('${emp.id}')" class="text-sm font-bold text-primary hover:underline">แก้ไข</button>
-                <button onclick="Controller.deleteEmployeeConfirm('${emp.id}')" class="text-sm font-bold text-red-400 hover:underline">ลบ</button>
+                <button onclick="Controller.deleteEmployeeConfirm('${emp.id}', '${escAttr(emp.name)}')" class="text-sm font-bold text-red-400 hover:underline">ลบ</button>
               ` : `<span class="text-xs text-slate-300 font-bold"> ดูได้อย่างเดียว</span>`}
             </div>
           </div>
@@ -2517,8 +2601,8 @@
           .saveEmployee(emp);
       },
 
-      async deleteEmployeeConfirm(id) {
-        const emp = this.employeeList.find(e => e.id === id);
+      async deleteEmployeeConfirm(id, name) {
+        const emp = this.employeeList.find(e => e.id === id) || this.employeeList.find(e => !e.id && (e.name || '') === (name || ''));
         if (emp && !this.canManageEmployee(emp)) {
           return this.showAlert('คุณไม่มีสิทธิ์ลบพนักงานคนนี้', '');
         }
@@ -2530,14 +2614,14 @@
         google.script.run
           .withSuccessHandler(() => {
             this.hideLoading();
-            this.logPinAttempt(`ลบพนักงาน: ${emp.name}`, true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
+            this.logPinAttempt(`ลบพนักงาน: ${emp ? emp.name : name || id}`, true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
             this.fetchEmployeeList();
           })
           .withFailureHandler(() => {
             this.hideLoading();
             this.showAlert('ลบไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
           })
-          .deleteEmployee(id);
+          .deleteEmployee({ id: emp ? emp.id : id, name: emp ? emp.name : name });
       },
 
        fetchAccessLog(btn) {
@@ -2817,7 +2901,219 @@
           .getSummaryByRange(start, end);
       },
 
-      renderReport(r) {
+              readReceiptToggles() {
+          const keys = ['showLogo','showHeader','showBranch','showCompany','showBranchNo','showAddress','showTaxId','showPhone','showDocTitle','showPosId','showInvoiceNo','showStaff','showDateTime','showItemNote','showSummary','showPayment','showFooter'];
+          const out = {};
+          keys.forEach(k => {
+            const el = document.getElementById('rs-' + k);
+            out[k] = el ? el.checked : this.receiptSettings[k] !== false;
+          });
+          return out;
+        },
+
+        applyReceiptToggles() {
+          const keys = ['showLogo','showHeader','showBranch','showCompany','showBranchNo','showAddress','showTaxId','showPhone','showDocTitle','showPosId','showInvoiceNo','showStaff','showDateTime','showItemNote','showSummary','showPayment','showFooter'];
+          keys.forEach(k => {
+            const el = document.getElementById('rs-' + k);
+            if (el) el.checked = this.receiptSettings[k] !== false;
+          });
+        },
+
+        saveAutoLockSetting() {
+          const el = document.getElementById('auto-lock-minutes');
+          const v = Number(el ? el.value : this.autoLockMinutes);
+          this.autoLockMinutes = isNaN(v) || v < 0 ? 10 : v;
+          localStorage.setItem('pos_autoLockMinutes', this.autoLockMinutes);
+          this.resetAutoLockTimer();
+          this.showAlert('บันทึกเวลาล็อกหน้าจอแล้ว', '');
+        },
+
+        exportReportPDF() {
+          const r = this.lastReport;
+          if (!r) return this.showAlert('กรุณากดดูรายงานก่อน', '');
+          const start = document.getElementById('report-start').value;
+          const end = document.getElementById('report-end').value;
+          const money = n => '฿' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+          const shopName = (this.receiptSettings && this.receiptSettings.header) || 'PUKFU';
+          const rows = [
+            ['ยอดขายรวม', money(r.total)],
+            ['กำไร', money(r.totalProfit)],
+            ['ต้นทุนรวม', money(r.totalCost)],
+            ['จำนวนบิล', String(r.billCount || 0)],
+            ['จำนวนแก้ว', String(r.cupCount || 0)],
+            ['เฉลี่ยต่อบิล', money(r.avgPerBill)],
+            ['เงินสด', money(r.cash)],
+            ['ช่องทางอื่น', money(r.other)]
+          ];
+          const byType = Object.entries(r.byType || {}).map(e => '<tr><td>' + esc(e[0]) + '</td><td class="num">' + money(e[1]) + '</td></tr>').join('');
+          const top = (r.topSellers || []).map((it, i) => '<tr><td>' + (i + 1) + '. ' + esc(it.name) + '</td><td class="num">' + (it.qty || 0) + '</td><td class="num">' + money(it.amount) + '</td></tr>').join('');
+          const daily = (r.daily || []).map(d => '<tr><td>' + esc(d.date) + '</td><td class="num">' + (d.bills || 0) + '</td><td class="num">' + (d.cups || 0) + '</td><td class="num">' + money(d.total) + '</td></tr>').join('');
+          const doc = '<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>Report ' + esc(start) + ' - ' + esc(end) + '</title>'
+            + '<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;700&display=swap" rel="stylesheet">'
+            + '<style>*{font-family:Sarabun,Arial,sans-serif}body{margin:28px;color:#1f2937}h1{font-size:20px;margin:0 0 4px}h2{font-size:14px;margin:22px 0 6px;border-bottom:1px solid #ddd;padding-bottom:4px}p.sub{margin:0 0 18px;color:#6b7280;font-size:12px}table{width:100%;border-collapse:collapse;font-size:12px}td,th{padding:6px 4px;border-bottom:1px solid #eee;text-align:left}.num{text-align:right}@media print{body{margin:12mm}}</style></head><body>'
+            + '<h1>รายงานยอดขาย - ' + esc(shopName) + '</h1>'
+            + '<p class="sub">ช่วงวันที่ ' + esc(start) + ' ถึง ' + esc(end) + ' | พิมพ์เมื่อ ' + new Date().toLocaleString('th-TH') + '</p>'
+            + '<h2>สรุปรวม</h2><table>' + rows.map(x => '<tr><td>' + x[0] + '</td><td class="num">' + x[1] + '</td></tr>').join('') + '</table>'
+            + '<h2>แยกตามวิธีชำระเงิน</h2><table>' + (byType || '<tr><td>ไม่มีข้อมูล</td></tr>') + '</table>'
+            + '<h2>เมนูขายดี</h2><table>' + (top || '<tr><td>ไม่มีข้อมูล</td></tr>') + '</table>'
+            + '<h2>รายวัน</h2><table><tr><th>วันที่</th><th class="num">บิล</th><th class="num">แก้ว</th><th class="num">ยอด</th></tr>' + (daily || '<tr><td>ไม่มีข้อมูล</td></tr>') + '</table>'
+            + '</body></html>';
+          const w = window.open('', '_blank');
+          if (!w) return this.showAlert('เบราว์เซอร์บล็อกหน้าต่างใหม่ กรุณาอนุญาต popup แล้วลองอีกครั้ง', '');
+          w.document.open();
+          w.document.write(doc);
+          w.document.close();
+          setTimeout(() => { try { w.focus(); w.print(); } catch (e) {} }, 700);
+        },
+
+        showInventoryItemForm(item) {
+          const old = document.getElementById('modal-inv-item');
+          if (old) old.remove();
+          const it = item || { id: '', name: '', unit: '', stock: 0 };
+          const q = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
+          const wrap = document.createElement('div');
+          wrap.id = 'modal-inv-item';
+          wrap.className = 'fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
+          wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-xl">'
+            + '<h3 class="font-bold text-lg text-secondary mb-4">' + (item ? 'แก้ไขวัตถุดิบ' : 'เพิ่มวัตถุดิบ') + '</h3>'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อวัตถุดิบ</label>'
+            + '<input id="inv-item-name" class="w-full border border-[#fce8e0] rounded-xl p-2.5 mb-3" value="' + q(it.name) + '">'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">หน่วย</label>'
+            + '<input id="inv-item-unit" class="w-full border border-[#fce8e0] rounded-xl p-2.5 mb-3" value="' + q(it.unit) + '">'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">จำนวนคงเหลือ</label>'
+            + '<input id="inv-item-stock" type="number" class="w-full border border-[#fce8e0] rounded-xl p-2.5 mb-5" value="' + (Number(it.stock) || 0) + '">'
+            + '<div class="flex gap-2">'
+            + '<button onclick="Controller.closeInventoryItemForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
+            + '<button onclick="Controller.saveInventoryItemForm()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึก</button>'
+            + '</div></div>';
+          this.editingInventoryId = it.id || '';
+          document.body.appendChild(wrap);
+        },
+
+        closeInventoryItemForm() {
+          const m = document.getElementById('modal-inv-item');
+          if (m) m.remove();
+        },
+
+        saveInventoryItemForm() {
+          const name = document.getElementById('inv-item-name').value.trim();
+          const unit = document.getElementById('inv-item-unit').value.trim();
+          const stock = Number(document.getElementById('inv-item-stock').value) || 0;
+          if (!name) return this.showAlert('กรุณากรอกชื่อวัตถุดิบ', '');
+          const id = this.editingInventoryId || '';
+          this.closeInventoryItemForm();
+          this.showLoading();
+          google.script.run
+            .withSuccessHandler(res => {
+              this.hideLoading();
+              if (res && res.success) {
+                this.fetchInventory();
+                this.showAlert('บันทึกวัตถุดิบแล้ว', '');
+              } else {
+                this.showAlert((res && res.error) || 'บันทึกไม่สำเร็จ', '');
+              }
+            })
+            .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+            .saveInventoryItem({ id: id, name: name, unit: unit, stock: stock });
+        },
+
+        async deleteInventoryItemConfirm(id) {
+          const item = (this.inventoryData || []).find(x => String(x.id) === String(id));
+          const ok = await this.showConfirm('ต้องการลบ "' + (item ? item.name : id) + '" ออกจากคลังหรือไม่?', '');
+          if (!ok) return;
+          this.showLoading();
+          google.script.run
+            .withSuccessHandler(res => {
+              this.hideLoading();
+              if (res && res.success) {
+                this.logPinAttempt('ลบวัตถุดิบ: ' + (item ? item.name : id), true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
+                this.fetchInventory();
+                this.showAlert('ลบวัตถุดิบแล้ว', '');
+              } else {
+                this.showAlert('ลบไม่สำเร็จ (ไม่พบรายการนี้)', '');
+              }
+            })
+            .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+            .deleteInventoryItem(id);
+        },
+
+        openEditBill(invoice) {
+          const order = this.findOrderByInvoice(invoice);
+          if (!order) return this.showAlert('ไม่พบบิลนี้', '');
+          const items = (order.items || []).filter(it => !it.cancelled);
+          const noId = items.some(it => it.id === undefined || it.id === null);
+          this.editBillData = { invoice: order.invoice, note: order.note || '', paymentType: order.paymentType || '', items: items.map(it => ({ id: it.id, name: it.name, qty: it.qty, price: it.price, note: it.note || '' })) };
+          const q = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
+          const old = document.getElementById('modal-edit-bill');
+          if (old) old.remove();
+          const pm = (this.paymentMethods || []).map(m => '<option value="' + q(m.name) + '"' + (m.name === order.paymentType ? ' selected' : '') + '>' + m.name + '</option>').join('');
+          const rows = this.editBillData.items.map((it, i) => '<div class="flex items-center gap-2 py-2 border-b border-slate-100">'
+            + '<div class="flex-1 min-w-0"><p class="font-bold text-sm truncate">' + it.name + '</p>' + (it.note ? '<p class="text-xs text-slate-400 truncate">' + it.note + '</p>' : '') + '</div>'
+            + '<input type="number" min="0" id="eb-qty-' + i + '" value="' + (it.qty || 0) + '" class="w-16 border border-slate-200 rounded-lg p-1.5 text-center font-bold">'
+            + '<input type="number" min="0" step="0.01" id="eb-price-' + i + '" value="' + (it.price || 0) + '" class="w-20 border border-slate-200 rounded-lg p-1.5 text-center font-bold">'
+            + '</div>').join('');
+          const wrap = document.createElement('div');
+          wrap.id = 'modal-edit-bill';
+          wrap.className = 'fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
+          wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-xl max-h-[85vh] overflow-y-auto">'
+            + '<h3 class="font-bold text-lg text-secondary mb-1">แก้ไขบิลย้อนหลัง</h3>'
+            + '<p class="text-xs text-slate-400 mb-4">' + q(order.invoice) + '</p>'
+            + (noId ? '<p class="text-xs text-red-500 font-bold mb-3">บิลนี้เป็นข้อมูลเก่าที่ไม่มีรหัสรายการ จะแก้ได้เฉพาะวิธีชำระเงินและหมายเหตุ</p>' : '')
+            + '<div class="flex items-center gap-2 text-[11px] font-bold text-slate-400 mb-1"><div class="flex-1">รายการ</div><div class="w-16 text-center">จำนวน</div><div class="w-20 text-center">ราคา</div></div>'
+            + '<div class="mb-4">' + (rows || '<p class="text-sm text-slate-400 py-3">ไม่มีรายการสินค้า</p>') + '</div>'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">วิธีชำระเงิน</label>'
+            + '<select id="eb-payment" class="w-full border border-[#fce8e0] rounded-xl p-2.5 mb-3">' + pm + '</select>'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">หมายเหตุบิล</label>'
+            + '<input id="eb-note" class="w-full border border-[#fce8e0] rounded-xl p-2.5 mb-5" value="' + q(order.note) + '">'
+            + '<div class="flex gap-2">'
+            + '<button onclick="Controller.closeEditBill()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
+            + '<button onclick="Controller.saveEditBill()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึกการแก้ไข</button>'
+            + '</div>'
+            + '<p class="text-[10px] text-slate-400 mt-3">ใส่จำนวนเป็น 0 เพื่อลบรายการนั้นออกจากบิล ระบบจะคำนวณยอดรวมใหม่ให้อัตโนมัติ</p>'
+            + '</div>';
+          document.body.appendChild(wrap);
+        },
+
+        closeEditBill() {
+          const m = document.getElementById('modal-edit-bill');
+          if (m) m.remove();
+        },
+
+        async saveEditBill() {
+          const data = this.editBillData;
+          if (!data) return;
+          const items = data.items.map((it, i) => {
+            const qe = document.getElementById('eb-qty-' + i);
+            const pe = document.getElementById('eb-price-' + i);
+            return { id: it.id, qty: qe ? Number(qe.value) || 0 : it.qty, price: pe ? Number(pe.value) || 0 : it.price, note: it.note || '' };
+          }).filter(it => it.id !== undefined && it.id !== null);
+          const payEl = document.getElementById('eb-payment');
+          const noteEl = document.getElementById('eb-note');
+          const paymentType = payEl ? payEl.value : '';
+          const note = noteEl ? noteEl.value : '';
+          const ok = await this.showConfirm('ยืนยันบันทึกการแก้ไขบิล ' + data.invoice + ' หรือไม่?', '');
+          if (!ok) return;
+          this.closeEditBill();
+          this.showLoading();
+          google.script.run
+            .withSuccessHandler(res => {
+              this.hideLoading();
+              if (res && res.success) {
+                this.logPinAttempt('แก้ไขบิล: ' + data.invoice, true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
+                this.showAlert('บันทึกการแก้ไขแล้ว', '');
+                if (this.historyViewDate) this.loadHistoryDate(this.historyViewDate);
+                else this.fetchServerData();
+              } else {
+                this.showAlert((res && res.error) || 'แก้ไขไม่สำเร็จ', '');
+              }
+            })
+            .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+            .updateOrderDetails({ invoice: data.invoice, items: items, paymentType: paymentType, note: note });
+        },
+
+renderReport(r) {
+          this.lastReport = r;
         const fmt = n => `฿${(n || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
 
         document.getElementById('report-result').classList.remove('hidden');
@@ -3691,8 +3987,8 @@
         `;
         
         const dateStr = new Date(order.timestamp).toLocaleString('th-TH');
-        const header = this.receiptSettings.header || 'Pukfu POS';
-        const footer = this.receiptSettings.footer || 'Thank You';
+        const header = this.receiptSettings.showHeader === false ? '' : this.receiptSettings.header || 'Pukfu POS';
+        const footer = this.receiptSettings.showFooter === false ? '' : this.receiptSettings.footer || 'Thank You';
         
         let itemsHtml = order.items.map(item => `
           <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
@@ -3734,14 +4030,14 @@
           `;
         }
 
-        const logoHtml = this.receiptSettings.logoBase64
+        const logoHtml = this.receiptSettings.logoBase64 && this.receiptSettings.showLogo !== false
           ? `<div style="text-align:center; margin-bottom:8px;"><img src="${this.receiptSettings.logoBase64}" style="display:block; margin:0 auto; max-width:75%; max-height:120px; object-fit:contain;"></div>`
           : '';
 
         const shopInfoHtml = `
-          ${this.shopInfo.address ? `<div style="text-align:center; font-size:0.8em; margin-bottom:2px;">${this.shopInfo.address}</div>` : ''}
-          ${this.shopInfo.phone ? `<div style="text-align:center; font-size:0.8em; margin-bottom:2px;">โทร: ${this.shopInfo.phone}</div>` : ''}
-          ${this.shopInfo.taxId ? `<div style="text-align:center; font-size:0.8em; margin-bottom:8px;">เลขผู้เสียภาษี: ${this.shopInfo.taxId}</div>` : ''}
+          ${this.shopInfo.address && this.receiptSettings.showAddress !== false ? `<div style="text-align:center; font-size:0.8em; margin-bottom:2px;">${this.shopInfo.address}</div>` : ''}
+          ${this.shopInfo.phone && this.receiptSettings.showPhone !== false ? `<div style="text-align:center; font-size:0.8em; margin-bottom:2px;">โทร: ${this.shopInfo.phone}</div>` : ''}
+          ${this.shopInfo.taxId && this.receiptSettings.showTaxId !== false ? `<div style="text-align:center; font-size:0.8em; margin-bottom:8px;">เลขผู้เสียภาษี: ${this.shopInfo.taxId}</div>` : ''}
         `;
 
         const discountHtml = (order.discount && order.discount > 0) ? `
@@ -3820,7 +4116,8 @@
           autoPrint: document.getElementById('printer-auto-print').checked,
           showQueue: document.getElementById('printer-show-queue').checked,
           printOrderSlip: document.getElementById('printer-print-order-slip').checked,
-          paperSize: document.getElementById('printer-paper-size').value
+          paperSize: document.getElementById('printer-paper-size').value,
+            ...this.readReceiptToggles()
         };
         if (this.receiptSettings.paperSize !== oldPaperSize && this.receiptSettings.logoBase64) {
           await this.regenerateLogoRaster();
@@ -4312,7 +4609,12 @@
             }
             html += '</div>';
           }
-          if (h.cancelReason) {
+          if (!off) {
+              html += '<div class="mt-2 flex flex-wrap justify-end gap-x-3 gap-y-1">';
+              html += '<button onclick="Controller.openEditBill(\'' + h.invoice + '\')" class="text-xs font-bold text-primary hover:underline whitespace-nowrap">แก้ไขบิล</button>';
+              html += '</div>';
+            }
+            if (h.cancelReason) {
             html += '<div class="mt-2 bg-red-50 text-red-500 text-xs font-bold px-3 py-2 rounded-lg">ยกเลิกแล้ว: ' + h.cancelReason + '</div>';
           }
           html += '</div>';
@@ -4374,7 +4676,8 @@
               : isWaste
               ? `<div class="mt-2 bg-orange-50 text-orange-500 text-xs font-bold px-3 py-2 rounded-lg"> ของเสีย: ${h.cancelReason}</div>`
               : `<div class="mt-2 flex flex-wrap justify-end gap-x-3 gap-y-1">
-                   <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.printReceiptByInvoice(this.dataset.invoice)" class="text-xs font-bold text-slate-400 hover:text-slate-600 hover:underline whitespace-nowrap"> พิมพ์</button>
+                   <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.openEditBill(this.dataset.invoice)" class="text-xs font-bold text-primary hover:text-primary hover:underline whitespace-nowrap">แก้ไขบิล</button>
+                            <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.printReceiptByInvoice(this.dataset.invoice)" class="text-xs font-bold text-slate-400 hover:text-slate-600 hover:underline whitespace-nowrap"> พิมพ์</button>
                    <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.markAsWaste(this.dataset.invoice)" class="text-xs font-bold text-orange-400 hover:text-orange-600 hover:underline whitespace-nowrap">บันทึกของเสีย</button>
                    <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.cancelOrder(this.dataset.invoice)" class="text-xs font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ยกเลิกบิล</button>
                  </div>`
@@ -4461,7 +4764,7 @@
       },
 
       findOrderByInvoice(invoice) {
-        return this.syncQueue.find(o => o.invoice === invoice) || this.history.find(o => o.invoice === invoice);
+        return this.syncQueue.find(o => o.invoice === invoice) || this.history.find(o => o.invoice === invoice) || (this.historyViewData || []).find(o => o.invoice === invoice);
       },
 
       printReceiptByInvoice(invoice) {
