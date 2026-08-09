@@ -19,7 +19,7 @@
 
   <!--  สำหรับฝั่ง Android (Chrome) -->
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="theme-color" content="#f2685c"> <!-- สีนี้จะเปลี่ยนแถบด้านบนสุดของเครื่อง Android ให้เป็นสีส้มพีชของร้านคุณ -->
+  <meta name="theme-color" content="#154360"> <!-- สีนี้จะเปลี่ยนแถบด้านบนสุดของเครื่อง Android ให้เป็นสีส้มพีชของร้านคุณ -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
@@ -29,9 +29,11 @@
       theme: {
         extend: {
           colors: { 
-            primary: '#f2685c',    /* ส้มพีชสดอบอุ่น เข้มขึ้นจากเดิม เห็นชัดกว่า */
-            secondary: '#5a3d47',  /* น้ำตาลม่วงเข้มขึ้น ให้ตัวหนังสือคมชัดอ่านง่าย */
-            accent: '#ffe4d6'      /* ส้มพีชอ่อน สำหรับพื้นหลังไฮไลต์ */
+            primary: '#154360',    /* Navy Blue - สีหลัก ปุ่ม/หัวข้อ */
+            secondary: '#0f3550',  /* Navy เข้ม - สีตัวหนังสือ */
+            accent: '#fff3d1',     /* Mustard อ่อน - พื้นหลังไฮไลต์ */
+            mustard: '#ffdb58',    /* Mustard Yellow */
+            navy: '#154360'        /* Navy Blue */
           },
           fontFamily: { sarabun: ['Sarabun', 'sans-serif'] }
         }
@@ -103,12 +105,45 @@
         size: 80mm auto;
       }
     }
+
+    /* ===== Pill Checkbox : ปุ่มกดเลือกแบบ Toggle ===== */
+    input[type="checkbox"], input[type="radio"] { accent-color: #154360; }
+
+    div:has(> input[type="checkbox"][id^="rs-show"]),
+    label:has(> input.emp-perm-checkbox) {
+      display: flex; align-items: center; justify-content: center;
+      gap: 0; text-align: center;
+      padding: 0.55rem 0.85rem;
+      border-radius: 9999px;
+      background: #fdf3dd;
+      border: 1.5px solid #efe3c4;
+      color: #0f3550;
+      font-weight: 700; font-size: 0.8rem; line-height: 1.2;
+      cursor: pointer; -webkit-user-select: none; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background-color .18s ease, color .18s ease, border-color .18s ease, transform .12s ease;
+    }
+    div:has(> input[type="checkbox"][id^="rs-show"]) > label {
+      color: inherit !important; font-size: inherit !important; font-weight: 700; cursor: pointer;
+    }
+    div:has(> input[type="checkbox"][id^="rs-show"]) > input[type="checkbox"],
+    label > input.emp-perm-checkbox {
+      position: absolute; opacity: 0; width: 0; height: 0; margin: 0; pointer-events: none;
+    }
+    div:has(> input[type="checkbox"][id^="rs-show"]:checked),
+    label:has(> input.emp-perm-checkbox:checked) {
+      background: #154360; border-color: #154360; color: #ffdb58;
+    }
+    div:has(> input[type="checkbox"][id^="rs-show"]:checked) > label { color: #ffdb58 !important; }
+    div:has(> input[type="checkbox"][id^="rs-show"]):active,
+    label:has(> input.emp-perm-checkbox):active { transform: scale(0.96); }
+
   </style>
 </head>
-<body class="font-sarabun bg-[#fdf6f2] h-[100dvh] flex flex-col overflow-hidden text-[#6b5f6a]">
+<body class="font-sarabun bg-[#fffdf5] h-[100dvh] flex flex-col overflow-hidden text-[#6b5f6a]">
 
   <!--  หน้าจอล็อก PIN (แสดงทับทุกอย่างจนกว่าจะใส่ PIN ถูก) -->
-  <div id="pin-lock-screen" class="fixed inset-0 bg-[#fdf6f2] z-[100] flex flex-col items-center justify-center p-6">
+  <div id="pin-lock-screen" class="fixed inset-0 bg-[#fffdf5] z-[100] flex flex-col items-center justify-center p-6">
     <div class="w-full max-w-xs text-center">
       <div class="w-16 h-16 bg-primary/15 rounded-3xl flex items-center justify-center text-primary font-bold text-2xl mx-auto mb-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M5 8h11v6a5 5 0 0 1-10 0z"/><path d="M16 9h2a2 2 0 0 1 0 4h-2"/><path d="M4 21h14"/></svg></div>
       <h2 class="text-xl font-bold text-secondary mb-1">POS Pukfu</h2>
@@ -126,23 +161,23 @@
       <p id="pin-lock-error" class="hidden text-red-500 text-sm font-bold mb-4">PIN ไม่ถูกต้อง กรุณาลองใหม่</p>
 
       <div class="grid grid-cols-3 gap-3">
-        <button onclick="Controller.pinKeyPress('1')" class="bg-white border border-[#fce8e0] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">1</button>
-        <button onclick="Controller.pinKeyPress('2')" class="bg-white border border-[#fce8e0] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">2</button>
-        <button onclick="Controller.pinKeyPress('3')" class="bg-white border border-[#fce8e0] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">3</button>
-        <button onclick="Controller.pinKeyPress('4')" class="bg-white border border-[#fce8e0] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">4</button>
-        <button onclick="Controller.pinKeyPress('5')" class="bg-white border border-[#fce8e0] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">5</button>
-        <button onclick="Controller.pinKeyPress('6')" class="bg-white border border-[#fce8e0] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">6</button>
-        <button onclick="Controller.pinKeyPress('7')" class="bg-white border border-[#fce8e0] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">7</button>
-        <button onclick="Controller.pinKeyPress('8')" class="bg-white border border-[#fce8e0] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">8</button>
-        <button onclick="Controller.pinKeyPress('9')" class="bg-white border border-[#fce8e0] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">9</button>
+        <button onclick="Controller.pinKeyPress('1')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">1</button>
+        <button onclick="Controller.pinKeyPress('2')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">2</button>
+        <button onclick="Controller.pinKeyPress('3')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">3</button>
+        <button onclick="Controller.pinKeyPress('4')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">4</button>
+        <button onclick="Controller.pinKeyPress('5')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">5</button>
+        <button onclick="Controller.pinKeyPress('6')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">6</button>
+        <button onclick="Controller.pinKeyPress('7')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">7</button>
+        <button onclick="Controller.pinKeyPress('8')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">8</button>
+        <button onclick="Controller.pinKeyPress('9')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">9</button>
         <button onclick="Controller.pinBackspace()" class="bg-red-50 text-red-400 py-4 rounded-2xl text-lg font-bold hover:bg-red-100">⌫</button>
-        <button onclick="Controller.pinKeyPress('0')" class="bg-white border border-[#fce8e0] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">0</button>
+        <button onclick="Controller.pinKeyPress('0')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">0</button>
         <button onclick="Controller.pinClear()" class="bg-slate-100 text-slate-400 py-4 rounded-2xl text-sm font-bold hover:bg-slate-200">ล้าง</button>
       </div>
     </div>
   </div>
 
-  <nav class="bg-white border-b border-[#fce8e0] h-16 flex items-center justify-between px-4 lg:px-6 z-20 shadow-sm">
+  <nav class="bg-white border-b border-[#efe3c4] h-16 flex items-center justify-between px-4 lg:px-6 z-20 shadow-sm">
     <div class="flex items-center gap-4">
       <!-- กด PUKFU เพื่อกลับหน้า POS แทนปุ่ม POS/แฮมเบอร์เกอร์เดิม ให้แถบบนดูโล่งขึ้น -->
       <button onclick="Controller.switchView('pos')" class="flex items-center gap-2 hover:opacity-75 transition-opacity">
@@ -169,10 +204,10 @@
   <!-- เมนู dropdown ของพนักงาน: วางเป็น fixed ระดับ body แยกจาก nav ทั้งหมด (ตำแหน่งคำนวณด้วย JS ตอนเปิด)
        เพราะตอนวางซ้อนอยู่ใน nav แบบ absolute โดนกล่องอื่นในหน้า (เช่นแผงตะกร้า) วาดทับ -->
   <div id="user-menu-backdrop" class="hidden fixed inset-0 z-40" onclick="Controller.toggleUserMenu()"></div>
-  <div id="user-menu-dropdown" class="hidden fixed w-60 bg-white rounded-2xl shadow-xl border border-[#fce8e0] z-50 overflow-hidden">
+  <div id="user-menu-dropdown" class="hidden fixed w-60 bg-white rounded-2xl shadow-xl border border-[#efe3c4] z-50 overflow-hidden">
     <button onclick="Controller.toggleUserMenu(); Controller.openSettings()" class="w-full text-left px-4 py-3 text-sm font-bold text-secondary hover:bg-accent transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg> ตั้งค่า</button>
     <button id="user-menu-printer-btn" onclick="Controller.toggleUserMenu(); Controller.togglePrinterFromUserMenu()" class="w-full text-left px-4 py-3 text-sm font-bold text-secondary hover:bg-accent transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg> เชื่อมต่อเครื่องพิมพ์</button>
-    <div class="border-t border-[#fce8e0]"></div>
+    <div class="border-t border-[#efe3c4]"></div>
     <button onclick="Controller.toggleUserMenu(); Controller.lockApp()" class="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> ออกจากระบบ</button>
   </div>
 
@@ -180,7 +215,7 @@
     <!-- หน้า POS (หน้าแรก) -->
 
     <div id="view-pos" class="view hidden h-full flex flex-col lg:flex-row">
-      <div id="pos-content-scroll" class="flex-1 overflow-y-auto p-4 lg:p-6 bg-[#fdf6f2] relative">
+      <div id="pos-content-scroll" class="flex-1 overflow-y-auto p-4 lg:p-6 bg-[#fffdf5] relative">
         
         <div id="stock-mode-alert" class="hidden mb-4 bg-amber-500 text-white font-bold px-4 py-3 rounded-xl shadow-md flex justify-between items-center">
           <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M12 3l9 16H3z"/><path d="M12 9v5M12 17h.01"/></svg> อยู่ในโหมดจัดการสต๊อก: คลิกที่สินค้าเพื่อสลับสถานะ Sold Out</span>
@@ -195,10 +230,10 @@
       </div>
 
             <!-- ส่วนของตะกร้าสินค้า (Cart Section) -->
-      <div id="cart-container" class="w-full lg:w-[400px] bg-white lg:shadow-sm shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] flex flex-col h-[72px] lg:h-full border-t lg:border-t-0 lg:border-l border-[#fce8e0] shrink-0 transition-all duration-300 z-30">
+      <div id="cart-container" class="w-full lg:w-[400px] bg-white lg:shadow-sm shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] flex flex-col h-[72px] lg:h-full border-t lg:border-t-0 lg:border-l border-[#efe3c4] shrink-0 transition-all duration-300 z-30">
         
         <!-- Cart Header -->
-        <div class="p-4 lg:p-5 bg-white border-b border-[#fce8e0] flex justify-between items-center cursor-pointer lg:cursor-default h-[72px] shrink-0" onclick="Controller.toggleMobileCart()">
+        <div class="p-4 lg:p-5 bg-white border-b border-[#efe3c4] flex justify-between items-center cursor-pointer lg:cursor-default h-[72px] shrink-0" onclick="Controller.toggleMobileCart()">
           <div class="font-bold text-lg lg:text-xl text-secondary flex items-center gap-2">
             Order
             <span id="cart-badge-mobile" class="bg-primary text-white text-xs px-2 py-0.5 rounded-full hidden lg:hidden">0</span>
@@ -214,11 +249,11 @@
         </div>
         
         <!-- Cart Items -->
-        <div id="cart-items" class="flex-1 overflow-y-auto p-5 flex flex-col gap-3 bg-[#fdf6f2]">
+        <div id="cart-items" class="flex-1 overflow-y-auto p-5 flex flex-col gap-3 bg-[#fffdf5]">
         </div>
         
         <!-- Cart Footer -->
-        <div class="p-5 border-t border-[#fce8e0] bg-white shrink-0">
+        <div class="p-5 border-t border-[#efe3c4] bg-white shrink-0">
           <div class="flex justify-between font-bold text-xl mb-4">
             <span class="text-slate-500">Total:</span>
             <span id="cart-total" class="text-primary text-2xl">฿0.00</span>
@@ -242,7 +277,7 @@
         <p class="text-sm text-slate-400" id="settings-user-label"></p>
       </div>
 
-      <div class="relative shrink-0 flex flex-nowrap gap-2 mb-6 bg-white p-1 rounded-2xl border border-[#fce8e0] max-w-full overflow-x-auto hide-scroll">
+      <div class="relative shrink-0 flex flex-nowrap gap-2 mb-6 bg-white p-1 rounded-2xl border border-[#efe3c4] max-w-full overflow-x-auto hide-scroll">
         <!-- แถบสีลอยที่ไหลลื่นไปหาแท็บที่เลือก (liquid navigation) แทนการสลับสีทีละปุ่มแบบเดิม -->
         <div id="settings-tab-indicator" class="absolute top-1 bottom-1 left-1 rounded-xl bg-primary shadow-md shadow-primary/30 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] pointer-events-none" style="width:0"></div>
         <button id="settings-tab-stock" onclick="Controller.switchSettingsTab('stock')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> AVAILABLE</button>
@@ -268,31 +303,31 @@
         </div>
         <div class="flex flex-wrap items-center gap-2 mb-3">
           <label class="text-xs font-bold text-slate-400">ดูย้อนหลัง</label>
-          <input type="date" id="history-date" onchange="Controller.loadHistoryDate(this.value)" class="px-3 py-2 rounded-xl border border-[#fce8e0] text-sm font-bold text-secondary">
+          <input type="date" id="history-date" onchange="Controller.loadHistoryDate(this.value)" class="px-3 py-2 rounded-xl border border-[#efe3c4] text-sm font-bold text-secondary">
           <button onclick="Controller.loadHistoryDate('')" class="px-3 py-2 rounded-xl bg-accent text-secondary text-sm font-bold">วันนี้</button>
           <span id="history-date-note" class="text-xs text-slate-400"></span>
         </div>
-        <div id="history-list" class="flex-1 overflow-y-auto bg-white rounded-3xl border border-[#fce8e0] shadow-sm p-4 divide-y divide-[#fce8e0] max-h-[65vh]"></div>
+        <div id="history-list" class="flex-1 overflow-y-auto bg-white rounded-3xl border border-[#efe3c4] shadow-sm p-4 divide-y divide-[#efe3c4] max-h-[65vh]"></div>
       </div>
 
       <div id="settings-panel-summary" class="settings-panel hidden">
         <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6">
-          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm">
+          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#efe3c4] shadow-sm">
             <div class="w-9 h-9 lg:w-11 lg:h-11 bg-primary/15 rounded-2xl flex items-center justify-center text-primary mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg></div>
             <p class="text-slate-400 font-bold text-xs lg:text-sm">Total Sales</p>
             <p id="sum-total" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
           </div>
-          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm">
+          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#efe3c4] shadow-sm">
             <div class="w-9 h-9 lg:w-11 lg:h-11 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg></div>
             <p class="text-slate-400 font-bold text-xs lg:text-sm">Cash</p>
             <p id="sum-cash" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
           </div>
-          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm">
+          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#efe3c4] shadow-sm">
             <div class="w-9 h-9 lg:w-11 lg:h-11 bg-sky-100 rounded-2xl flex items-center justify-center text-sky-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></div>
             <p class="text-slate-400 font-bold text-xs lg:text-sm">PromptPay QR</p>
             <p id="sum-qr" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
           </div>
-          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm relative group">
+          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#efe3c4] shadow-sm relative group">
             <button onclick="Controller.resetCupCount()" class="absolute top-3 right-3 lg:top-6 lg:right-6 text-[10px] lg:text-xs font-bold text-slate-300 hover:text-red-500 transition-colors bg-accent px-2 py-1 rounded-full">Reset</button>
             <div class="w-9 h-9 lg:w-11 lg:h-11 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M5 8h11v6a5 5 0 0 1-10 0z"/><path d="M16 9h2a2 2 0 0 1 0 4h-2"/><path d="M4 21h14"/></svg></div>
             <p class="text-slate-400 font-bold text-xs lg:text-sm">Cups Sold</p>
@@ -300,19 +335,19 @@
           </div>
         </div>
         <div class="grid grid-cols-2 gap-3 lg:gap-6 mt-3 lg:mt-6">
-          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm">
+          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#efe3c4] shadow-sm">
             <div class="w-9 h-9 lg:w-11 lg:h-11 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M3 3v18h18"/><path d="M7 9l4 5 3-3 5 7"/></svg></div>
             <p class="text-slate-400 font-bold text-xs lg:text-sm">ต้นทุนรวม (Cost)</p>
             <p id="sum-cost" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
           </div>
-          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm">
+          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#efe3c4] shadow-sm">
             <div class="w-9 h-9 lg:w-11 lg:h-11 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></div>
             <p class="text-slate-400 font-bold text-xs lg:text-sm">กำไรสุทธิ (Profit)</p>
             <p id="sum-profit" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
           </div>
         </div>
                 <!-- ส่วนจัดการเงินทอน (New!) -->
-        <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm mt-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#efe3c4] shadow-sm mt-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <p class="text-slate-400 font-bold text-sm">เงินสำรองทอน (ลิ้นชักตั้งต้น)</p>
             <div class="flex flex-wrap items-end gap-x-2 gap-y-1 mt-1">
@@ -325,13 +360,13 @@
             <p id="sum-expected-drawer" class="text-xl lg:text-3xl font-black text-emerald-500">฿0.00</p>
           </div>
         </div>
-        <div id="sum-breakdown-container" class="hidden bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm mb-6">
+        <div id="sum-breakdown-container" class="hidden bg-white p-4 lg:p-6 rounded-3xl border border-[#efe3c4] shadow-sm mb-6">
           <p class="text-slate-400 font-bold text-sm mb-3">แยกตามวิธีชำระเงิน</p>
           <div id="sum-breakdown-list" class="space-y-2"></div>
         </div>
         <button onclick="Controller.fetchSummary(this)" class="mt-6 w-full sm:w-auto justify-center items-center flex bg-primary text-white px-6 py-3 rounded-2xl shadow shadow-primary/30 font-bold hover:brightness-95 transition">Refresh Stats</button>
 
-        <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#fce8e0] shadow-sm mt-4">
+        <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#efe3c4] shadow-sm mt-4">
           <h3 class="font-bold text-secondary mb-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> ปิดยอดประจำวัน</h3>
           <p class="text-xs text-slate-400 mb-3">เอายอดขายสด (เงินสดเท่านั้น) ของวันนี้ไปรวมเป็นเงินทอนสำหรับวันถัดไป ทำอัตโนมัติทุกคืนตอน 23:55 อยู่แล้ว กดปุ่มนี้เฉพาะกรณีต้องการปิดยอดก่อนเวลา หรือระบบอัตโนมัติไม่ทำงาน (ปิดซ้ำในวันเดียวกันไม่ได้)</p>
           <button id="btn-close-day" onclick="Controller.closeDayCashManual(this)" class="w-full sm:w-auto bg-secondary text-white px-6 py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md">ปิดยอดประจำวันตอนนี้</button>
@@ -347,7 +382,7 @@
             <button onclick="Controller.saveAllInventory()" class="flex-1 sm:flex-none justify-center items-center flex bg-primary text-white hover:brightness-95 px-4 py-2 rounded-2xl font-bold transition shadow-md shadow-primary/30">Save All</button>
           </div>
         </div>
-        <div class="hidden lg:grid bg-white rounded-t-3xl border border-[#fce8e0] shadow-sm p-4 font-bold text-slate-500 text-sm gap-3" style="grid-template-columns: 1fr 6rem 6rem 6rem 6rem 6rem;">
+        <div class="hidden lg:grid bg-white rounded-t-3xl border border-[#efe3c4] shadow-sm p-4 font-bold text-slate-500 text-sm gap-3" style="grid-template-columns: 1fr 6rem 6rem 6rem 6rem 6rem;">
           <div>วัตถุดิบ</div>
           <div class="text-center">คงเหลือ</div>
           <div class="text-center text-red-400">เบิกออก</div>
@@ -355,12 +390,12 @@
           <div class="text-center">หน่วย</div>
           <div class="text-right">สถานะ</div>
         </div>
-        <div id="inventory-list" class="flex-1 overflow-y-auto bg-white rounded-b-3xl border-x border-b border-[#fce8e0] shadow-sm divide-y divide-[#fce8e0] pb-8 max-h-[55vh]">
+        <div id="inventory-list" class="flex-1 overflow-y-auto bg-white rounded-b-3xl border-x border-b border-[#efe3c4] shadow-sm divide-y divide-[#efe3c4] pb-8 max-h-[55vh]">
         </div>
       </div>
 
       <div id="settings-panel-stock" class="settings-panel hidden">
-        <div class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm p-6 max-w-md">
+        <div class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm p-6 max-w-md">
           <p class="text-sm text-slate-400 mb-1">สถานะปัจจุบัน</p>
           <p id="stock-status-label" class="text-2xl font-black text-secondary mb-4">ปกติ</p>
           <p class="text-sm text-slate-400 mb-4">เปิดโหมดนี้เพื่อคลิกที่สินค้าในหน้า POS แล้วสลับสถานะ Sold Out ได้ทันที</p>
@@ -369,13 +404,13 @@
       </div>
 
       <div id="settings-panel-printer" class="settings-panel hidden">
-        <div class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm p-6 max-w-md">
+        <div class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm p-6 max-w-md">
           <h3 class="font-bold text-lg text-secondary mb-4">ตั้งค่าเครื่องพิมพ์ใบเสร็จ</h3>
 
           <div class="mb-6">
             <label class="text-sm font-bold text-slate-500 mb-1 block">โลโก้ร้าน (แสดงบนหัวใบเสร็จ)</label>
             <div class="flex items-center gap-3">
-              <img id="logo-preview" src="" class="hidden w-16 h-16 object-contain border border-[#fce8e0] rounded-xl bg-white p-1">
+              <img id="logo-preview" src="" class="hidden w-16 h-16 object-contain border border-[#efe3c4] rounded-xl bg-white p-1">
               <input type="file" id="logo-upload-input" accept="image/*" onchange="Controller.handleLogoUpload(event)" class="text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-bold">
             </div>
             <button id="btn-remove-logo" onclick="Controller.removeLogo()" class="hidden mt-2 text-xs font-bold text-red-400 hover:underline">ลบโลโก้</button>
@@ -384,15 +419,15 @@
 
           <div class="mb-4">
             <label class="text-sm font-bold text-slate-500 mb-1 block">ที่อยู่ร้าน</label>
-            <textarea id="shop-address" rows="2" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น 123 ถ.สุขุมวิท แขวง... เขต... กรุงเทพฯ 10110"></textarea>
+            <textarea id="shop-address" rows="2" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="เช่น 123 ถ.สุขุมวิท แขวง... เขต... กรุงเทพฯ 10110"></textarea>
           </div>
           <div class="mb-4">
             <label class="text-sm font-bold text-slate-500 mb-1 block">เบอร์โทรศัพท์ติดต่อ</label>
-            <input type="text" id="shop-phone" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น 08X-XXX-XXXX">
+            <input type="text" id="shop-phone" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="เช่น 08X-XXX-XXXX">
           </div>
           <div class="mb-6">
             <label class="text-sm font-bold text-slate-500 mb-1 block">เลขประจำตัวผู้เสียภาษี (ถ้ามี)</label>
-            <input type="text" id="shop-tax-id" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น 0-1055-XXXXX-XX-X">
+            <input type="text" id="shop-tax-id" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="เช่น 0-1055-XXXXX-XX-X">
           </div>
 
           <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -402,41 +437,41 @@
             </div>
             <div id="vat-rate-wrap" class="hidden">
               <label class="text-xs font-bold text-slate-400 mb-1 block">อัตรา VAT (%) — ราคาสินค้าที่ตั้งไว้ถือว่ารวม VAT แล้ว</label>
-              <input type="number" id="vat-rate" step="0.01" min="0" max="100" class="w-28 border border-[#fce8e0] rounded-xl p-2 text-center font-bold focus:outline-none focus:border-primary bg-white" placeholder="7">
+              <input type="number" id="vat-rate" step="0.01" min="0" max="100" class="w-28 border border-[#efe3c4] rounded-xl p-2 text-center font-bold focus:outline-none focus:border-primary bg-white" placeholder="7">
             </div>
           </div>
 
           <div class="mb-4">
             <label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อร้าน / ข้อความส่วนหัว (Header)</label>
-            <input type="text" id="printer-header" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น Pukfu Coffee">
+            <input type="text" id="printer-header" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="เช่น Pukfu Coffee">
           </div>
           <div class="mb-4">
             <label class="text-sm font-bold text-slate-500 mb-1 block">สาขา (Branch)</label>
-            <input type="text" id="printer-branch" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น Central Ladprao">
+            <input type="text" id="printer-branch" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="เช่น Central Ladprao">
           </div>
           <div class="mb-4">
             <label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อนิติบุคคล</label>
-            <input type="text" id="printer-company" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น บริษัท ปุ๊กฟู่ จำกัด">
+            <input type="text" id="printer-company" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="เช่น บริษัท ปุ๊กฟู่ จำกัด">
           </div>
           <div class="mb-4">
             <label class="text-sm font-bold text-slate-500 mb-1 block">เลขที่สาขา (No. Branch)</label>
-            <input type="text" id="printer-branch-no" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น 00000">
+            <input type="text" id="printer-branch-no" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="เช่น 00000">
           </div>
           <div class="mb-4">
             <label class="text-sm font-bold text-slate-500 mb-1 block">POS ID</label>
-            <input type="text" id="printer-pos-id" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น 00000">
+            <input type="text" id="printer-pos-id" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="เช่น 00000">
           </div>
           <div class="mb-4">
             <label class="text-sm font-bold text-slate-500 mb-1 block">หัวเอกสาร</label>
-            <input type="text" id="printer-doc-title" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="Receipt / TAX Invoice (ABB)">
+            <input type="text" id="printer-doc-title" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="Receipt / TAX Invoice (ABB)">
           </div>
           <div class="mb-4">
             <label class="text-sm font-bold text-slate-500 mb-1 block">ข้อความส่วนท้าย (Footer)</label>
-            <input type="text" id="printer-footer" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น ขอบคุณที่ใช้บริการค่ะ">
+            <input type="text" id="printer-footer" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="เช่น ขอบคุณที่ใช้บริการค่ะ">
           </div>
           <div class="mb-4">
             <label class="text-sm font-bold text-slate-500 mb-1 block">ขนาดกระดาษ (Paper Size)</label>
-            <select id="printer-paper-size" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]">
+            <select id="printer-paper-size" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]">
               <option value="80mm">80mm (สลิปมาตรฐาน)</option>
               <option value="58mm">58mm (สลิปขนาดเล็ก)</option>
             </select>
@@ -454,7 +489,7 @@
              <label for="printer-print-order-slip" class="text-sm font-bold text-slate-500">พิมพ์ใบสั่งทำเครื่องดื่ม (สำหรับบาริสต้า/ห้องครัว)</label>
           </div>
           <!--  Bluetooth Printer -->
-          <div class="border-t border-[#fce8e0] pt-4 mt-2 mb-4">
+          <div class="border-t border-[#efe3c4] pt-4 mt-2 mb-4">
             <label class="text-sm font-bold text-slate-500 mb-2 block">เครื่องพิมพ์ Bluetooth</label>
             <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
               <p id="bt-printer-status" class="text-sm text-slate-500 mb-3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M6 6l12 12M18 6L6 18"/></svg> ยังไม่ได้เชื่อมต่อ</p>
@@ -543,7 +578,7 @@
 
           <button onclick="Controller.savePrinterSettings()" class="w-full bg-primary text-white py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md shadow-primary/30 mb-4">บันทึกการตั้งค่า</button>
           
-          <div class="border-t border-[#fce8e0] pt-4 mt-2">
+          <div class="border-t border-[#efe3c4] pt-4 mt-2">
             <label class="text-sm font-bold text-slate-500 mb-2 block">ตั้งค่าเพิ่มเติม</label>
             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
               <div>
@@ -554,12 +589,12 @@
             </div>
           </div>
         </div>
-        <div class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm p-6 max-w-md mt-4">
+        <div class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm p-6 max-w-md mt-4">
           <h3 class="font-bold text-lg text-secondary mb-1">ความปลอดภัย</h3>
           <p class="text-xs text-slate-400 mb-4">ล็อกหน้าจอเมื่อไม่มีการใช้งานนานเกินกำหนด (ใส่ 0 = ปิดใช้งาน)</p>
           <div class="mb-5 flex items-center gap-2">
             <label class="text-sm font-bold text-slate-500">ล็อกหน้าจออัตโนมัติ</label>
-            <input type="number" id="auto-lock-minutes" min="0" max="240" class="w-24 border border-[#fce8e0] rounded-xl p-2 text-center font-bold focus:outline-none focus:border-primary bg-white" placeholder="20">
+            <input type="number" id="auto-lock-minutes" min="0" max="240" class="w-24 border border-[#efe3c4] rounded-xl p-2 text-center font-bold focus:outline-none focus:border-primary bg-white" placeholder="20">
             <span class="text-sm font-bold text-slate-400">นาที</span>
           </div>
           <button onclick="Controller.saveAutoLockSetting()" class="w-full bg-primary text-white py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md shadow-primary/30">บันทึกความปลอดภัย</button>
@@ -572,7 +607,7 @@
           <p class="text-sm text-slate-400">จัดการพนักงานและสิทธิ์การเข้าถึง</p>
           <button onclick="Controller.openEmployeeForm()" class="w-full sm:w-auto justify-center items-center flex bg-primary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-95 transition">+ เพิ่มพนักงาน</button>
         </div>
-        <div id="employee-list" class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm divide-y divide-[#fce8e0]"></div>
+        <div id="employee-list" class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm divide-y divide-[#efe3c4]"></div>
       </div>
 
       <div id="settings-panel-log" class="settings-panel hidden">
@@ -580,18 +615,18 @@
           <p class="text-sm text-slate-400">ประวัติการใส่ PIN ล่าสุด 100 รายการ</p>
           <button onclick="Controller.fetchAccessLog(this)" class="w-full sm:w-auto justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
         </div>
-        <div id="access-log-list" class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm divide-y divide-[#fce8e0] max-h-[60vh] overflow-y-auto"></div>
+        <div id="access-log-list" class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm divide-y divide-[#efe3c4] max-h-[60vh] overflow-y-auto"></div>
       </div>
       <div id="settings-panel-addons" class="settings-panel hidden">
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
           <p class="text-sm text-slate-400">จัดการส่วนเสริม (เช่น เพิ่มช็อต, ไข่มุก)</p>
           <button onclick="Controller.openAddonForm()" class="w-full sm:w-auto justify-center items-center flex bg-primary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-95 transition">+ เพิ่ม Add-on</button>
         </div>
-        <div id="addon-list" class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm divide-y divide-[#fce8e0] max-h-[60vh] overflow-y-auto"></div>
+        <div id="addon-list" class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm divide-y divide-[#efe3c4] max-h-[60vh] overflow-y-auto"></div>
       </div>
 
       <div id="settings-panel-report" class="settings-panel hidden">
-        <div class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm p-4 lg:p-5 mb-4">
+        <div class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm p-4 lg:p-5 mb-4">
           <p class="text-sm font-bold text-slate-500 mb-3">เลือกช่วงเวลา</p>
           <div class="flex flex-wrap gap-2 mb-4">
             <button onclick="Controller.setReportPreset('today')" class="report-preset-btn px-4 py-2 rounded-xl font-bold text-sm bg-accent text-secondary transition">วันนี้</button>
@@ -602,11 +637,11 @@
           <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
             <div class="flex-1">
               <label class="text-xs font-bold text-slate-400 mb-1 block">ตั้งแต่วันที่</label>
-              <input type="date" id="report-start" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2] text-sm">
+              <input type="date" id="report-start" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5] text-sm">
             </div>
             <div class="flex-1">
               <label class="text-xs font-bold text-slate-400 mb-1 block">ถึงวันที่</label>
-              <input type="date" id="report-end" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2] text-sm">
+              <input type="date" id="report-end" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5] text-sm">
             </div>
             <button onclick="Controller.fetchReport(this)" class="bg-primary text-white px-6 py-2.5 rounded-xl font-bold hover:brightness-95 transition shadow-md shadow-primary/30 whitespace-nowrap">ดูรายงาน</button>
           </div>
@@ -617,30 +652,30 @@
             <button onclick="Controller.exportReportPDF()" class="bg-secondary text-white px-4 py-2 rounded-xl font-bold text-sm hover:brightness-110 transition">Export PDF</button>
           </div>
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-            <div class="bg-white p-4 rounded-2xl border border-[#fce8e0] shadow-sm">
+            <div class="bg-white p-4 rounded-2xl border border-[#efe3c4] shadow-sm">
               <p class="text-xs text-slate-400 font-bold mb-1">ยอดขายรวม</p>
               <p id="rp-total" class="text-xl font-black text-secondary">฿0.00</p>
             </div>
-            <div class="bg-white p-4 rounded-2xl border border-[#fce8e0] shadow-sm">
+            <div class="bg-white p-4 rounded-2xl border border-[#efe3c4] shadow-sm">
               <p class="text-xs text-slate-400 font-bold mb-1">กำไร</p>
               <p id="rp-profit" class="text-xl font-black text-emerald-500">฿0.00</p>
             </div>
-            <div class="bg-white p-4 rounded-2xl border border-[#fce8e0] shadow-sm">
+            <div class="bg-white p-4 rounded-2xl border border-[#efe3c4] shadow-sm">
               <p class="text-xs text-slate-400 font-bold mb-1">จำนวนบิล</p>
               <p id="rp-bills" class="text-xl font-black text-secondary">0</p>
             </div>
-            <div class="bg-white p-4 rounded-2xl border border-[#fce8e0] shadow-sm">
+            <div class="bg-white p-4 rounded-2xl border border-[#efe3c4] shadow-sm">
               <p class="text-xs text-slate-400 font-bold mb-1">จำนวนแก้ว</p>
               <p id="rp-cups" class="text-xl font-black text-secondary">0</p>
             </div>
           </div>
 
           <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
-            <div class="bg-white p-4 rounded-2xl border border-[#fce8e0] shadow-sm">
+            <div class="bg-white p-4 rounded-2xl border border-[#efe3c4] shadow-sm">
               <p class="text-sm font-bold text-slate-500 mb-3">แยกตามวิธีชำระเงิน</p>
               <div id="rp-bytype" class="space-y-2"></div>
             </div>
-            <div class="bg-white p-4 rounded-2xl border border-[#fce8e0] shadow-sm">
+            <div class="bg-white p-4 rounded-2xl border border-[#efe3c4] shadow-sm">
               <p class="text-sm font-bold text-slate-500 mb-3">สรุปเพิ่มเติม</p>
               <div class="space-y-2 text-sm">
                 <div class="flex justify-between"><span class="text-slate-500 font-bold">ต้นทุนรวม</span><span id="rp-cost" class="font-black text-secondary">฿0.00</span></div>
@@ -651,12 +686,12 @@
             </div>
           </div>
 
-          <div class="bg-white rounded-2xl border border-[#fce8e0] shadow-sm p-4 mb-4">
+          <div class="bg-white rounded-2xl border border-[#efe3c4] shadow-sm p-4 mb-4">
             <p class="text-sm font-bold text-slate-500 mb-3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 5H5v2a3 3 0 0 0 3 3M16 5h3v2a3 3 0 0 1-3 3"/><path d="M10 17h4M12 13v4M9 20h6"/></svg> เมนูขายดี 10 อันดับ</p>
             <div id="rp-topsellers" class="space-y-2"></div>
           </div>
 
-          <div class="bg-white rounded-2xl border border-[#fce8e0] shadow-sm p-4">
+          <div class="bg-white rounded-2xl border border-[#efe3c4] shadow-sm p-4">
             <p class="text-sm font-bold text-slate-500 mb-3">ยอดขายรายวัน</p>
             <div id="rp-daily" class="space-y-1 max-h-[40vh] overflow-y-auto"></div>
           </div>
@@ -668,11 +703,11 @@
           <p class="text-sm text-slate-400">จัดการวิธีชำระเงินที่ใช้ในร้าน เปิด/ปิด เพิ่ม/ลบได้เอง เช่น QR, Cash, Thai Plus, ShopeePay</p>
           <button onclick="Controller.openPaymentMethodForm()" class="w-full sm:w-auto justify-center items-center flex bg-primary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-95 transition">+ เพิ่มวิธีชำระเงิน</button>
         </div>
-        <div id="payment-method-list" class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm divide-y divide-[#fce8e0] max-h-[60vh] overflow-y-auto"></div>
+        <div id="payment-method-list" class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm divide-y divide-[#efe3c4] max-h-[60vh] overflow-y-auto"></div>
       </div>
 
       <div id="settings-panel-backup" class="settings-panel hidden">
-        <div class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm p-6 mb-4">
+        <div class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm p-6 mb-4">
           <h3 class="font-bold text-lg text-secondary mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 13h8v6H8z"/></svg> สำรองข้อมูล</h3>
           <p class="text-sm text-slate-400 mb-4">ระบบสำรองข้อมูลทั้งหมด (Sheet) อัตโนมัติทุกวันตอนตี 3 และเก็บไว้ 30 วันย้อนหลัง สามารถกดสำรองด้วยตัวเองได้ตลอดเวลา</p>
           <button id="btn-manual-backup" onclick="Controller.manualBackupNow(this)" class="w-full sm:w-auto bg-primary text-white px-6 py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md shadow-primary/30">สำรองข้อมูลเดี๋ยวนี้</button>
@@ -682,9 +717,9 @@
           <p class="text-sm text-slate-400">รายการไฟล์สำรองล่าสุด (20 รายการล่าสุด)</p>
           <button onclick="Controller.fetchBackupList(this)" class="w-full sm:w-auto justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
         </div>
-        <div id="backup-list" class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm divide-y divide-[#fce8e0] max-h-[50vh] overflow-y-auto mb-6"></div>
+        <div id="backup-list" class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm divide-y divide-[#efe3c4] max-h-[50vh] overflow-y-auto mb-6"></div>
 
-        <div class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm p-6 mb-4">
+        <div class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm p-6 mb-4">
           <h3 class="font-bold text-lg text-secondary mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> เก็บข้อมูลปีต่อปี (Archive)</h3>
           <p class="text-sm text-slate-400 mb-4">ย้ายข้อมูล Sales, Payments, Log ต่างๆ ของปีเก่ากว่าปัจจุบัน ไปเก็บไว้ในไฟล์แยกตามปี ช่วยให้ Sheet หลักไม่บวมและระบบทำงานเร็วขึ้น เช็คให้ทำงานอัตโนมัติทุกต้นปีมกราคม</p>
           <button id="btn-manual-archive" onclick="Controller.manualArchiveNow(this)" class="w-full sm:w-auto bg-amber-500 text-white px-6 py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md shadow-amber-500/30">เก็บข้อมูลปีเก่าเดี๋ยวนี้</button>
@@ -694,7 +729,7 @@
           <p class="text-sm text-slate-400">ไฟล์ archive ที่มีอยู่ (แยกตามปี)</p>
           <button onclick="Controller.fetchArchiveList(this)" class="w-full sm:w-auto justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
         </div>
-        <div id="archive-list" class="bg-white rounded-3xl border border-[#fce8e0] shadow-sm divide-y divide-[#fce8e0] max-h-[50vh] overflow-y-auto"></div>
+        <div id="archive-list" class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm divide-y divide-[#efe3c4] max-h-[50vh] overflow-y-auto"></div>
       </div>
     </div>
   </main>
@@ -710,10 +745,10 @@
             Sweetness Level <span class="text-red-500">*</span>
           </p>
           <div class="flex flex-wrap gap-2">
-            <button class="mod-btn border border-[#fce8e0] px-4 py-2 rounded-full text-sm font-bold text-slate-500 hover:bg-accent transition-all" onclick="Controller.selectSweetness(this)">ไม่หวาน</button>
-            <button class="mod-btn border border-[#fce8e0] px-4 py-2 rounded-full text-sm font-bold text-slate-500 hover:bg-accent transition-all" onclick="Controller.selectSweetness(this)">หวานน้อย</button>
-            <button class="mod-btn border border-[#fce8e0] px-4 py-2 rounded-full text-sm font-bold text-slate-500 hover:bg-accent transition-all" onclick="Controller.selectSweetness(this)">หวานปกติ</button>
-            <button class="mod-btn border border-[#fce8e0] px-4 py-2 rounded-full text-sm font-bold text-slate-500 hover:bg-accent transition-all" onclick="Controller.selectSweetness(this)">เพิ่มหวาน</button>
+            <button class="mod-btn border border-[#efe3c4] px-4 py-2 rounded-full text-sm font-bold text-slate-500 hover:bg-accent transition-all" onclick="Controller.selectSweetness(this)">ไม่หวาน</button>
+            <button class="mod-btn border border-[#efe3c4] px-4 py-2 rounded-full text-sm font-bold text-slate-500 hover:bg-accent transition-all" onclick="Controller.selectSweetness(this)">หวานน้อย</button>
+            <button class="mod-btn border border-[#efe3c4] px-4 py-2 rounded-full text-sm font-bold text-slate-500 hover:bg-accent transition-all" onclick="Controller.selectSweetness(this)">หวานปกติ</button>
+            <button class="mod-btn border border-[#efe3c4] px-4 py-2 rounded-full text-sm font-bold text-slate-500 hover:bg-accent transition-all" onclick="Controller.selectSweetness(this)">เพิ่มหวาน</button>
           </div>
         </div>
         <hr class="border-slate-100 mb-5">
@@ -730,7 +765,7 @@
         </div>
       </div>
       <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
-        <button onclick="Controller.closeModal('modal-product')" class="px-5 py-2.5 border border-[#fce8e0] bg-white text-slate-500 rounded-2xl font-bold hover:bg-accent">Cancel</button>
+        <button onclick="Controller.closeModal('modal-product')" class="px-5 py-2.5 border border-[#efe3c4] bg-white text-slate-500 rounded-2xl font-bold hover:bg-accent">Cancel</button>
         <button onclick="Controller.addToCartFromModal()" class="px-5 py-2.5 bg-primary hover:brightness-95 text-white rounded-2xl font-bold shadow-md shadow-primary/30 transition-all"> Add to Cart </button>
       </div>
     </div>
@@ -742,15 +777,15 @@
       <input type="hidden" id="emp-form-id">
       <div class="mb-3">
         <label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อ</label>
-        <input type="text" id="emp-form-name" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]">
+        <input type="text" id="emp-form-name" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]">
       </div>
       <div class="mb-3">
         <label class="text-sm font-bold text-slate-500 mb-1 block">PIN</label>
-        <input type="text" id="emp-form-pin" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" maxlength="6">
+        <input type="text" id="emp-form-pin" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" maxlength="6">
       </div>
       <div class="mb-3">
         <label class="text-sm font-bold text-slate-500 mb-1 block">ตำแหน่ง</label>
-        <select id="emp-form-role" onchange="Controller.onEmployeeRoleChange()" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]">
+        <select id="emp-form-role" onchange="Controller.onEmployeeRoleChange()" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]">
           <option value="Owner">Owner</option>
           <option value="Admin">Admin</option>
           <option value="Manager">Manager</option>
@@ -781,7 +816,7 @@
         <label for="emp-form-active" class="text-sm font-bold text-slate-500">ใช้งานอยู่ (Active)</label>
       </div>
       <div class="flex gap-3">
-        <button onclick="Controller.closeModal('modal-employee-form')" class="flex-1 py-2.5 border border-[#fce8e0] rounded-xl font-bold text-slate-500 hover:bg-accent">ยกเลิก</button>
+        <button onclick="Controller.closeModal('modal-employee-form')" class="flex-1 py-2.5 border border-[#efe3c4] rounded-xl font-bold text-slate-500 hover:bg-accent">ยกเลิก</button>
         <button onclick="Controller.saveEmployeeForm()" class="flex-1 py-2.5 bg-primary text-white rounded-xl font-bold hover:brightness-95">บันทึก</button>
       </div>
     </div>
@@ -794,18 +829,18 @@
       <input type="hidden" id="addon-form-id">
       <div class="mb-3">
         <label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อส่วนเสริม</label>
-        <input type="text" id="addon-form-name" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น ไข่มุก, เพิ่มช็อต">
+        <input type="text" id="addon-form-name" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="เช่น ไข่มุก, เพิ่มช็อต">
       </div>
       <div class="mb-5">
         <label class="text-sm font-bold text-slate-500 mb-1 block">ราคา (+เพิ่ม หรือ -ลด)</label>
-        <input type="number" id="addon-form-price" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น 10 (เพิ่มเงิน) หรือ -5 (ลดเงิน)">
+        <input type="number" id="addon-form-price" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="เช่น 10 (เพิ่มเงิน) หรือ -5 (ลดเงิน)">
       </div>
       <div class="mb-5 flex items-center gap-2">
         <input type="checkbox" id="addon-form-active" class="w-4 h-4" checked>
         <label for="addon-form-active" class="text-sm font-bold text-slate-500">ใช้งานอยู่ (Active)</label>
       </div>
       <div class="flex gap-3">
-        <button onclick="Controller.closeModal('modal-addon-form')" class="flex-1 py-2.5 border border-[#fce8e0] rounded-xl font-bold text-slate-500 hover:bg-accent">ยกเลิก</button>
+        <button onclick="Controller.closeModal('modal-addon-form')" class="flex-1 py-2.5 border border-[#efe3c4] rounded-xl font-bold text-slate-500 hover:bg-accent">ยกเลิก</button>
         <button onclick="Controller.saveAddonForm()" class="flex-1 py-2.5 bg-primary text-white rounded-xl font-bold hover:brightness-95">บันทึก</button>
       </div>
     </div>
@@ -818,7 +853,7 @@
       <input type="hidden" id="pm-form-id">
       <div class="mb-3">
         <label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อวิธีชำระเงิน</label>
-        <input type="text" id="pm-form-name" class="w-full border border-[#fce8e0] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="เช่น Thai Plus, ShopeePay">
+        <input type="text" id="pm-form-name" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="เช่น Thai Plus, ShopeePay">
       </div>
       <div class="mb-3 flex items-center gap-2">
         <input type="checkbox" id="pm-form-is-cash" class="w-4 h-4">
@@ -829,7 +864,7 @@
         <label for="pm-form-enabled" class="text-sm font-bold text-slate-500">เปิดใช้งาน (แสดงในหน้า Checkout)</label>
       </div>
       <div class="flex gap-3">
-        <button onclick="Controller.closeModal('modal-payment-method-form')" class="flex-1 py-2.5 border border-[#fce8e0] rounded-xl font-bold text-slate-500 hover:bg-accent">ยกเลิก</button>
+        <button onclick="Controller.closeModal('modal-payment-method-form')" class="flex-1 py-2.5 border border-[#efe3c4] rounded-xl font-bold text-slate-500 hover:bg-accent">ยกเลิก</button>
         <button onclick="Controller.savePaymentMethodForm()" class="flex-1 py-2.5 bg-primary text-white rounded-xl font-bold hover:brightness-95">บันทึก</button>
       </div>
     </div>
@@ -856,10 +891,10 @@
         <p id="alert-icon" class="text-4xl mb-3 text-center"></p>
         <p id="alert-message" class="text-secondary font-bold text-center whitespace-pre-line"></p>
         <div id="alert-input-wrap" class="hidden mt-4">
-          <input id="alert-input" type="text" class="w-full border border-[#fce8e0] rounded-xl p-3 text-center focus:outline-none focus:border-primary bg-[#fdf6f2]">
+          <input id="alert-input" type="text" class="w-full border border-[#efe3c4] rounded-xl p-3 text-center focus:outline-none focus:border-primary bg-[#fffdf5]">
         </div>
       </div>
-      <div id="alert-buttons" class="p-4 bg-[#fdf6f2] border-t border-[#fce8e0] flex gap-3"></div>
+      <div id="alert-buttons" class="p-4 bg-[#fffdf5] border-t border-[#efe3c4] flex gap-3"></div>
     </div>
   </div>
 
@@ -872,7 +907,7 @@
         
         <div class="mb-6 flex items-center justify-center gap-2">
           <label class="text-xs font-bold text-slate-400 whitespace-nowrap">ส่วนลด</label>
-          <input type="number" id="checkout-discount-input" min="0" class="w-24 border border-[#fce8e0] rounded-xl p-2 text-center font-bold focus:outline-none focus:border-primary bg-[#fdf6f2]" placeholder="0" oninput="Controller.updateCheckoutDiscount()">
+          <input type="number" id="checkout-discount-input" min="0" class="w-24 border border-[#efe3c4] rounded-xl p-2 text-center font-bold focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="0" oninput="Controller.updateCheckoutDiscount()">
           <div class="flex bg-slate-100 rounded-lg p-0.5">
             <button id="btn-discount-baht" onclick="Controller.setDiscountMode('baht')" class="px-3 py-1 rounded-md text-xs font-bold bg-white shadow-sm text-primary transition">฿</button>
             <button id="btn-discount-percent" onclick="Controller.setDiscountMode('percent')" class="px-3 py-1 rounded-md text-xs font-bold text-slate-400 transition">%</button>
@@ -899,24 +934,24 @@
           </div>
 
           <div class="grid grid-cols-3 gap-2 mb-2">
-            <button onclick="Controller.numpad('1')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">1</button>
-            <button onclick="Controller.numpad('2')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">2</button>
-            <button onclick="Controller.numpad('3')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">3</button>
-            <button onclick="Controller.numpad('4')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">4</button>
-            <button onclick="Controller.numpad('5')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">5</button>
-            <button onclick="Controller.numpad('6')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">6</button>
-            <button onclick="Controller.numpad('7')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">7</button>
-            <button onclick="Controller.numpad('8')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">8</button>
-            <button onclick="Controller.numpad('9')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">9</button>
+            <button onclick="Controller.numpad('1')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">1</button>
+            <button onclick="Controller.numpad('2')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">2</button>
+            <button onclick="Controller.numpad('3')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">3</button>
+            <button onclick="Controller.numpad('4')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">4</button>
+            <button onclick="Controller.numpad('5')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">5</button>
+            <button onclick="Controller.numpad('6')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">6</button>
+            <button onclick="Controller.numpad('7')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">7</button>
+            <button onclick="Controller.numpad('8')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">8</button>
+            <button onclick="Controller.numpad('9')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">9</button>
             <button onclick="Controller.numpad('back')" class="bg-red-50 text-red-400 py-3 rounded-2xl text-xl font-bold hover:bg-red-100">⌫</button>
-            <button onclick="Controller.numpad('0')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">0</button>
-            <button onclick="Controller.numpad('00')" class="bg-accent border border-[#fce8e0] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#fce8e0]">00</button>
+            <button onclick="Controller.numpad('0')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">0</button>
+            <button onclick="Controller.numpad('00')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">00</button>
           </div>
         </div>
 
       </div>
       <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-between gap-3 shrink-0">
-        <button onclick="Controller.closeModal('modal-checkout')" class="flex-1 py-3 border border-[#fce8e0] bg-white rounded-2xl text-slate-500 font-bold hover:bg-accent">Cancel</button>
+        <button onclick="Controller.closeModal('modal-checkout')" class="flex-1 py-3 border border-[#efe3c4] bg-white rounded-2xl text-slate-500 font-bold hover:bg-accent">Cancel</button>
         <button onclick="Controller.submitOrder()" id="btn-submit-order" class="flex-[1.5] py-3 bg-primary text-white rounded-2xl font-bold shadow-md shadow-primary/30 hover:brightness-95"> Confirm Order </button>
       </div>
     </div>
@@ -926,7 +961,7 @@
   <div id="modal-float-cash" class="hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
       <!-- Header -->
-      <div class="p-5 bg-[#fdf6f2] border-b border-[#fce8e0] flex justify-between items-center">
+      <div class="p-5 bg-[#fffdf5] border-b border-[#efe3c4] flex justify-between items-center">
         <h3 class="font-bold text-xl text-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg> นำเงินเข้า / นำเงินออก</h3>
         <button onclick="Controller.closeModal('modal-float-cash')" class="text-slate-400 hover:text-red-500 text-2xl font-bold">&times;</button>
       </div>
@@ -954,7 +989,7 @@
           <p class="text-xs text-slate-400 text-center mt-2">พิมพ์ยอดรวมที่นี่ได้เลย หรือใช้ตัวช่วยนับเงินด้านล่าง</p>
         </div>
 
-        <hr class="border-[#fce8e0] mb-6">
+        <hr class="border-[#efe3c4] mb-6">
 
         <!-- ตัวช่วยนับ (Cash Counter) -->
         <h4 class="font-bold text-slate-600 mb-4 flex items-center gap-2">
@@ -963,21 +998,21 @@
         </h4>
         
         <div class="grid grid-cols-2 gap-x-3 sm:gap-x-6 gap-y-3">
-          <div class="flex items-center justify-between gap-1"><span class="font-bold text-slate-500 bg-slate-100 px-2 sm:px-3 py-1.5 rounded-lg w-14 sm:w-16 text-center text-sm sm:text-base">1,000</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="1000" id="denom-1000" class="denom-input w-14 sm:w-16 border border-[#fce8e0] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
-          <div class="flex items-center justify-between gap-1"><span class="font-bold text-slate-500 bg-slate-100 px-2 sm:px-3 py-1.5 rounded-lg w-14 sm:w-16 text-center text-sm sm:text-base">500</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="500" id="denom-500" class="denom-input w-14 sm:w-16 border border-[#fce8e0] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
-          <div class="flex items-center justify-between gap-1"><span class="font-bold text-slate-500 bg-slate-100 px-2 sm:px-3 py-1.5 rounded-lg w-14 sm:w-16 text-center text-sm sm:text-base">100</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="100" id="denom-100" class="denom-input w-14 sm:w-16 border border-[#fce8e0] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
-          <div class="flex items-center justify-between gap-1"><span class="font-bold text-slate-500 bg-slate-100 px-2 sm:px-3 py-1.5 rounded-lg w-14 sm:w-16 text-center text-sm sm:text-base">50</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="50" id="denom-50" class="denom-input w-14 sm:w-16 border border-[#fce8e0] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
-          <div class="flex items-center justify-between gap-1"><span class="font-bold text-slate-500 bg-slate-100 px-2 sm:px-3 py-1.5 rounded-lg w-14 sm:w-16 text-center text-sm sm:text-base">20</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="20" id="denom-20" class="denom-input w-14 sm:w-16 border border-[#fce8e0] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
-          <div class="flex items-center justify-between"><span class="font-bold text-slate-500 border border-slate-200 rounded-full w-10 h-10 flex items-center justify-center">10</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="10" id="denom-10" class="denom-input w-16 border border-[#fce8e0] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
-          <div class="flex items-center justify-between"><span class="font-bold text-slate-500 border border-slate-200 rounded-full w-10 h-10 flex items-center justify-center">5</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="5" id="denom-5" class="denom-input w-16 border border-[#fce8e0] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
-          <div class="flex items-center justify-between"><span class="font-bold text-slate-500 border border-slate-200 rounded-full w-9 h-9 flex items-center justify-center">2</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="2" id="denom-2" class="denom-input w-16 border border-[#fce8e0] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
-          <div class="flex items-center justify-between"><span class="font-bold text-slate-500 border border-slate-200 rounded-full w-8 h-8 flex items-center justify-center">1</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="1" id="denom-1" class="denom-input w-16 border border-[#fce8e0] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
+          <div class="flex items-center justify-between gap-1"><span class="font-bold text-slate-500 bg-slate-100 px-2 sm:px-3 py-1.5 rounded-lg w-14 sm:w-16 text-center text-sm sm:text-base">1,000</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="1000" id="denom-1000" class="denom-input w-14 sm:w-16 border border-[#efe3c4] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
+          <div class="flex items-center justify-between gap-1"><span class="font-bold text-slate-500 bg-slate-100 px-2 sm:px-3 py-1.5 rounded-lg w-14 sm:w-16 text-center text-sm sm:text-base">500</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="500" id="denom-500" class="denom-input w-14 sm:w-16 border border-[#efe3c4] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
+          <div class="flex items-center justify-between gap-1"><span class="font-bold text-slate-500 bg-slate-100 px-2 sm:px-3 py-1.5 rounded-lg w-14 sm:w-16 text-center text-sm sm:text-base">100</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="100" id="denom-100" class="denom-input w-14 sm:w-16 border border-[#efe3c4] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
+          <div class="flex items-center justify-between gap-1"><span class="font-bold text-slate-500 bg-slate-100 px-2 sm:px-3 py-1.5 rounded-lg w-14 sm:w-16 text-center text-sm sm:text-base">50</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="50" id="denom-50" class="denom-input w-14 sm:w-16 border border-[#efe3c4] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
+          <div class="flex items-center justify-between gap-1"><span class="font-bold text-slate-500 bg-slate-100 px-2 sm:px-3 py-1.5 rounded-lg w-14 sm:w-16 text-center text-sm sm:text-base">20</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="20" id="denom-20" class="denom-input w-14 sm:w-16 border border-[#efe3c4] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
+          <div class="flex items-center justify-between"><span class="font-bold text-slate-500 border border-slate-200 rounded-full w-10 h-10 flex items-center justify-center">10</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="10" id="denom-10" class="denom-input w-16 border border-[#efe3c4] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
+          <div class="flex items-center justify-between"><span class="font-bold text-slate-500 border border-slate-200 rounded-full w-10 h-10 flex items-center justify-center">5</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="5" id="denom-5" class="denom-input w-16 border border-[#efe3c4] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
+          <div class="flex items-center justify-between"><span class="font-bold text-slate-500 border border-slate-200 rounded-full w-9 h-9 flex items-center justify-center">2</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="2" id="denom-2" class="denom-input w-16 border border-[#efe3c4] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
+          <div class="flex items-center justify-between"><span class="font-bold text-slate-500 border border-slate-200 rounded-full w-8 h-8 flex items-center justify-center">1</span><span class="text-slate-300 font-bold">x</span><input type="number" min="0" data-value="1" id="denom-1" class="denom-input w-16 border border-[#efe3c4] rounded-lg p-1.5 text-center font-bold text-secondary focus:border-primary focus:outline-none" placeholder="0" oninput="Controller.calculateFloatTotal()"></div>
         </div>
       </div>
 
       <!-- Footer -->
-      <div class="p-4 bg-[#fdf6f2] border-t border-[#fce8e0] flex gap-3">
-        <button onclick="Controller.closeModal('modal-float-cash')" class="flex-1 py-3 border border-[#fce8e0] bg-white rounded-2xl text-slate-500 font-bold hover:bg-accent transition">ยกเลิก</button>
+      <div class="p-4 bg-[#fffdf5] border-t border-[#efe3c4] flex gap-3">
+        <button onclick="Controller.closeModal('modal-float-cash')" class="flex-1 py-3 border border-[#efe3c4] bg-white rounded-2xl text-slate-500 font-bold hover:bg-accent transition">ยกเลิก</button>
         <button onclick="Controller.saveFloatCashFromModal(this)" class="flex-[1.5] py-3 bg-primary text-white rounded-2xl font-bold shadow-md shadow-primary/30 hover:brightness-95 transition"> บันทึกยอดเงิน </button>
       </div>
     </div>
@@ -1941,7 +1976,7 @@
           // เปลี่ยนสีปุ่มถ้าถูกเลือกอยู่
           const btnStyle = isActive 
             ? 'bg-primary text-white shadow-md shadow-primary/30' 
-            : 'bg-white text-secondary border border-[#fce8e0] hover:bg-accent';
+            : 'bg-white text-secondary border border-[#efe3c4] hover:bg-accent';
             
           return `<button onclick="Controller.selectCategory('${cat}')" class="whitespace-nowrap px-5 py-2 rounded-full font-bold text-sm transition-all ${btnStyle}">${cat}</button>`;
         }).join('');
@@ -2091,7 +2126,7 @@
           b.innerText = btn.label;
           b.className = btn.style === 'primary'
             ? 'flex-1 py-2.5 bg-primary text-white rounded-xl font-bold hover:brightness-95 transition'
-            : 'flex-1 py-2.5 border border-[#fce8e0] bg-white text-slate-500 rounded-xl font-bold hover:bg-accent transition';
+            : 'flex-1 py-2.5 border border-[#efe3c4] bg-white text-slate-500 rounded-xl font-bold hover:bg-accent transition';
           b.onclick = () => {
             const result = btn.value === '__INPUT__' ? inputEl.value : btn.value;
             document.getElementById('modal-alert').classList.add('hidden');
@@ -2704,7 +2739,7 @@
           else if (index === 2) rankIcon = '';
 
           html += `
-            <div class="flex items-center p-4 hover:bg-[#fdf6f2] transition-colors">
+            <div class="flex items-center p-4 hover:bg-[#fffdf5] transition-colors">
               <div class="w-10 text-center text-2xl mr-4">${rankIcon}</div>
               <div class="flex-1">
                 <p class="font-bold text-secondary text-lg">${item.name}</p>
@@ -2748,7 +2783,7 @@
           const priceDisplay = addon.price >= 0 ? `+฿${addon.price}` : `-฿${Math.abs(addon.price)}`;
           const priceColor = addon.price >= 0 ? 'text-primary' : 'text-emerald-500';
           html += `
-            <div class="flex items-center justify-between p-4 hover:bg-[#fdf6f2] transition-colors">
+            <div class="flex items-center justify-between p-4 hover:bg-[#fffdf5] transition-colors">
               <div>
                 <p class="font-bold text-secondary">${addon.name} <span class="${priceColor} ml-1">(${priceDisplay})</span></p>
                 <div class="flex items-center gap-2 mt-1">
@@ -2978,11 +3013,11 @@
           wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-xl">'
             + '<h3 class="font-bold text-lg text-secondary mb-4">' + (item ? 'แก้ไขวัตถุดิบ' : 'เพิ่มวัตถุดิบ') + '</h3>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อวัตถุดิบ</label>'
-            + '<input id="inv-item-name" class="w-full border border-[#fce8e0] rounded-xl p-2.5 mb-3" value="' + q(it.name) + '">'
+            + '<input id="inv-item-name" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.name) + '">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">หน่วย</label>'
-            + '<input id="inv-item-unit" class="w-full border border-[#fce8e0] rounded-xl p-2.5 mb-3" value="' + q(it.unit) + '">'
+            + '<input id="inv-item-unit" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.unit) + '">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">จำนวนคงเหลือ</label>'
-            + '<input id="inv-item-stock" type="number" class="w-full border border-[#fce8e0] rounded-xl p-2.5 mb-5" value="' + (Number(it.stock) || 0) + '">'
+            + '<input id="inv-item-stock" type="number" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-5" value="' + (Number(it.stock) || 0) + '">'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeInventoryItemForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
             + '<button onclick="Controller.saveInventoryItemForm()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึก</button>'
@@ -3063,9 +3098,9 @@
             + '<div class="flex items-center gap-2 text-[11px] font-bold text-slate-400 mb-1"><div class="flex-1">รายการ</div><div class="w-16 text-center">จำนวน</div><div class="w-20 text-center">ราคา</div></div>'
             + '<div class="mb-4">' + (rows || '<p class="text-sm text-slate-400 py-3">ไม่มีรายการสินค้า</p>') + '</div>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">วิธีชำระเงิน</label>'
-            + '<select id="eb-payment" class="w-full border border-[#fce8e0] rounded-xl p-2.5 mb-3">' + pm + '</select>'
+            + '<select id="eb-payment" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3">' + pm + '</select>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">หมายเหตุบิล</label>'
-            + '<input id="eb-note" class="w-full border border-[#fce8e0] rounded-xl p-2.5 mb-5" value="' + q(order.note) + '">'
+            + '<input id="eb-note" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-5" value="' + q(order.note) + '">'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeEditBill()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
             + '<button onclick="Controller.saveEditBill()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึกการแก้ไข</button>'
@@ -3185,7 +3220,7 @@ renderReport(r) {
         }
 
         container.innerHTML = this.paymentMethods.map(m => `
-          <div class="flex items-center justify-between p-4 hover:bg-[#fdf6f2] transition-colors">
+          <div class="flex items-center justify-between p-4 hover:bg-[#fffdf5] transition-colors">
             <div>
               <p class="font-bold text-secondary">${m.name} ${m.isCash ? '<span class="text-xs text-emerald-500 ml-1">(เงินสด)</span>' : ''}</p>
               <div class="flex items-center gap-2 mt-1">
@@ -3422,7 +3457,7 @@ renderReport(r) {
           const originalIdx = this.menuData.indexOf(item);
           const isSoldOut = this.soldOutItems.includes(item.name);
           
-          let cardStyle = "bg-white rounded-3xl shadow-sm border border-[#fce8e0] cursor-pointer overflow-hidden flex flex-col relative group transition-all duration-200 ";
+          let cardStyle = "bg-white rounded-3xl shadow-sm border border-[#efe3c4] cursor-pointer overflow-hidden flex flex-col relative group transition-all duration-200 ";
           
           if (this.isStockMode) {
              cardStyle += "border-amber-400 border-2 hover:shadow-lg hover:scale-[1.02] ";
@@ -3454,7 +3489,7 @@ renderReport(r) {
                   <p class="font-bold text-secondary text-sm leading-tight">${item.name}</p>
                   <p class="text-xs text-slate-400 mt-1">${item.lang2 || '&nbsp;'}</p>
                 </div>
-                <div class="flex justify-between items-center mt-3 pt-3 border-t border-[#fce8e0] relative z-20">
+                <div class="flex justify-between items-center mt-3 pt-3 border-t border-[#efe3c4] relative z-20">
                   <p class="text-primary font-black text-lg">฿${item.price}</p>
                   ${!this.isStockMode && !isSoldOut ? `<div class="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg group-hover:bg-primary group-hover:text-white transition-colors">+</div>` : ''}
                   ${this.isStockMode ? `<div class="text-xs font-bold ${isSoldOut ? 'text-red-500' : 'text-emerald-500'}">${isSoldOut ? ' หมด' : ' มีของ'}</div>` : ''}
@@ -3547,7 +3582,7 @@ renderReport(r) {
         } else {
           activeAddons.forEach(addon => {
             const isSelected = this.selectedAddons.some(a => a.id === addon.id);
-            const activeClass = isSelected ? 'bg-primary text-white border-primary' : 'border-[#fce8e0] text-slate-500 hover:bg-accent';
+            const activeClass = isSelected ? 'bg-primary text-white border-primary' : 'border-[#efe3c4] text-slate-500 hover:bg-accent';
             const priceDisplay = addon.price >= 0 ? `+฿${addon.price}` : `-฿${Math.abs(addon.price)}`;
             html += `<button onclick="Controller.toggleAddon('${addon.id}')" class="border px-4 py-2 rounded-full text-sm font-bold transition-all ${activeClass}">${addon.name} (${priceDisplay})</button>`;
           });
@@ -3612,7 +3647,7 @@ renderReport(r) {
           container.innerHTML = this.cart.map((item, idx) => {
             total += item.price * item.qty;
             return `
-              <div class="flex justify-between items-start bg-white p-3 rounded-2xl border border-[#fce8e0] shadow-sm gap-2">
+              <div class="flex justify-between items-start bg-white p-3 rounded-2xl border border-[#efe3c4] shadow-sm gap-2">
                 <div class="flex-1 min-w-0">
                   <p class="font-bold text-sm text-secondary truncate">${item.name}</p>
                   <p class="text-xs text-slate-400 mt-0.5">${item.note || '-'}</p>
@@ -3853,7 +3888,7 @@ renderReport(r) {
 
       updateCashUI() {
         const total = Math.max(0, this.getCartSubtotal() - this.checkoutDiscount);
-        const received = parseInt(this.cashInput, 10);
+        const received = parseInt(this.cashInput, 10) || 0;
         document.getElementById('cash-received').innerText = received;
         
         const change = received - total;
