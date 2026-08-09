@@ -772,7 +772,7 @@
       </div>
       <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3">
         <button onclick="Controller.closeModal('modal-product')" class="px-5 py-2.5 border border-[#efe3c4] bg-white text-slate-500 rounded-2xl font-bold hover:bg-accent">Cancel</button>
-        <button onclick="Controller.addToCartFromModal()" class="px-5 py-2.5 bg-primary hover:brightness-95 text-white rounded-2xl font-bold shadow-md shadow-primary/30 transition-all"> Add to Cart </button>
+        <button id="btn-modal-add-cart" onclick="Controller.addToCartFromModal()" class="px-5 py-2.5 bg-primary hover:brightness-95 text-white rounded-2xl font-bold shadow-md shadow-primary/30 transition-all"> Add to Cart </button>
       </div>
     </div>
   </div>
@@ -1781,6 +1781,7 @@
       activeProduct: null,
       addons: [],
       selectedAddons: [],
+      editingCartIndex: null,
       paymentMethods: [],
       currentPaymentMethodId: null,
       pinBuffer: '',
@@ -3554,6 +3555,7 @@ renderReport(r) {
 
         this.activeProduct = item;
         this.selectedAddons = [];
+        this.editingCartIndex = null;
         document.getElementById('modal-product-name').innerText = this.activeProduct.name;
         document.getElementById('modal-note').value = '';
         this.updateAddonButtons();
@@ -3564,6 +3566,9 @@ renderReport(r) {
           btn.removeAttribute('data-selected');
         });
         
+        const addBtnNew = document.getElementById('btn-modal-add-cart');
+        if (addBtnNew) addBtnNew.innerText = 'Add to Cart';
+
         this.openModal('modal-product');
       },
 
@@ -3632,22 +3637,127 @@ renderReport(r) {
 
         // ราคาจะต้องไม่ติดลบ (ถ้าส่วนลดเยอะกว่าค่าสินค้า ให้ราคาเป็น 0)
         const finalPrice = Math.max(0, this.activeProduct.price + additionalPrice);
+        const addonIds = this.selectedAddons.map(a => a.id);
 
-        const existingItem = this.cart.find(item => item.sku === this.activeProduct.sku && item.note === finalNote);
+        const editIdx = this.editingCartIndex;
+        const isEditing = (editIdx !== null && editIdx !== undefined && this.cart[editIdx]);
 
-        if (existingItem) {
-          existingItem.qty += 1;
-        } else {
-          this.cart.push({
+        if (isEditing) {
+          const oldQty = this.cart[editIdx].qty || 1;
+          this.cart[editIdx] = {
             ...this.activeProduct,
             price: finalPrice,
-            qty: 1,
-            note: finalNote
-          });
+            qty: oldQty,
+            note: finalNote,
+            sweetness: sweetness,
+            addonIds: addonIds,
+            textNote: textNote
+          };
+
+          // ถ้าแก้ไขแล้วไปเหมือนกับอีกรายการในตะกร้า ให้ยุบรวมเป็นรายการเดียว
+          const twinIdx = this.cart.findIndex((it, i) => i !== editIdx && it.sku === this.activeProduct.sku && it.note === finalNote);
+          if (twinIdx !== -1) {
+            this.cart[twinIdx].qty += oldQty;
+            this.cart.splice(editIdx, 1);
+          }
+          this.editingCartIndex = null;
+        } else {
+          const existingItem = this.cart.find(item => item.sku === this.activeProduct.sku && item.note === finalNote);
+
+          if (existingItem) {
+            existingItem.qty += 1;
+          } else {
+            this.cart.push({
+              ...this.activeProduct,
+              price: finalPrice,
+              qty: 1,
+              note: finalNote,
+              sweetness: sweetness,
+              addonIds: addonIds,
+              textNote: textNote
+            });
+          }
         }
         
         this.renderCart();
         this.closeModal('modal-product');
+      },
+
+      // อ่านตัวเลือกเดิมของรายการในตะกร้า (ความหวาน / ส่วนเสริม / โน้ต)
+      parseCartItemOptions(item) {
+        const result = { sweetness: '', addons: [], textNote: '' };
+        if (!item) return result;
+
+        // รายการที่บันทึกด้วยเวอร์ชันใหม่ จะมีข้อมูลโครงสร้างครบอยู่แล้ว
+        if (Array.isArray(item.addonIds)) {
+          result.sweetness = item.sweetness || '';
+          result.textNote = item.textNote || '';
+          result.addons = item.addonIds
+            .map(id => (this.addons || []).find(a => a.id === id))
+            .filter(Boolean);
+          return result;
+        }
+
+        // รายการเก่า: ถอดข้อมูลย้อนหลังจากข้อความ note
+        const parts = String(item.note || '').split('|').map(s => s.trim()).filter(Boolean);
+        parts.forEach(part => {
+          if (part.indexOf('ความหวาน:') === 0) {
+            result.sweetness = part.replace('ความหวาน:', '').trim();
+            return;
+          }
+          const addonName = part.replace(/\s*\([^)]*\)\s*$/, '').trim();
+          const found = (this.addons || []).find(a => a.name === addonName);
+          if (found) {
+            result.addons.push(found);
+          } else {
+            result.textNote = result.textNote ? (result.textNote + ' | ' + part) : part;
+          }
+        });
+        return result;
+      },
+
+      // เปิดหน้าต่างตัวเลือกอีกครั้ง เพื่อแก้ไขรายการที่อยู่ในตะกร้า
+      editCartItem(idx) {
+        const item = this.cart[idx];
+        if (!item) return;
+
+        const info = this.parseCartItemOptions(item);
+        const baseProduct = (this.menuData || []).find(m => m.sku === item.sku);
+
+        if (baseProduct) {
+          this.activeProduct = baseProduct;
+        } else {
+          // ไม่เจอในเมนู (เช่นสินค้าถูกลบไปแล้ว) ให้ถอดราคาส่วนเสริมออกเพื่อหาราคาฐาน
+          const addonSum = info.addons.reduce((s, a) => s + (Number(a.price) || 0), 0);
+          const fallback = Object.assign({}, item, { price: Math.max(0, item.price - addonSum) });
+          delete fallback.qty;
+          delete fallback.note;
+          delete fallback.sweetness;
+          delete fallback.addonIds;
+          delete fallback.textNote;
+          this.activeProduct = fallback;
+        }
+
+        this.editingCartIndex = idx;
+        this.selectedAddons = info.addons.slice();
+
+        document.getElementById('modal-product-name').innerText = 'แก้ไข: ' + item.name;
+        document.getElementById('modal-note').value = info.textNote || '';
+        this.updateAddonButtons();
+
+        let matchBtn = null;
+        document.querySelectorAll('.mod-btn').forEach(btn => {
+          btn.classList.remove('bg-primary', 'text-white', 'border-primary');
+          btn.classList.add('text-slate-500', 'border-slate-200');
+          btn.removeAttribute('data-selected');
+          if (info.sweetness && btn.innerText.trim() === info.sweetness) matchBtn = btn;
+        });
+        if (matchBtn) this.selectSweetness(matchBtn);
+
+        const addBtnEdit = document.getElementById('btn-modal-add-cart');
+        if (addBtnEdit) addBtnEdit.innerText = 'บันทึกการแก้ไข';
+
+        this.openModal('modal-product');
       },
 
       renderCart() {
@@ -3676,7 +3786,10 @@ renderReport(r) {
                     <span class="w-6 text-center font-bold text-sm">${item.qty}</span>
                     <button onclick="Controller.updateQty(${idx}, 1)" class="w-6 h-6 flex items-center justify-center bg-white rounded hover:bg-slate-200 font-bold text-slate-600 shadow-sm">+</button>
                   </div>
-                  <button onclick="Controller.removeFromCart(${idx})" class="text-red-400 hover:text-red-600 text-xs font-bold underline">Remove</button>
+                            <div class="flex items-center gap-3">
+                                <button onclick="Controller.editCartItem(${idx})" class="text-primary hover:text-navy text-xs font-bold underline">แก้ไข</button>
+                                <button onclick="Controller.removeFromCart(${idx})" class="text-red-400 hover:text-red-600 text-xs font-bold underline">Remove</button>
+                            </div>
                 </div>
               </div>
             `;
