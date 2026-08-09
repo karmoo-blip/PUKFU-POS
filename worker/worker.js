@@ -166,13 +166,15 @@ handlers.getAddons = async (env) => {
 
 handlers.saveAddon = async (env, args) => {
   const addon = args[0];
-  const existing = await env.DB.prepare("SELECT id FROM addons WHERE id = ?").bind(addon.id).first();
+  // ถ้าไม่ได้ส่ง id มา แปลว่าเป็นการเพิ่มใหม่ ต้องสร้าง id ให้ ไม่งั้นจะไปทับแถวที่ id ว่าง
+  const id = addon.id || ("ADDON-" + Date.now());
+  const existing = await env.DB.prepare("SELECT id FROM addons WHERE id = ?").bind(id).first();
   if (existing) {
     await env.DB.prepare("UPDATE addons SET name=?, price=?, active=? WHERE id=?")
-      .bind(addon.name, addon.price, addon.active ? 1 : 0, addon.id).run();
+      .bind(addon.name, addon.price, addon.active ? 1 : 0, id).run();
   } else {
     await env.DB.prepare("INSERT INTO addons (id, name, price, active, created_by) VALUES (?,?,?,?,?)")
-      .bind(addon.id, addon.name, addon.price, addon.active ? 1 : 0, addon.created_by || "").run();
+      .bind(id, addon.name, addon.price, addon.active ? 1 : 0, addon.created_by || "").run();
   }
   return { success: true };
 };
@@ -190,15 +192,17 @@ handlers.getPaymentMethods = async (env) => {
 
 handlers.savePaymentMethod = async (env, args) => {
   const pm = args[0];
-  const existing = await env.DB.prepare("SELECT id FROM payment_methods WHERE id = ?").bind(pm.id).first();
+  // ถ้าไม่ได้ส่ง id มา แปลว่าเป็นการเพิ่มใหม่ ต้องสร้าง id ให้ ไม่งั้นจะไปทับแถวที่ id ว่าง
+  const id = pm.id || ("PM-" + Date.now());
+  const existing = await env.DB.prepare("SELECT id FROM payment_methods WHERE id = ?").bind(id).first();
   if (existing) {
     await env.DB.prepare(
       "UPDATE payment_methods SET name=?, is_cash=?, enabled=?, sort_order=? WHERE id=?"
-    ).bind(pm.name, (pm.isCash ?? pm.is_cash) ? 1 : 0, pm.enabled ? 1 : 0, pm.sort_order || 0, pm.id).run();
+    ).bind(pm.name, (pm.isCash ?? pm.is_cash) ? 1 : 0, pm.enabled ? 1 : 0, pm.sort_order || 0, id).run();
   } else {
     await env.DB.prepare(
       "INSERT INTO payment_methods (id, name, is_cash, enabled, sort_order, created_by) VALUES (?,?,?,?,?,?)"
-    ).bind(pm.id, pm.name, (pm.isCash ?? pm.is_cash) ? 1 : 0, pm.enabled ? 1 : 0, pm.sort_order || 0, pm.created_by || "").run();
+    ).bind(id, pm.name, (pm.isCash ?? pm.is_cash) ? 1 : 0, pm.enabled ? 1 : 0, pm.sort_order || 0, pm.created_by || "").run();
   }
   return { success: true };
 };
