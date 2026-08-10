@@ -1686,7 +1686,7 @@
         order.items.forEach(item => {
           if (doc._hasItem) R.gap(doc, 17);
           doc._hasItem = true;
-          R.row3(doc, item.qty, item.name, money(item.price * item.qty), { size: small });
+          R.row3(doc, item.qty, item.name, money(item.price * item.qty), { size: small, bold: true });
           if (item.note && settings.showItemNote !== false) R.text(doc, item.note, { size: Math.round(S * 0.8), indent: Math.round(S * 1.7) });
         });
         R.rule(doc);
@@ -1733,7 +1733,8 @@
         R.rule(doc);
 
         order.items.forEach(item => {
-          R.text(doc, '- ' + item.qty + 'x ' + item.name, { size: Math.round(S * 1.0), bold: true });
+          // ใช้ขนาดตัวอักษรเดียวกับรายการสินค้าในใบเสร็จ (S * 0.86) ให้สม่ำเสมอกัน
+          R.text(doc, '- ' + item.qty + 'x ' + item.name, { size: Math.round(S * 0.86), bold: true });
           if (item.note) R.text(doc, '    ' + item.note, { size: Math.round(S * 0.8) });
         });
 
