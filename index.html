@@ -1477,8 +1477,11 @@
       async probeChunkSize() {
         if (this.chunkSize) return this.chunkSize;
         if (/Android/i.test(navigator.userAgent)) {
+          // Android เจรจา ATT MTU ผ่าน Web Bluetooth ไม่ได้ (ไม่มี API ให้เว็บขอ) เลยส่งได้ครั้งละ 20 ไบต์เท่านั้น
+          // แต่ดีเลย์ 15ms/ก้อนเดิมนานเกินจำเป็นจนพิมพ์ใบเสร็จหนึ่งใบใช้เวลาเกือบนาที ลดเหลือ 3ms
+          // (ถ้าเขียนข้อมูลพลาดระหว่างพิมพ์ sendData() จะ fallback กลับไปที่ 15ms ให้เองอัตโนมัติ)
           this.chunkSize = 20;
-          this.chunkDelay = 15;
+          this.chunkDelay = 3;
           return 20;
         }
         const CANDIDATES = [512, 244, 182, 100, 20];
