@@ -28,6 +28,14 @@
   <meta name="theme-color" content="#154360"> <!-- สีนี้จะเปลี่ยนแถบด้านบนสุดของเครื่อง Android ให้เป็นสีส้มพีชของร้านคุณ -->
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <script>
+      // ลงทะเบียน Service Worker เพื่อแคชหน้าเว็บไว้ใช้งานแบบ offline
+      if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('sw.js').catch(err => console.error('SW register failed:', err));
+            });
+      }
+        </script>
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
