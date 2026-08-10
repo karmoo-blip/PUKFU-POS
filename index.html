@@ -36,7 +36,7 @@
             });
       }
         </script>
-  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="fonts-sarabun.css">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -1215,7 +1215,7 @@
     //    (แก้ปัญหาภาษาไทยเพี้ยน เพราะไม่พึ่ง code page ของเครื่องพิมพ์)
     // ==========================================================
     const ReceiptImage = {
-      FONT: '"Noto Sans Thai","Sarabun","Leelawadee UI","Thonburi","Tahoma",sans-serif',
+        FONT: '"Sarabun","Noto Sans Thai","Leelawadee UI","Thonburi","Tahoma",sans-serif',
       PAD: 4,
       _fontReady: null,
 
@@ -1468,6 +1468,11 @@
 
       async probeChunkSize() {
         if (this.chunkSize) return this.chunkSize;
+        if (/Android/i.test(navigator.userAgent)) {
+          this.chunkSize = 20;
+          this.chunkDelay = 15;
+          return 20;
+        }
         const CANDIDATES = [512, 244, 182, 100, 20];
         for (const size of CANDIDATES) {
           try {
