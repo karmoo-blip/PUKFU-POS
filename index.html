@@ -5285,7 +5285,172 @@ renderReport(r) {
       }
     };
 
-    window.onload = () => Controller.init();
+          // ============================================================
+          // OFFLINE-FIRST QUEUE ENHANCEMENTS (เพิ่มเติมภายหลัง)
+          // ครอบคลุมการยกเลิกบิล/รายการที่ซิงค์ขึ้นเซิร์ฟเวอร์ไปแล้ว ให้ทำงานออฟไลน์ได้
+          // และเพิ่มระบบ auto-retry เมื่อเน็ตกลับมา (ไม่ต้องรอผู้ใช้กดซิงค์เอง)
+          // ============================================================
+          Controller.statusQueue = JSON.parse(localStorage.getItem('pos_statusQueue')) || [];
+          Controller.isStatusSyncing = false;
+
+          Controller.updateSyncQueueBadge = function () {
+                    const badge = document.getElementById('sync-queue-badge');
+                    if (!badge) return;
+                    const count = this.syncQueue.length
+                      + (this.floatCashQueue ? this.floatCashQueue.length : 0)
+                      + (this.accessLogQueue ? this.accessLogQueue.length : 0)
+                      + (this.statusQueue ? this.statusQueue.length : 0);
+                    if (count > 0) {
+                                badge.innerText = count;
+                                badge.classList.remove('hidden');
+                    } else {
+                                badge.classList.add('hidden');
+                    }
+          };
+
+          Controller.processStatusQueue = function () {
+                    if (!this.statusQueue || this.statusQueue.length === 0) return;
+                    if (this.isStatusSyncing) return;
+                    if (!navigator.onLine) return;
+                    this.isStatusSyncing = true;
+                    const job = this.statusQueue[0];
+
+                    const finish = (ok) => {
+                                this.isStatusSyncing = false;
+                                if (ok) {
+                                              this.statusQueue.shift();
+                                              localStorage.setItem('pos_statusQueue', JSON.stringify(this.statusQueue));
+                                              this.updateSyncQueueBadge();
+                                              this.setIndicator(this.statusQueue.length > 0 ? 'syncing' : 'synced');
+                                              this.fetchServerData();
+                                              if (this.statusQueue.length > 0) this.processStatusQueue();
+                                } else {
+                                              this.setIndicator('error');
+                                }
+                    };
+
+                    if (job.type === 'updateOrderStatus') {
+                                google.script.run
+                                  .withSuccessHandler(() => finish(true))
+                                  .withFailureHandler(() => finish(false))
+                                  .updateOrderStatus({ invoice: job.invoice, status: job.status, reason: job.reason, user: job.user });
+                    } else if (job.type === 'cancelSalesItems') {
+                                google.script.run
+                                  .withSuccessHandler(() => finish(true))
+                                  .withFailureHandler(() => finish(false))
+                                  .cancelSalesItems({ invoice: job.invoice, items: job.items, reason: job.reason, user: job.user });
+                    } else {
+                                finish(true);
+                    }
+          };
+
+          // เขียนทับ updateOrderStatus เดิม (ยกเลิกบิล/บันทึกของเสีย) ให้ทำงานแบบ offline-first:
+          // อัปเดตหน้าจอทันที (optimistic) แล้วค่อยยิงขึ้นเซิร์ฟเวอร์เบื้องหลัง
+          // ถ้าเน็ตหลุดจะเก็บเข้าคิวไว้ แล้วระบบ auto-retry จะซิงค์ให้เองเมื่อเน็ตกลับมา
+          Controller.updateOrderStatus = async function (invoiceId, status) {
+                    const order = this.history.find(o => o.invoice === invoiceId) || this.syncQueue.find(o => o.invoice === invoiceId);
+                    if (!order || order.status === 'cancelled' || order.status === 'waste') return;
+
+                    const actionText = status === 'waste' ? 'บันทึกของเสีย' : 'ยกเลิกบิล';
+
+                    const reason = await this.showPrompt(`ระบุเหตุผลที่ต้องการ${actionText} ${order.invoice}:`, {});
+                    if (reason === null) return;
+                    if (reason.trim() === '') return this.showAlert(`กรุณาระบุเหตุผลก่อน${actionText}`, '');
+
+                    const userName = this.currentSettingsUser ? this.currentSettingsUser.name : 'พนักงาน';
+
+                    const queueEntry = this.syncQueue.find(o => o.invoice === order.invoice);
+                    if (queueEntry) {
+                                queueEntry.status = status;
+                                queueEntry.cancelReason = `${reason.trim()} (โดย ${userName})`;
+                                queueEntry.cancelUser = userName;
+                                queueEntry.cancelTimestamp = new Date().toISOString();
+                                this.saveLocalState();
+                                this.renderHistory();
+                                this.processSyncQueue();
+                                return;
+                    }
+
+                    order.status = status;
+                    order.cancelReason = `${reason.trim()} (โดย ${userName})`;
+                    order.cancelUser = userName;
+                    order.cancelTimestamp = new Date().toISOString();
+                    const removedCups = order.items.reduce((s, i) => s + i.qty, 0);
+                    this.serverCupCount = Math.max(0, this.serverCupCount - removedCups);
+                    localStorage.setItem('pos_serverCupCount', this.serverCupCount);
+                    this.saveLocalState();
+                    this.renderHistory();
+                    this.updateCupUI();
+                    this.setIndicator('syncing');
+
+                    this.statusQueue.push({ type: 'updateOrderStatus', invoice: order.invoice, status: status, reason: reason.trim(), user: userName, ts: Date.now() });
+                    localStorage.setItem('pos_statusQueue', JSON.stringify(this.statusQueue));
+                    this.updateSyncQueueBadge();
+                    this.processStatusQueue();
+          };
+
+          // เขียนทับ cancelOrderItem เดิม (ยกเลิกรายการเดียวในบิล) ให้ทำงานแบบ offline-first เช่นกัน
+          Controller.cancelOrderItem = async function (invoice, sku, note) {
+                    const order = this.history.find(o => o.invoice === invoice);
+                    if (!order) return;
+                    const item = order.items.find(i => i.sku === sku && (i.note || '') === (note || ''));
+                    if (!item || item.cancelled) return;
+
+                    const reason = await this.showPrompt(`ระบุเหตุผลที่ต้องการยกเลิกรายการ "${item.name}" ในบิล ${invoice}:`, {});
+                    if (reason === null) return;
+                    if (reason.trim() === '') return this.showAlert('กรุณาระบุเหตุผลก่อนยกเลิกรายการ', '');
+
+                    const userName = this.currentSettingsUser ? this.currentSettingsUser.name : 'พนักงาน';
+
+                    item.cancelled = true;
+                    item.cancelReason = reason.trim();
+                    this.serverCupCount = Math.max(0, this.serverCupCount - item.qty);
+                    localStorage.setItem('pos_serverCupCount', this.serverCupCount);
+                    this.saveLocalState();
+                    this.renderHistory();
+                    this.updateCupUI();
+                    this.setIndicator('syncing');
+
+                    this.statusQueue.push({
+                                type: 'cancelSalesItems',
+                                invoice: invoice,
+                                items: [{ sku: sku, note: note }],
+                                reason: reason.trim(),
+                                user: userName,
+                                ts: Date.now()
+                    });
+                    localStorage.setItem('pos_statusQueue', JSON.stringify(this.statusQueue));
+                    this.updateSyncQueueBadge();
+                    this.processStatusQueue();
+          };
+
+          // ระบบ auto-retry กลาง: เมื่อเน็ตกลับมา หรือเช็คเป็นระยะ ให้ลองซิงค์ทุกคิวที่ค้างอยู่โดยอัตโนมัติ
+          // ไม่ต้องรอให้ผู้ใช้กดปุ่ม Refresh หรือสั่งออเดอร์ใหม่เพื่อ trigger การซิงค์อีกต่อไป
+          Controller.startOfflineSyncWatcher = function () {
+                    const trySyncAll = () => {
+                                if (!navigator.onLine) return;
+                                this.processSyncQueue();
+                                this.processFloatCashQueue();
+                                this.processLogQueue();
+                                this.processStatusQueue();
+                    };
+
+                    window.addEventListener('online', () => {
+                                this.setIndicator('syncing');
+                                trySyncAll();
+                    });
+                    window.addEventListener('offline', () => {
+                                this.setIndicator('error');
+                    });
+
+                    // เช็คซ้ำเป็นระยะ เผื่อกรณี browser ไม่ยิง event 'online' ให้ (พบได้บ่อยบนมือถือบางรุ่น)
+                    setInterval(() => {
+                                trySyncAll();
+                                this.updateSyncQueueBadge();
+                    }, 20000);
+          };
+
+    window.onload = () => { Controller.init(); Controller.startOfflineSyncWatcher(); };
   </script>
 </body>
 </html>
