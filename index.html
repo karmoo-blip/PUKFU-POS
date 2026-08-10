@@ -1478,10 +1478,10 @@
         if (this.chunkSize) return this.chunkSize;
         if (/Android/i.test(navigator.userAgent)) {
           // Android เจรจา ATT MTU ผ่าน Web Bluetooth ไม่ได้ (ไม่มี API ให้เว็บขอ) เลยส่งได้ครั้งละ 20 ไบต์เท่านั้น
-          // ดีเลย์นี้คือ "ระยะพักขั้นต่ำ" ต่อก้อน ยิ่งต่ำยิ่งเร็วแต่ยิ่งเสี่ยงเขียนพลาดถ้าเครื่องพิมพ์ตามไม่ทัน
+          // ไม่ใส่ดีเลย์เพิ่มเลย ปล่อยให้ await การเขียนแต่ละก้อนเป็นตัวหน่วงตามจริงแทน (เร็วที่สุดเท่าที่ทำได้)
           // (ถ้าเขียนข้อมูลพลาดระหว่างพิมพ์ sendData() จะ fallback กลับไปที่ 15ms ให้เองอัตโนมัติ)
           this.chunkSize = 20;
-          this.chunkDelay = 1;
+          this.chunkDelay = 0;
           return 20;
         }
         const CANDIDATES = [512, 244, 182, 100, 20];
@@ -1727,18 +1727,19 @@
         const doc = R.newDoc(settings && settings.paperSize);
         const S = doc.base;
 
-        R.text(doc, 'ใบสั่งทำ', { size: Math.round(S * 1.7), bold: true, align: 'center' });
-        if (queueStr) R.text(doc, queueStr, { size: Math.round(S * 2.2), bold: true, align: 'center' });
+        // ใบนี้ไว้ให้บาริสต้า/ครัวดูอย่างเดียว ไม่ใช่ใบให้ลูกค้า เลยลดขนาดกว่าใบเสร็จได้อีก
+        // (ลดข้อมูลที่ต้องส่งผ่าน Bluetooth โดยไม่กระทบใบเสร็จลูกค้า) แต่คงเลขคิวไว้ใหญ่พอเห็นชัด
+        if (queueStr) R.text(doc, queueStr, { size: Math.round(S * 1.8), bold: true, align: 'center' });
         R.rule(doc);
 
         order.items.forEach(item => {
-          R.text(doc, '- ' + item.qty + 'x ' + item.name, { size: Math.round(S * 1.15), bold: true });
-          if (item.note) R.text(doc, '    ' + item.note, { size: Math.round(S * 0.9) });
+          R.text(doc, '- ' + item.qty + 'x ' + item.name, { size: Math.round(S * 1.0), bold: true });
+          if (item.note) R.text(doc, '    ' + item.note, { size: Math.round(S * 0.8) });
         });
 
         R.rule(doc);
-        R.text(doc, new Date(order.timestamp).toLocaleString('th-TH'), { size: Math.round(S * 0.85), align: 'center' });
-        R.text(doc, 'บิล: ' + order.invoice, { size: Math.round(S * 0.85), align: 'center' });
+        R.text(doc, new Date(order.timestamp).toLocaleString('th-TH'), { size: Math.round(S * 0.75), align: 'center' });
+        R.text(doc, 'บิล: ' + order.invoice, { size: Math.round(S * 0.75), align: 'center' });
         return await this.docToBytes(doc);
       },
 
@@ -1766,7 +1767,7 @@
       async printReceipt(order, queueStr, settings) {
         await this.sendData(await this.buildReceipt(order, queueStr, settings));
         if (settings.printOrderSlip) {
-          await new Promise(r => setTimeout(r, 150));
+          await new Promise(r => setTimeout(r, 50));
           await this.sendData(await this.buildOrderSlip(order, queueStr, settings));
         }
       },
