@@ -1268,6 +1268,14 @@
       _font(op)  { return ((op.bold ? '700 ' : '400 ') + op.size + 'px ' + this.FONT); },
       _lineH(op) { return Math.round(op.size * 1.7); },
 
+      // ตัดคำเป็น grapheme cluster (กันตัดกลางสระ/วรรณยุกต์ไทยจนอักษรเพี้ยนตอนขึ้นบรรทัดใหม่)
+      _graphemes(str) {
+        if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+          return Array.from(new Intl.Segmenter('th', { granularity: 'grapheme' }).segment(str), s => s.segment);
+        }
+        return Array.from(str);
+      },
+
       // ตัดบรรทัดให้พอดีความกว้างกระดาษ
       _wrap(ctx, str, maxW) {
         const out = [];
@@ -1275,7 +1283,7 @@
         for (const para of paras) {
           if (ctx.measureText(para).width <= maxW) { out.push(para); continue; }
           let line = '';
-          for (const ch of para) {
+          for (const ch of this._graphemes(para)) {
             if (line && ctx.measureText(line + ch).width > maxW) { out.push(line); line = ch; }
             else line += ch;
           }
