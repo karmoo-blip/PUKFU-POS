@@ -84,7 +84,7 @@
     /* ===== Pill Checkbox : ปุ่มกดเลือกแบบ Toggle ===== */
     input[type="checkbox"], input[type="radio"] { accent-color: #154360; }
 
-    div:has(> input[type="checkbox"][id^="rs-show"]),
+    label:has(> input[type="checkbox"][id^="rs-show"]),
     label:has(> input.emp-perm-checkbox) {
       display: flex; align-items: center; justify-content: center;
       gap: 0; text-align: center;
@@ -99,18 +99,14 @@
       -webkit-tap-highlight-color: transparent;
       transition: background-color .18s ease, color .18s ease, border-color .18s ease, transform .12s ease;
     }
-    div:has(> input[type="checkbox"][id^="rs-show"]) > label {
-      color: inherit !important; font-size: inherit !important; font-weight: 700; cursor: pointer;
-    }
-    div:has(> input[type="checkbox"][id^="rs-show"]) > input[type="checkbox"],
+    label:has(> input[type="checkbox"][id^="rs-show"]) > input[type="checkbox"],
     label > input.emp-perm-checkbox {
       position: absolute; opacity: 0; width: 0; height: 0; margin: 0; pointer-events: none;
     }
-    div:has(> input[type="checkbox"][id^="rs-show"]:checked),
+    label:has(> input[type="checkbox"][id^="rs-show"]:checked),
     label:has(> input.emp-perm-checkbox:checked) {
       background: #154360; border-color: #154360; color: #ffdb58;
     }
-    div:has(> input[type="checkbox"][id^="rs-show"]:checked) > label { color: #ffdb58 !important; }
-    div:has(> input[type="checkbox"][id^="rs-show"]):active,
+    label:has(> input[type="checkbox"][id^="rs-show"]):active,
     label:has(> input.emp-perm-checkbox):active { transform: scale(0.96); }
 
