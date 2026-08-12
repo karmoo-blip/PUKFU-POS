@@ -59,12 +59,30 @@ handlers.toggleSoldOut = async (env, args) => {
   return { success: true };
 };
 
+// เพิ่มคอลัมน์ opened_at/expires_at ให้ตาราง inventory เดิม (สร้างไว้นอกไฟล์นี้อยู่แล้ว)
+// ครอบ try/catch เพราะ ALTER TABLE ADD COLUMN ซ้ำจะ error ถ้าคอลัมน์มีอยู่แล้ว ทำให้เรียกซ้ำได้ปลอดภัย
+async function ensureInventoryColumns(env) {
+  const stmts = [
+    "ALTER TABLE inventory ADD COLUMN opened_at TEXT",
+    "ALTER TABLE inventory ADD COLUMN expires_at TEXT",
+  ];
+  for (const s of stmts) {
+    try {
+      await env.DB.prepare(s).run();
+    } catch (e) {
+      // คอลัมน์มีอยู่แล้ว ข้ามไป
+    }
+  }
+}
+
 handlers.getInventoryData = async (env) => {
+  await ensureInventoryColumns(env);
   const r = await env.DB.prepare("SELECT * FROM inventory").all();
   return r.results.map((row) => Object.assign({}, row, { stock: row.current_stock }));
 };
 
 handlers.getInventoryStats = async (env) => {
+  await ensureInventoryColumns(env);
   const r = await env.DB.prepare("SELECT * FROM inventory").all();
   return r.results;
 };
@@ -701,17 +719,22 @@ handlers.syncFloatCashLogs = syncFloatCashLogs;
 
 
 handlers.saveInventoryItem = async (env, args) => {
+  await ensureInventoryColumns(env);
   const it = args[0] || {};
   const name = String(it.name || "").trim();
   if (!name) return { success: false, error: "missing name" };
   const unit = String(it.unit || "").trim();
   const stock = Number(it.stock ?? it.current_stock ?? 0) || 0;
+  const openedAt = it.openedAt || it.opened_at || null;
+  const expiresAt = it.expiresAt || it.expires_at || null;
   const id = it.id || "ITM-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
   const existing = await env.DB.prepare("SELECT id FROM inventory WHERE id = ?").bind(id).first();
   if (existing) {
-    await env.DB.prepare("UPDATE inventory SET name = ?, unit = ?, current_stock = ? WHERE id = ?").bind(name, unit, stock, id).run();
+    await env.DB.prepare("UPDATE inventory SET name = ?, unit = ?, current_stock = ?, opened_at = ?, expires_at = ? WHERE id = ?")
+      .bind(name, unit, stock, openedAt, expiresAt, id).run();
   } else {
-    await env.DB.prepare("INSERT INTO inventory (id, name, current_stock, unit) VALUES (?, ?, ?, ?)").bind(id, name, stock, unit).run();
+    await env.DB.prepare("INSERT INTO inventory (id, name, current_stock, unit, opened_at, expires_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(id, name, stock, unit, openedAt, expiresAt).run();
   }
   return { success: true, id: id };
 };

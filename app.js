@@ -1209,6 +1209,7 @@
             this.setBtnLoading(btn, false);
             this.inventoryData = data;
             this.renderInventory();
+            this.checkInventoryExpiry();
             this.setIndicator('synced');
           })
           .withFailureHandler(() => {
@@ -1236,6 +1237,8 @@
               
               <div class="flex-1 min-w-0 flex items-center justify-between lg:block">
                 <p class="font-bold text-secondary text-lg truncate">${escHtml(item.name)}</p>
+                ${this._inventoryExpiryBadge(item)}
+                <button onclick='Controller.showInventoryItemForm(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="ml-2 text-xs font-bold text-primary hover:underline whitespace-nowrap">แก้ไข</button>
                 <button onclick="Controller.deleteInventoryItemConfirm('${item.id}')" class="ml-2 text-xs font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ลบ</button>
                   <span id="inv-changed-${idx}" class="lg:hidden hidden text-amber-500 font-bold text-xs whitespace-nowrap ml-2">● แก้ไข</span>
               </div>
@@ -1262,6 +1265,59 @@
             </div>
           </div>
         `).join('');
+      },
+
+      // ป้ายสถานะวันหมดอายุต่อรายการ (แสดงเฉพาะรายการที่ตั้งวันหมดอายุไว้)
+      _inventoryExpiryBadge(item) {
+        if (!item.expires_at) return '';
+        const expiresAt = new Date(item.expires_at).getTime();
+        if (isNaN(expiresAt)) return '';
+        const now = Date.now();
+        const twoHoursMs = 2 * 3600 * 1000;
+        if (expiresAt <= now) {
+          return '<span class="ml-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">หมดอายุแล้ว</span>';
+        }
+        if (expiresAt - now <= twoHoursMs) {
+          return '<span class="ml-2 bg-orange-400 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">ใกล้หมดอายุ</span>';
+        }
+        return '';
+      },
+
+      // เช็ควัตถุดิบที่หมดอายุ/ใกล้หมดอายุ อัปเดตแบนเนอร์ในแท็บ Inventory + จุดแดงบนปุ่มแท็บ
+      // เรียกทุกครั้งที่โหลดสต๊อกใหม่ และเป็นระยะระหว่างเปิดแอปทิ้งไว้ (ดู init()/startOfflineSyncWatcher)
+      checkInventoryExpiry() {
+        const now = Date.now();
+        const twoHoursMs = 2 * 3600 * 1000;
+        const expired = [];
+        const soon = [];
+        (this.inventoryData || []).forEach(item => {
+          if (!item.expires_at) return;
+          const expiresAt = new Date(item.expires_at).getTime();
+          if (isNaN(expiresAt)) return;
+          if (expiresAt <= now) expired.push(item.name);
+          else if (expiresAt - now <= twoHoursMs) soon.push(item.name);
+        });
+
+        const badge = document.getElementById('inventory-expiry-badge');
+        const count = expired.length + soon.length;
+        if (badge) {
+          badge.innerText = count;
+          badge.classList.toggle('hidden', count === 0);
+        }
+
+        const alertBox = document.getElementById('inventory-expiry-alert');
+        const alertText = document.getElementById('inventory-expiry-alert-text');
+        if (alertBox && alertText) {
+          if (count === 0) {
+            alertBox.classList.add('hidden');
+          } else {
+            const parts = [];
+            if (expired.length) parts.push(`หมดอายุแล้ว: ${expired.join(', ')}`);
+            if (soon.length) parts.push(`ใกล้หมดอายุ: ${soon.join(', ')}`);
+            alertText.innerText = ' ' + parts.join(' | ');
+            alertBox.classList.remove('hidden');
+          }
+        }
       },
 
       markInventoryChanged(idx) {
@@ -2159,10 +2215,19 @@
           setTimeout(() => { try { w.focus(); w.print(); } catch (e) { console.warn('เปิดหน้าต่างพิมพ์ไม่สำเร็จ:', e); } }, 700);
         },
 
+        // ISO string -> ค่าที่ input type="datetime-local" ใช้ได้ (YYYY-MM-DDTHH:mm ตามเวลาเครื่อง)
+        _isoToLocalInput(iso) {
+          if (!iso) return '';
+          const d = new Date(iso);
+          if (isNaN(d.getTime())) return '';
+          const pad = n => String(n).padStart(2, '0');
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        },
+
         showInventoryItemForm(item) {
           const old = document.getElementById('modal-inv-item');
           if (old) old.remove();
-          const it = item || { id: '', name: '', unit: '', stock: 0 };
+          const it = item || { id: '', name: '', unit: '', stock: 0, opened_at: '', expires_at: '' };
           const q = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
           const wrap = document.createElement('div');
           wrap.id = 'modal-inv-item';
@@ -2174,7 +2239,11 @@
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">หน่วย</label>'
             + '<input id="inv-item-unit" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.unit) + '">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">จำนวนคงเหลือ</label>'
-            + '<input id="inv-item-stock" type="number" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-5" value="' + (Number(it.stock) || 0) + '">'
+            + '<input id="inv-item-stock" type="number" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + (Number(it.stock) || 0) + '">'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">เปิดใช้เมื่อ <span class="font-normal text-slate-400">(ถ้ามี)</span></label>'
+            + '<input id="inv-item-opened-at" type="datetime-local" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + this._isoToLocalInput(it.opened_at) + '">'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">หมดอายุเมื่อ <span class="font-normal text-slate-400">(ถ้ามี)</span></label>'
+            + '<input id="inv-item-expires-at" type="datetime-local" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-5" value="' + this._isoToLocalInput(it.expires_at) + '">'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeInventoryItemForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
             + '<button onclick="Controller.saveInventoryItemForm()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึก</button>'
@@ -2192,6 +2261,10 @@
           const name = document.getElementById('inv-item-name').value.trim();
           const unit = document.getElementById('inv-item-unit').value.trim();
           const stock = Number(document.getElementById('inv-item-stock').value) || 0;
+          const openedAtLocal = document.getElementById('inv-item-opened-at').value;
+          const expiresAtLocal = document.getElementById('inv-item-expires-at').value;
+          const openedAt = openedAtLocal ? new Date(openedAtLocal).toISOString() : null;
+          const expiresAt = expiresAtLocal ? new Date(expiresAtLocal).toISOString() : null;
           if (!name) return this.showAlert('กรุณากรอกชื่อวัตถุดิบ', '');
           const id = this.editingInventoryId || '';
           this.closeInventoryItemForm();
@@ -2207,7 +2280,7 @@
               }
             })
             .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
-            .saveInventoryItem({ id: id, name: name, unit: unit, stock: stock });
+            .saveInventoryItem({ id: id, name: name, unit: unit, stock: stock, openedAt: openedAt, expiresAt: expiresAt });
         },
 
         async deleteInventoryItemConfirm(id) {
@@ -4660,6 +4733,9 @@ renderReport(r) {
                                 this.updateSyncQueueBadge();
                     }, 20000);
 
+                    // เช็ควัตถุดิบหมดอายุเป็นระยะ (ไม่ต้องรอเน็ต เทียบเวลาจากข้อมูลที่โหลดไว้ในเครื่องอยู่แล้ว)
+                    setInterval(() => this.checkInventoryExpiry(), 60000);
+
                     // มือถือมักหยุด/หน่วง setInterval ตอนแอปถูกสลับไปพัก (background tab/PWA)
                     // พอสลับกลับมาเปิดอีกครั้ง (visibilitychange) ให้ดึงข้อมูลใหม่ + ลอง sync คิวที่ค้างทันที
                     // ไม่ต้องรอรอบ setInterval ถัดไปหรือให้ผู้ใช้กด refresh เอง
@@ -4667,6 +4743,7 @@ renderReport(r) {
                     document.addEventListener('visibilitychange', () => {
                                 if (document.visibilityState !== 'visible') return;
                                 trySyncAll();
+                                this.checkInventoryExpiry();
                                 if (Date.now() - this.lastServerRefreshAt < 15000) return;
                                 this.lastServerRefreshAt = Date.now();
                                 this.setIndicator('syncing');
