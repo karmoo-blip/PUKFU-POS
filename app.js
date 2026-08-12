@@ -764,6 +764,7 @@
       cashInput: '0',
       activeProduct: null,
       addons: [],
+      sweetnessLevels: [],
       selectedAddons: [],
       editingCartIndex: null,
       paymentMethods: [],
@@ -880,6 +881,7 @@
         this.soldOutItems = JSON.parse(localStorage.getItem('pos_soldOut')) || [];
         this.menuData = JSON.parse(localStorage.getItem('pos_menuData')) || [];
         this.addons = JSON.parse(localStorage.getItem('pos_addons')) || [];
+        this.sweetnessLevels = JSON.parse(localStorage.getItem('pos_sweetnessLevels')) || [];
         this.paymentMethods = JSON.parse(localStorage.getItem('pos_paymentMethods')) || [];
         this.shopInfo = JSON.parse(localStorage.getItem('pos_shopInfo')) || { address: '', phone: '', taxId: '', vatEnabled: false, vatRate: 7 };
 
@@ -914,6 +916,15 @@
           })
           .withFailureHandler(() => console.warn("ใช้รายการ Add-ons ที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
           .getAddons();
+
+        google.script.run
+          .withSuccessHandler(data => {
+            this.sweetnessLevels = data;
+            localStorage.setItem('pos_sweetnessLevels', JSON.stringify(data));
+            this.updateSweetnessButtons();
+          })
+          .withFailureHandler(() => console.warn("ใช้รายการระดับความหวานที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
+          .getSweetnessLevels();
 
         google.script.run
           .withSuccessHandler(data => {
@@ -1362,7 +1373,7 @@
       },
 
       getAllowedTabs(user) {
-        const allTabs = ['printer', 'history', 'summary', 'report', 'inventory', 'stock', 'employees', 'log', 'addons', 'payment', 'backup'];
+        const allTabs = ['printer', 'history', 'summary', 'report', 'inventory', 'stock', 'employees', 'log', 'addons', 'sweetness', 'payment', 'backup'];
         if (user.role === 'Owner' || user.role === 'Admin') return allTabs;
         return user.permissions ? user.permissions.split(',').filter(t => allTabs.includes(t)) : [];
       },
@@ -1450,6 +1461,7 @@
         if (tab === 'stock') this.renderStockPanel();
         if (tab === 'log') this.fetchAccessLog();
         if (tab === 'addons') { this.renderAddonList(); this.fetchAddons(); }
+        if (tab === 'sweetness') { this.renderSweetnessList(); this.fetchSweetnessLevels(); }
         if (tab === 'payment') this.fetchPaymentMethods();
         if (tab === 'report') this.initReportTab();
         if (tab === 'backup') { this.fetchBackupList(); this.fetchArchiveList(); }
@@ -1902,6 +1914,122 @@
             this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
           })
           .deleteAddon(id);
+      },
+
+      fetchSweetnessLevels() {
+        this.setIndicator('syncing');
+        google.script.run
+          .withSuccessHandler(data => {
+            this.sweetnessLevels = data;
+            localStorage.setItem('pos_sweetnessLevels', JSON.stringify(data));
+            this.renderSweetnessList();
+            this.updateSweetnessButtons();
+            this.setIndicator('synced');
+          })
+          .withFailureHandler(() => {
+            this.setIndicator('error');
+            this.showAlert('ดึงข้อมูลระดับความหวานล้มเหลว', '');
+          })
+          .getSweetnessLevels();
+      },
+
+      renderSweetnessList() {
+        const container = document.getElementById('sweetness-list');
+        if (!container) return;
+
+        if (this.sweetnessLevels.length === 0) {
+          container.innerHTML = '<div class="p-8 text-center text-slate-400">ยังไม่มีข้อมูลระดับความหวาน</div>';
+          return;
+        }
+
+        let html = '';
+        this.sweetnessLevels.forEach(sw => {
+          html += `
+            <div class="flex items-center justify-between p-4 hover:bg-[#fffdf5] transition-colors">
+              <div>
+                <p class="font-bold text-secondary">${escHtml(sw.name)}</p>
+                <p class="text-xs text-slate-400 mt-1">ลำดับ: ${sw.sort_order ?? 0}</p>
+              </div>
+              <div class="flex gap-3">
+                <button onclick="Controller.openSweetnessForm('${sw.id}')" class="text-sm font-bold text-primary hover:underline">แก้ไข</button>
+                <button onclick="Controller.deleteSweetnessLevel('${sw.id}')" class="text-sm font-bold text-red-400 hover:underline">ลบ</button>
+              </div>
+            </div>
+          `;
+        });
+        container.innerHTML = html;
+      },
+
+      openSweetnessForm(id = null) {
+        document.getElementById('sweetness-form-id').value = id || '';
+        if (id) {
+          const sw = this.sweetnessLevels.find(s => s.id === id);
+          if (sw) {
+            document.getElementById('sweetness-form-title').innerText = 'แก้ไขระดับความหวาน';
+            document.getElementById('sweetness-form-name').value = sw.name;
+            document.getElementById('sweetness-form-sort-order').value = sw.sort_order ?? 0;
+          }
+        } else {
+          document.getElementById('sweetness-form-title').innerText = 'เพิ่มระดับความหวาน';
+          document.getElementById('sweetness-form-name').value = '';
+          document.getElementById('sweetness-form-sort-order').value = this.sweetnessLevels.length;
+        }
+        this.openModal('modal-sweetness-form');
+      },
+
+      async saveSweetnessForm() {
+        const id = document.getElementById('sweetness-form-id').value;
+        const name = document.getElementById('sweetness-form-name').value.trim();
+        const sortOrder = Number(document.getElementById('sweetness-form-sort-order').value) || 0;
+
+        if (!name) {
+          await this.showAlert('กรุณากรอกชื่อระดับความหวาน', '');
+          return;
+        }
+
+        const swId = id || ('SWT-' + Date.now());
+        const sw = { id: swId, name, sort_order: sortOrder };
+
+        this.closeModal('modal-sweetness-form');
+        this.setIndicator('syncing');
+        google.script.run
+          .withSuccessHandler(success => {
+            if (success) {
+              this.logPinAttempt(id ? `แก้ไขระดับความหวาน: ${name}` : `เพิ่มระดับความหวาน: ${name}`, true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
+              this.fetchSweetnessLevels();
+            } else {
+              this.setIndicator('error');
+              this.showAlert('บันทึกข้อมูลไม่สำเร็จ', '');
+            }
+          })
+          .withFailureHandler(() => {
+            this.setIndicator('error');
+            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
+          })
+          .saveSweetnessLevel(sw);
+      },
+
+      async deleteSweetnessLevel(id) {
+        const confirmDelete = await this.showConfirm('คุณแน่ใจหรือไม่ว่าต้องการลบระดับความหวานนี้?', '');
+        if (!confirmDelete) return;
+
+        this.setIndicator('syncing');
+        google.script.run
+          .withSuccessHandler(success => {
+            if (success) {
+              const sw = this.sweetnessLevels.find(s => s.id === id);
+              this.logPinAttempt(`ลบระดับความหวาน: ${sw ? sw.name : id}`, true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
+              this.fetchSweetnessLevels();
+            } else {
+              this.setIndicator('error');
+              this.showAlert('ลบข้อมูลไม่สำเร็จ', '');
+            }
+          })
+          .withFailureHandler(() => {
+            this.setIndicator('error');
+            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
+          })
+          .deleteSweetnessLevel(id);
       },
 
       initReportTab() {
@@ -2620,7 +2748,8 @@ renderReport(r) {
         document.getElementById('modal-product-name').innerText = this.activeProduct.name;
         document.getElementById('modal-note').value = '';
         this.updateAddonButtons();
-        
+        this.updateSweetnessButtons();
+
         document.querySelectorAll('.mod-btn').forEach(btn => {
           btn.classList.remove('bg-primary', 'text-white', 'border-primary');
           btn.classList.add('text-slate-500', 'border-slate-200');
@@ -2653,6 +2782,16 @@ renderReport(r) {
           this.selectedAddons.splice(index, 1);
         }
         this.updateAddonButtons();
+      },
+
+      updateSweetnessButtons() {
+        const container = document.getElementById('modal-sweetness-container');
+        if (!container) return;
+        let html = '';
+        this.sweetnessLevels.forEach(sw => {
+          html += `<button class="mod-btn border border-[#efe3c4] px-4 py-2 rounded-full text-sm font-bold text-slate-500 hover:bg-accent transition-all" onclick="Controller.selectSweetness(this)">${escHtml(sw.name)}</button>`;
+        });
+        container.innerHTML = html;
       },
 
       updateAddonButtons() {
@@ -2805,6 +2944,7 @@ renderReport(r) {
         document.getElementById('modal-product-name').innerText = 'แก้ไข: ' + item.name;
         document.getElementById('modal-note').value = info.textNote || '';
         this.updateAddonButtons();
+        this.updateSweetnessButtons();
 
         let matchBtn = null;
         document.querySelectorAll('.mod-btn').forEach(btn => {

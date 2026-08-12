@@ -19,6 +19,7 @@ async function ensureExtraTables(env) {
     "CREATE TABLE IF NOT EXISTS archives (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, range_start TEXT, range_end TEXT, note TEXT)",
     "CREATE TABLE IF NOT EXISTS archive_sales (id INTEGER PRIMARY KEY AUTOINCREMENT, archive_id INTEGER, timestamp TEXT, invoice TEXT, sku TEXT, name TEXT, qty REAL, price REAL, note TEXT, payment_type TEXT, cancelled INTEGER, cancel_reason TEXT)",
     "CREATE TABLE IF NOT EXISTS archive_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, archive_id INTEGER, timestamp TEXT, invoice TEXT, total REAL, payment_type TEXT, order_note TEXT, status TEXT, cancel_reason TEXT, cancelled_by TEXT, cancelled_at TEXT)",
+    "CREATE TABLE IF NOT EXISTS sweetness_levels (id TEXT PRIMARY KEY, name TEXT, sort_order INTEGER)",
   ];
   for (const s of stmts) {
     await env.DB.prepare(s).run();
@@ -210,6 +211,43 @@ handlers.savePaymentMethod = async (env, args) => {
 handlers.deletePaymentMethod = async (env, args) => {
   const id = args[0];
   await env.DB.prepare("DELETE FROM payment_methods WHERE id = ?").bind(id).run();
+  return { success: true };
+};
+
+handlers.getSweetnessLevels = async (env) => {
+  await ensureExtraTables(env);
+  const countR = await env.DB.prepare("SELECT COUNT(*) AS n FROM sweetness_levels").first();
+  if (!countR || !countR.n) {
+    // ร้านที่ยังไม่เคยตั้งค่า ให้ seed ค่าดั้งเดิม 4 แบบไว้ก่อน จะได้ไม่กระทบพฤติกรรมเดิม
+    const defaults = ["ไม่หวาน", "หวานน้อย", "หวานปกติ", "เพิ่มหวาน"];
+    for (let i = 0; i < defaults.length; i++) {
+      await env.DB.prepare("INSERT INTO sweetness_levels (id, name, sort_order) VALUES (?,?,?)")
+        .bind("SWT-DEFAULT-" + i, defaults[i], i).run();
+    }
+  }
+  const r = await env.DB.prepare("SELECT * FROM sweetness_levels ORDER BY sort_order").all();
+  return r.results;
+};
+
+handlers.saveSweetnessLevel = async (env, args) => {
+  await ensureExtraTables(env);
+  const sw = args[0] || {};
+  const id = sw.id || ("SWT-" + Date.now());
+  const existing = await env.DB.prepare("SELECT id FROM sweetness_levels WHERE id = ?").bind(id).first();
+  if (existing) {
+    await env.DB.prepare("UPDATE sweetness_levels SET name=?, sort_order=? WHERE id=?")
+      .bind(sw.name, sw.sort_order || 0, id).run();
+  } else {
+    await env.DB.prepare("INSERT INTO sweetness_levels (id, name, sort_order) VALUES (?,?,?)")
+      .bind(id, sw.name, sw.sort_order || 0).run();
+  }
+  return { success: true, id };
+};
+
+handlers.deleteSweetnessLevel = async (env, args) => {
+  await ensureExtraTables(env);
+  const id = args[0];
+  await env.DB.prepare("DELETE FROM sweetness_levels WHERE id = ?").bind(id).run();
   return { success: true };
 };
 

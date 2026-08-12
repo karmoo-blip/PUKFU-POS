@@ -207,6 +207,7 @@
         <button id="settings-tab-employees" onclick="Controller.switchSettingsTab('employees')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg> Employee</button>
         <button id="settings-tab-log" onclick="Controller.switchSettingsTab('log')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/></svg> Log</button>
         <button id="settings-tab-addons" onclick="Controller.switchSettingsTab('addons')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg> Add-ons</button>
+        <button id="settings-tab-sweetness" onclick="Controller.switchSettingsTab('sweetness')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M12 2s7 8 7 13a7 7 0 0 1-14 0c0-5 7-13 7-13z"/></svg> ความหวาน</button>
         <button id="settings-tab-payment" onclick="Controller.switchSettingsTab('payment')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> Payment</button>
         <button id="settings-tab-backup" onclick="Controller.switchSettingsTab('backup')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 13h8v6H8z"/></svg> Backup</button>
       </div>
@@ -543,6 +544,14 @@
         <div id="addon-list" class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm divide-y divide-[#efe3c4] max-h-[60vh] overflow-y-auto"></div>
       </div>
 
+      <div id="settings-panel-sweetness" class="settings-panel hidden">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+          <p class="text-sm text-slate-400">จัดการระดับความหวานที่ให้ลูกค้าเลือกตอนสั่ง เพิ่ม/แก้ไข/ลบได้เอง</p>
+          <button onclick="Controller.openSweetnessForm()" class="w-full sm:w-auto justify-center items-center flex bg-primary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-95 transition">+ เพิ่มระดับความหวาน</button>
+        </div>
+        <div id="sweetness-list" class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm divide-y divide-[#efe3c4] max-h-[60vh] overflow-y-auto"></div>
+      </div>
+
       <div id="settings-panel-report" class="settings-panel hidden">
         <div class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm p-4 lg:p-5 mb-4">
           <p class="text-sm font-bold text-slate-500 mb-3">เลือกช่วงเวลา</p>
@@ -662,11 +671,8 @@
           <p class="font-bold text-sm text-secondary mb-3 flex items-center gap-1">
             Sweetness Level <span class="text-red-500">*</span>
           </p>
-          <div class="flex flex-wrap gap-2">
-            <button class="mod-btn border border-[#efe3c4] px-4 py-2 rounded-full text-sm font-bold text-slate-500 hover:bg-accent transition-all" onclick="Controller.selectSweetness(this)">ไม่หวาน</button>
-            <button class="mod-btn border border-[#efe3c4] px-4 py-2 rounded-full text-sm font-bold text-slate-500 hover:bg-accent transition-all" onclick="Controller.selectSweetness(this)">หวานน้อย</button>
-            <button class="mod-btn border border-[#efe3c4] px-4 py-2 rounded-full text-sm font-bold text-slate-500 hover:bg-accent transition-all" onclick="Controller.selectSweetness(this)">หวานปกติ</button>
-            <button class="mod-btn border border-[#efe3c4] px-4 py-2 rounded-full text-sm font-bold text-slate-500 hover:bg-accent transition-all" onclick="Controller.selectSweetness(this)">เพิ่มหวาน</button>
+          <div id="modal-sweetness-container" class="flex flex-wrap gap-2">
+            <!-- Sweetness levels will be populated here -->
           </div>
         </div>
         <hr class="border-slate-100 mb-5">
@@ -724,6 +730,7 @@
             <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="employees"> Employee</label>
             <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="log"> Log</label>
             <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="addons"> Add-ons</label>
+            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="sweetness"> ความหวาน</label>
             <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="payment"> Payment</label>
             <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="backup"> Backup</label>
           </div>
@@ -760,6 +767,26 @@
       <div class="flex gap-3">
         <button onclick="Controller.closeModal('modal-addon-form')" class="flex-1 py-2.5 border border-[#efe3c4] rounded-xl font-bold text-slate-500 hover:bg-accent">ยกเลิก</button>
         <button onclick="Controller.saveAddonForm()" class="flex-1 py-2.5 bg-primary text-white rounded-xl font-bold hover:brightness-95">บันทึก</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sweetness Level Form Modal -->
+  <div id="modal-sweetness-form" class="hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[65] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6">
+      <h3 class="font-bold text-lg text-secondary mb-4" id="sweetness-form-title">เพิ่มระดับความหวาน</h3>
+      <input type="hidden" id="sweetness-form-id">
+      <div class="mb-3">
+        <label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อระดับความหวาน</label>
+        <input type="text" id="sweetness-form-name" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="เช่น หวานน้อย">
+      </div>
+      <div class="mb-5">
+        <label class="text-sm font-bold text-slate-500 mb-1 block">ลำดับการแสดงผล</label>
+        <input type="number" id="sweetness-form-sort-order" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" placeholder="เช่น 0, 1, 2 (น้อยไปก่อน)">
+      </div>
+      <div class="flex gap-3">
+        <button onclick="Controller.closeModal('modal-sweetness-form')" class="flex-1 py-2.5 border border-[#efe3c4] rounded-xl font-bold text-slate-500 hover:bg-accent">ยกเลิก</button>
+        <button onclick="Controller.saveSweetnessForm()" class="flex-1 py-2.5 bg-primary text-white rounded-xl font-bold hover:brightness-95">บันทึก</button>
       </div>
     </div>
   </div>
