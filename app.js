@@ -2386,8 +2386,15 @@
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อภาษาอังกฤษ (ถ้ามี)</label>'
             + '<input id="prod-lang2" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.lang2) + '">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">หมวดหมู่</label>'
-            + '<input id="prod-category" list="prod-category-list" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.category) + '">'
-            + '<datalist id="prod-category-list">' + (this.categories || []).filter(c => c !== 'All').map(c => '<option value="' + q(c) + '">').join('') + '</datalist>'
+            + (() => {
+                const known = (this.categories || []).filter(c => c !== 'All');
+                const cats = it.category && !known.includes(it.category) ? [...known, it.category] : known;
+                const opts = ['<option value="">(ไม่ระบุ)</option>']
+                  .concat(cats.map(c => '<option value="' + q(c) + '"' + (c === it.category ? ' selected' : '') + '>' + q(c) + '</option>'))
+                  .concat(['<option value="__new__">+ หมวดหมู่ใหม่...</option>']);
+                return '<select id="prod-category" onchange="Controller.toggleNewCategoryInput()" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-2 bg-white">' + opts.join('') + '</select>'
+                  + '<input id="prod-category-new" placeholder="ชื่อหมวดหมู่ใหม่" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3 hidden">';
+              })()
             + '<div class="flex gap-3 mb-3">'
             + '<div class="flex-1"><label class="text-sm font-bold text-slate-500 mb-1 block">ราคาขาย</label>'
             + '<input id="prod-price" type="number" step="0.01" class="w-full border border-[#efe3c4] rounded-xl p-2.5" value="' + (Number(it.price) || 0) + '"></div>'
@@ -2402,6 +2409,16 @@
             + '</div></div>';
           this.editingProductIsNew = !item;
           document.body.appendChild(wrap);
+          this.toggleNewCategoryInput();
+        },
+
+        toggleNewCategoryInput() {
+          const sel = document.getElementById('prod-category');
+          const input = document.getElementById('prod-category-new');
+          if (!sel || !input) return;
+          const isNew = sel.value === '__new__';
+          input.classList.toggle('hidden', !isNew);
+          if (!isNew) input.value = '';
         },
 
         closeProductForm() {
@@ -2413,12 +2430,14 @@
           const sku = document.getElementById('prod-sku').value.trim();
           const name = document.getElementById('prod-name').value.trim();
           const lang2 = document.getElementById('prod-lang2').value.trim();
-          const category = document.getElementById('prod-category').value.trim();
+          const categorySel = document.getElementById('prod-category').value;
+          const category = categorySel === '__new__' ? document.getElementById('prod-category-new').value.trim() : categorySel;
           const price = Number(document.getElementById('prod-price').value) || 0;
           const cost = Number(document.getElementById('prod-cost').value) || 0;
           const image = document.getElementById('prod-image').value.trim();
           if (!sku) return this.showAlert('กรุณากรอกรหัสสินค้า (SKU)', '');
           if (!name) return this.showAlert('กรุณากรอกชื่อสินค้า', '');
+          if (categorySel === '__new__' && !category) return this.showAlert('กรุณาระบุชื่อหมวดหมู่ใหม่', '');
           const isNew = !!this.editingProductIsNew;
           this.closeProductForm();
           this.showLoading();
