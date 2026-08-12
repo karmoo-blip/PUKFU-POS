@@ -593,6 +593,35 @@ handlers.createBackup = async (env, args) => {
   return { success: true };
 };
 
+handlers.getBackupData = async (env, args) => {
+  await ensureExtraTables(env);
+  const id = args && args[0];
+  const r = await env.DB.prepare("SELECT data FROM backups WHERE id = ?").bind(id).first();
+  if (!r) return { success: false, error: "not found" };
+  return { success: true, data: JSON.parse(r.data) };
+};
+
+handlers.cleanupOldBackups = async (env) => {
+  await ensureExtraTables(env);
+  const cutoff = new Date(Date.now() - 180 * 24 * 3600 * 1000).toISOString();
+  await env.DB.prepare("DELETE FROM backups WHERE created_at < ?").bind(cutoff).run();
+  return { success: true };
+};
+
+// เรียกจาก Cron Trigger (ดู scheduled() ด้านล่าง) วันละครั้ง แต่จะสร้าง backup ใหม่จริง
+// ก็ต่อเมื่อ backup ล่าสุดผ่านไปแล้ว >= 30 วัน (หรือยังไม่เคยมี backup เลย)
+// ใช้การเทียบเวลาที่ผ่านไปแทน cron expression เพราะ cron ปกติกำหนด "ทุก 30 วัน" ตรงๆ ไม่ได้
+handlers.autoBackupIfDue = async (env) => {
+  await ensureExtraTables(env);
+  const last = await env.DB.prepare("SELECT created_at FROM backups ORDER BY id DESC LIMIT 1").first();
+  const dueMs = 30 * 24 * 3600 * 1000;
+  if (!last || (Date.now() - new Date(last.created_at).getTime()) >= dueMs) {
+    await handlers.createBackup(env, ["auto-30day"]);
+  }
+  await handlers.cleanupOldBackups(env);
+  return { success: true };
+};
+
 handlers.getArchiveList = async (env) => {
   await ensureExtraTables(env);
   const r = await env.DB.prepare("SELECT id, created_at, range_start, range_end, note FROM archives ORDER BY id DESC").all();
@@ -718,5 +747,11 @@ export default {
       }
     }
     return json({ ok: false, error: "Method not allowed" }, 405);
+  },
+
+  // ต้องเพิ่ม Cron Trigger เองที่ Cloudflare dashboard (Workers & Pages > pukfu-pos-api > Triggers)
+  // แนะนำตั้งวันละครั้ง เช่น "0 20 * * *" (20:00 UTC = 03:00 เวลาไทย) โค้ดข้างในจะเช็คเองว่าถึงรอบ 30 วันหรือยัง
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(handlers.autoBackupIfDue(env));
   },
 };

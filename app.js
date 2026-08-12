@@ -883,7 +883,19 @@
         this.paymentMethods = JSON.parse(localStorage.getItem('pos_paymentMethods')) || [];
         this.shopInfo = JSON.parse(localStorage.getItem('pos_shopInfo')) || { address: '', phone: '', taxId: '', vatEnabled: false, vatRate: 7 };
 
+        // แสดงข้อมูลที่แคชไว้ในเครื่องก่อน ระหว่างรอข้อมูลใหม่จากเซิร์ฟเวอร์
+        this.renderHistory();
+        if (this.menuData.length > 0) {
+          this.extractCategories();
+        }
+
         // สั่งดึงข้อมูลล่าสุดจากเซิร์ฟเวอร์ทันที
+        this.refreshFromServer();
+      },
+
+      // ดึงข้อมูลทั้งหมดจากเซิร์ฟเวอร์ใหม่ (เมนู/พนักงาน/add-ons/วิธีชำระเงิน/ข้อมูลร้าน/ประวัติออเดอร์)
+      // เรียกครั้งแรกตอนเปิดแอปใน init(), และเรียกซ้ำตอนกลับมาเปิดแอป/แท็บอีกครั้ง (ดู startOfflineSyncWatcher)
+      refreshFromServer() {
         this.fetchServerData();
 
         google.script.run
@@ -923,21 +935,16 @@
           })
           .withFailureHandler(() => console.warn("ใช้ข้อมูลร้านที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
           .getShopInfo();
-        
-        this.renderHistory();
-        if (this.menuData.length > 0) {
-          this.extractCategories(); // ดึงหมวดหมู่ขึ้นมา
-        }
 
         google.script.run
           .withSuccessHandler(data => {
             this.menuData = data;
             localStorage.setItem('pos_menuData', JSON.stringify(data));
-            
+
             //  ซิงก์ข้อมูลของหมดจาก Google Sheet มาอัปเดตใส่หน้าจอ
             this.soldOutItems = data.filter(item => item.isSoldOut).map(item => item.name);
             localStorage.setItem('pos_soldOut', JSON.stringify(this.soldOutItems));
-            
+
             this.extractCategories(); // ดึงหมวดหมู่ใหม่หลังได้ข้อมูลล่าสุด
             this.setIndicator('synced');
             this.processSyncQueue();
@@ -2381,12 +2388,58 @@ renderReport(r) {
         list.innerHTML = data.map(f => `
           <div class="p-4 flex justify-between items-center gap-3">
             <div class="min-w-0">
-              <p class="font-bold text-secondary text-sm truncate">${escHtml(f.name)}</p>
-              <p class="text-xs text-slate-400 mt-0.5">${new Date(f.createdAt).toLocaleString()}</p>
+              <p class="font-bold text-secondary text-sm truncate">${escHtml(f.label || ('Backup #' + f.id))}</p>
+              <p class="text-xs text-slate-400 mt-0.5">${new Date(f.created_at).toLocaleString()}</p>
             </div>
-            <a href="${f.url}" target="_blank" rel="noopener" class="shrink-0 text-sm font-bold text-primary hover:underline">เปิดไฟล์</a>
+            <button onclick="Controller.exportBackupToExcel(${f.id})" class="shrink-0 text-sm font-bold text-primary hover:underline">Export Excel</button>
           </div>
         `).join('');
+      },
+
+      // แปลง array ของ object เป็นข้อความ CSV หนึ่งตาราง (เปิดใน Excel ได้โดยตรง)
+      _rowsToCsv(rows) {
+        if (!rows || rows.length === 0) return '';
+        const cols = Object.keys(rows[0]);
+        const esc = v => {
+          const s = v === null || v === undefined ? '' : String(v);
+          return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+        };
+        const lines = [cols.map(esc).join(',')];
+        for (const row of rows) lines.push(cols.map(c => esc(row[c])).join(','));
+        return lines.join('\r\n');
+      },
+
+      _downloadTextFile(filename, content, mime) {
+        const blob = new Blob(['﻿' + content], { type: mime || 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+      },
+
+      exportBackupToExcel(id) {
+        google.script.run
+          .withSuccessHandler(res => {
+            if (!res.success) {
+              this.showAlert('ไม่พบข้อมูล backup นี้', '');
+              return;
+            }
+            const sections = [];
+            for (const table of Object.keys(res.data)) {
+              sections.push('# ' + table);
+              sections.push(this._rowsToCsv(res.data[table]) || '(no data)');
+              sections.push('');
+            }
+            this._downloadTextFile(`pukfu-backup-${id}.csv`, sections.join('\r\n'));
+          })
+          .withFailureHandler(() => {
+            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+          })
+          .getBackupData(id);
       },
 
       manualBackupNow(btn) {
@@ -4448,6 +4501,19 @@ renderReport(r) {
                                 trySyncAll();
                                 this.updateSyncQueueBadge();
                     }, 20000);
+
+                    // มือถือมักหยุด/หน่วง setInterval ตอนแอปถูกสลับไปพัก (background tab/PWA)
+                    // พอสลับกลับมาเปิดอีกครั้ง (visibilitychange) ให้ดึงข้อมูลใหม่ + ลอง sync คิวที่ค้างทันที
+                    // ไม่ต้องรอรอบ setInterval ถัดไปหรือให้ผู้ใช้กด refresh เอง
+                    this.lastServerRefreshAt = Date.now();
+                    document.addEventListener('visibilitychange', () => {
+                                if (document.visibilityState !== 'visible') return;
+                                trySyncAll();
+                                if (Date.now() - this.lastServerRefreshAt < 15000) return;
+                                this.lastServerRefreshAt = Date.now();
+                                this.setIndicator('syncing');
+                                this.refreshFromServer();
+                    });
           };
 
     window.onload = () => { Controller.init(); Controller.startOfflineSyncWatcher(); };
