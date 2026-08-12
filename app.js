@@ -2392,7 +2392,7 @@
             + '<select id="notif-item-id" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3">' + itemOptions + '</select>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">เปิดใช้เมื่อ <span class="font-normal text-slate-400">(ถ้ามี)</span></label>'
             + '<input id="notif-opened-at" type="datetime-local" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3">'
-            + '<label class="text-sm font-bold text-slate-500 mb-1 block">หมดอายุเมื่อ</label>'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">หมดอายุเมื่อ <span class="font-normal text-slate-400">(ถ้าไม่ระบุ จะเก็บเป็นบันทึกเฉยๆ ไม่มีแจ้งเตือน)</span></label>'
             + '<input id="notif-expires-at" type="datetime-local" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-5">'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeNotificationForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
@@ -2416,7 +2416,7 @@
           const expiresAtLocal = document.getElementById('notif-expires-at').value;
           const openedAt = openedAtLocal ? new Date(openedAtLocal).toISOString() : null;
           const expiresAt = expiresAtLocal ? new Date(expiresAtLocal).toISOString() : null;
-          if (!expiresAt) return this.showAlert('กรุณาระบุวันหมดอายุ', '');
+          // ไม่บังคับวันหมดอายุ: รายการที่ไม่มีวันหมดอายุจะเก็บไว้เป็นบันทึกเฉยๆ ไม่มีการแจ้งเตือน (ดู _getActiveNotifications)
 
           this.closeNotificationForm();
           this.showLoading();
