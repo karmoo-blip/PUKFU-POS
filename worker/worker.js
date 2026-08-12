@@ -27,6 +27,14 @@ async function ensureExtraTables(env) {
   }
 }
 
+async function ensureColumn(env, table, column, type) {
+  try {
+    await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
+  } catch (e) {
+    // คอลัมน์มีอยู่แล้ว
+  }
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -157,20 +165,22 @@ handlers.getEmployeesForCache = async (env) => {
 };
 
 handlers.saveEmployee = async (env, args) => {
+  await ensureColumn(env, "employees", "photo", "TEXT");
   const emp = args[0] || {};
   const id = emp.id || "EMP-" + Date.now();
   const rawPerm = emp.permissions !== undefined && emp.permissions !== null ? emp.permissions : emp.permission;
   const perm = normPermission(Array.isArray(rawPerm) ? rawPerm.join(",") : rawPerm);
   const createdBy = emp.createdBy || emp.created_by || "";
+  const photo = String(emp.photo || "");
   const existing = await env.DB.prepare("SELECT id FROM employees WHERE id = ?").bind(id).first();
   if (existing) {
     await env.DB.prepare(
-      "UPDATE employees SET name=?, pin=?, role=?, active=?, permission=? WHERE id=?"
-    ).bind(emp.name, emp.pin, emp.role, emp.active ? 1 : 0, perm, id).run();
+      "UPDATE employees SET name=?, pin=?, role=?, active=?, permission=?, photo=? WHERE id=?"
+    ).bind(emp.name, emp.pin, emp.role, emp.active ? 1 : 0, perm, photo, id).run();
   } else {
     await env.DB.prepare(
-      "INSERT INTO employees (id, name, pin, role, active, permission, created_by) VALUES (?,?,?,?,?,?,?)"
-    ).bind(id, emp.name, emp.pin, emp.role, emp.active ? 1 : 0, perm, createdBy).run();
+      "INSERT INTO employees (id, name, pin, role, active, permission, created_by, photo) VALUES (?,?,?,?,?,?,?,?)"
+    ).bind(id, emp.name, emp.pin, emp.role, emp.active ? 1 : 0, perm, createdBy, photo).run();
   }
   return { success: true, id: id };
 };
@@ -762,17 +772,19 @@ handlers.syncFloatCashLogs = syncFloatCashLogs;
 
 
 handlers.saveInventoryItem = async (env, args) => {
+  await ensureColumn(env, "inventory", "photo", "TEXT");
   const it = args[0] || {};
   const name = String(it.name || "").trim();
   if (!name) return { success: false, error: "missing name" };
   const unit = String(it.unit || "").trim();
   const stock = Number(it.stock ?? it.current_stock ?? 0) || 0;
+  const photo = String(it.photo || "");
   const id = it.id || "ITM-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
   const existing = await env.DB.prepare("SELECT id FROM inventory WHERE id = ?").bind(id).first();
   if (existing) {
-    await env.DB.prepare("UPDATE inventory SET name = ?, unit = ?, current_stock = ? WHERE id = ?").bind(name, unit, stock, id).run();
+    await env.DB.prepare("UPDATE inventory SET name = ?, unit = ?, current_stock = ?, photo = ? WHERE id = ?").bind(name, unit, stock, photo, id).run();
   } else {
-    await env.DB.prepare("INSERT INTO inventory (id, name, current_stock, unit) VALUES (?, ?, ?, ?)").bind(id, name, stock, unit).run();
+    await env.DB.prepare("INSERT INTO inventory (id, name, current_stock, unit, photo) VALUES (?, ?, ?, ?, ?)").bind(id, name, stock, unit, photo).run();
   }
   return { success: true, id: id };
 };

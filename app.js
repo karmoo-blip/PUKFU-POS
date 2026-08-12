@@ -76,7 +76,9 @@
     };
   })();
     // ─── ย่อรูปให้เล็กลงก่อนเก็บ (ประหยัดพื้นที่ localStorage) ───
-    function resizeImageBase64(file, maxWidth) {
+    function resizeImageBase64(file, maxWidth, mimeType, quality) {
+      mimeType = mimeType || 'image/png';
+      quality = quality === undefined ? 0.85 : quality;
       return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = (e) => {
@@ -91,7 +93,7 @@
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, w, h);
             ctx.drawImage(img, 0, 0, w, h);
-            resolve(canvas.toDataURL('image/png'));
+            resolve(canvas.toDataURL(mimeType, quality));
           };
           img.onerror = reject;
           img.src = e.target.result;
@@ -1259,7 +1261,8 @@
            <div class="flex flex-col gap-3 lg:grid lg:items-center" style="grid-template-columns: 1fr 6rem 6rem 6rem 6rem 6rem;">
               
               <div class="flex-1 min-w-0 flex items-center justify-between lg:block">
-                <p class="font-bold text-secondary text-lg truncate">${escHtml(item.name)}</p>
+                ${item.photo ? `<img src="${escHtml(item.photo)}" class="w-8 h-8 rounded-lg object-cover inline-block align-middle mr-2">` : ''}
+                <p class="font-bold text-secondary text-lg truncate inline-block align-middle">${escHtml(item.name)}</p>
                 <button onclick='Controller.showInventoryItemForm(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="ml-2 text-xs font-bold text-primary hover:underline whitespace-nowrap">แก้ไข</button>
                 <button onclick="Controller.deleteInventoryItemConfirm('${item.id}')" class="ml-2 text-xs font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ลบ</button>
                   <span id="inv-changed-${idx}" class="lg:hidden hidden text-amber-500 font-bold text-xs whitespace-nowrap ml-2">● แก้ไข</span>
@@ -1599,13 +1602,16 @@
           const maskedPin = '•'.repeat(emp.pin.length);
           return `
           <div class="p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-            <div class="min-w-0">
-              <p class="font-bold text-secondary truncate">${escHtml(emp.name)} ${!emp.active ? '<span class="text-xs text-red-400 font-bold">(ปิดใช้งาน)</span>' : ''}</p>
-              <p class="text-xs text-slate-400">
-                ${escHtml(emp.role)} • PIN: <span id="pin-display-${emp.id}">${maskedPin}</span>
-                ${canManage ? `<button onclick="Controller.togglePinVisibility('${emp.id}', '${emp.pin}')" class="text-primary font-bold hover:underline ml-1">ดู</button>` : ''}
-                ${(emp.role === 'Owner' || emp.role === 'Admin') ? '•  เข้าถึงทุกอย่าง' : `• เข้าถึง: ${emp.permissions || 'ยังไม่กำหนด'}`}
-              </p>
+            <div class="flex items-center gap-3 min-w-0">
+              ${emp.photo ? `<img src="${escHtml(emp.photo)}" class="w-10 h-10 rounded-full object-cover shrink-0">` : ''}
+              <div class="min-w-0">
+                <p class="font-bold text-secondary truncate">${escHtml(emp.name)} ${!emp.active ? '<span class="text-xs text-red-400 font-bold">(ปิดใช้งาน)</span>' : ''}</p>
+                <p class="text-xs text-slate-400">
+                  ${escHtml(emp.role)} • PIN: <span id="pin-display-${emp.id}">${maskedPin}</span>
+                  ${canManage ? `<button onclick="Controller.togglePinVisibility('${emp.id}', '${emp.pin}')" class="text-primary font-bold hover:underline ml-1">ดู</button>` : ''}
+                  ${(emp.role === 'Owner' || emp.role === 'Admin') ? '•  เข้าถึงทุกอย่าง' : `• เข้าถึง: ${emp.permissions || 'ยังไม่กำหนด'}`}
+                </p>
+              </div>
             </div>
             <div class="flex gap-3 shrink-0">
               ${canManage ? `
@@ -1691,8 +1697,24 @@
           cb.checked = permList.includes(cb.value);
         });
 
+        this.editingEmployeePhoto = emp ? (emp.photo || '') : '';
+        const photoPreview = document.getElementById('emp-form-photo-preview');
+        if (photoPreview) {
+          photoPreview.src = this.editingEmployeePhoto;
+          photoPreview.classList.toggle('hidden', !this.editingEmployeePhoto);
+        }
+
         this.onEmployeeRoleChange();
         this.openModal('modal-employee-form');
+      },
+
+      handleEmployeePhotoUpload(event) {
+        this._handleImageFile(event, 'emp-form-photo-preview', 400, (b64) => { this.editingEmployeePhoto = b64; });
+      },
+
+      removeEmployeePhoto() {
+        this.editingEmployeePhoto = '';
+        this._clearImagePreview('emp-form-photo-preview');
       },
 
       onEmployeeRoleChange() {
@@ -1737,6 +1759,7 @@
           role: role,
           active: document.getElementById('emp-form-active').checked,
           permissions: permissions,
+          photo: this.editingEmployeePhoto || '',
           createdBy: empId ? undefined : (this.currentSettingsUser ? this.currentSettingsUser.id : '')
         };
 
@@ -2245,6 +2268,25 @@
           setTimeout(() => { try { w.focus(); w.print(); } catch (e) { console.warn('เปิดหน้าต่างพิมพ์ไม่สำเร็จ:', e); } }, 700);
         },
 
+        // อ่านไฟล์รูปจาก <input type=file>, ย่อ+บีบอัด แล้วอัปเดต preview รูป (ใช้ร่วมกันสำหรับสินค้า/วัตถุดิบ/พนักงาน)
+        async _handleImageFile(event, previewElId, maxWidth, applyFn) {
+          const file = event.target.files[0];
+          if (!file) return;
+          try {
+            const base64 = await resizeImageBase64(file, maxWidth, 'image/jpeg', 0.8);
+            applyFn(base64);
+            const img = document.getElementById(previewElId);
+            if (img) { img.src = base64; img.classList.remove('hidden'); }
+          } catch (e) {
+            this.showAlert('อัปโหลดรูปไม่สำเร็จ: ' + e.message, '');
+          }
+        },
+
+        _clearImagePreview(previewElId) {
+          const img = document.getElementById(previewElId);
+          if (img) { img.src = ''; img.classList.add('hidden'); }
+        },
+
         // ISO string -> ค่าที่ input type="datetime-local" ใช้ได้ (YYYY-MM-DDTHH:mm ตามเวลาเครื่อง)
         _isoToLocalInput(iso) {
           if (!iso) return '';
@@ -2269,13 +2311,27 @@
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">หน่วย</label>'
             + '<input id="inv-item-unit" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.unit) + '">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">จำนวนคงเหลือ</label>'
-            + '<input id="inv-item-stock" type="number" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-5" value="' + (Number(it.stock) || 0) + '">'
+            + '<input id="inv-item-stock" type="number" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + (Number(it.stock) || 0) + '">'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">รูปวัตถุดิบ (ถ้ามี)</label>'
+            + '<img id="inv-item-image-preview" src="' + q(it.photo) + '" class="' + (it.photo ? '' : 'hidden ') + 'w-16 h-16 object-cover border border-[#efe3c4] rounded-xl bg-white mb-2">'
+            + '<input type="file" accept="image/*" onchange="Controller.handleInventoryImageUpload(event)" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-bold mb-1">'
+            + '<button onclick="Controller.removeInventoryImage()" class="text-xs font-bold text-red-400 hover:underline mb-5">ลบรูป</button>'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeInventoryItemForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
             + '<button onclick="Controller.saveInventoryItemForm()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึก</button>'
             + '</div></div>';
           this.editingInventoryId = it.id || '';
+          this.editingInventoryImage = it.photo || '';
           document.body.appendChild(wrap);
+        },
+
+        handleInventoryImageUpload(event) {
+          this._handleImageFile(event, 'inv-item-image-preview', 400, (b64) => { this.editingInventoryImage = b64; });
+        },
+
+        removeInventoryImage() {
+          this.editingInventoryImage = '';
+          this._clearImagePreview('inv-item-image-preview');
         },
 
         closeInventoryItemForm() {
@@ -2289,6 +2345,7 @@
           const stock = Number(document.getElementById('inv-item-stock').value) || 0;
           if (!name) return this.showAlert('กรุณากรอกชื่อวัตถุดิบ', '');
           const id = this.editingInventoryId || '';
+          const photo = this.editingInventoryImage || '';
           this.closeInventoryItemForm();
           this.showLoading();
           google.script.run
@@ -2302,7 +2359,7 @@
               }
             })
             .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
-            .saveInventoryItem({ id: id, name: name, unit: unit, stock: stock });
+            .saveInventoryItem({ id: id, name: name, unit: unit, stock: stock, photo: photo });
         },
 
         async deleteInventoryItemConfirm(id) {
@@ -2357,9 +2414,12 @@
           const sorted = [...this.menuData].sort((a, b) => (a.category || '').localeCompare(b.category || '') || String(a.name || '').localeCompare(String(b.name || '')));
           list.innerHTML = sorted.map(item => `
             <div class="p-4 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
-              <div class="min-w-0">
-                <p class="font-bold text-secondary truncate">${escHtml(item.name)} ${item.isSoldOut ? '<span class="text-xs font-bold text-red-400">(หมด)</span>' : ''}</p>
-                <p class="text-xs text-slate-400 truncate">${escHtml(item.sku)} · ${escHtml(item.category || 'ไม่มีหมวดหมู่')} · ฿${Number(item.price) || 0}</p>
+              <div class="flex items-center gap-3 min-w-0">
+                ${item.image ? `<img src="${escHtml(item.image)}" class="w-10 h-10 rounded-lg object-cover shrink-0">` : ''}
+                <div class="min-w-0">
+                  <p class="font-bold text-secondary truncate">${escHtml(item.name)} ${item.isSoldOut ? '<span class="text-xs font-bold text-red-400">(หมด)</span>' : ''}</p>
+                  <p class="text-xs text-slate-400 truncate">${escHtml(item.sku)} · ${escHtml(item.category || 'ไม่มีหมวดหมู่')} · ฿${Number(item.price) || 0}</p>
+                </div>
               </div>
               <div class="shrink-0 flex items-center gap-3">
                 <button onclick='Controller.showProductForm(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="text-xs font-bold text-primary hover:underline">แก้ไข</button>
@@ -2401,15 +2461,27 @@
             + '<div class="flex-1"><label class="text-sm font-bold text-slate-500 mb-1 block">ต้นทุน (ถ้ามี)</label>'
             + '<input id="prod-cost" type="number" step="0.01" class="w-full border border-[#efe3c4] rounded-xl p-2.5" value="' + (Number(it.cost) || 0) + '"></div>'
             + '</div>'
-            + '<label class="text-sm font-bold text-slate-500 mb-1 block">ลิงก์รูปภาพ (ถ้ามี)</label>'
-            + '<input id="prod-image" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-5" value="' + q(it.image) + '">'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">รูปสินค้า (ถ้ามี)</label>'
+            + '<img id="prod-image-preview" src="' + q(it.image) + '" class="' + (it.image ? '' : 'hidden ') + 'w-20 h-20 object-cover border border-[#efe3c4] rounded-xl bg-white mb-2">'
+            + '<input type="file" accept="image/*" onchange="Controller.handleProductImageUpload(event)" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-bold mb-1">'
+            + '<button onclick="Controller.removeProductImage()" class="text-xs font-bold text-red-400 hover:underline mb-5">ลบรูป</button>'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeProductForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
             + '<button onclick="Controller.saveProductForm()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึก</button>'
             + '</div></div>';
           this.editingProductIsNew = !item;
+          this.editingProductImage = it.image || '';
           document.body.appendChild(wrap);
           this.toggleNewCategoryInput();
+        },
+
+        handleProductImageUpload(event) {
+          this._handleImageFile(event, 'prod-image-preview', 640, (b64) => { this.editingProductImage = b64; });
+        },
+
+        removeProductImage() {
+          this.editingProductImage = '';
+          this._clearImagePreview('prod-image-preview');
         },
 
         toggleNewCategoryInput() {
@@ -2434,7 +2506,7 @@
           const category = categorySel === '__new__' ? document.getElementById('prod-category-new').value.trim() : categorySel;
           const price = Number(document.getElementById('prod-price').value) || 0;
           const cost = Number(document.getElementById('prod-cost').value) || 0;
-          const image = document.getElementById('prod-image').value.trim();
+          const image = this.editingProductImage || '';
           if (!sku) return this.showAlert('กรุณากรอกรหัสสินค้า (SKU)', '');
           if (!name) return this.showAlert('กรุณากรอกชื่อสินค้า', '');
           if (categorySel === '__new__' && !category) return this.showAlert('กรุณาระบุชื่อหมวดหมู่ใหม่', '');

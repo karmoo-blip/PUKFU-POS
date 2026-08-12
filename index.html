@@ -734,6 +734,12 @@
         <input type="text" id="emp-form-name" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]">
       </div>
       <div class="mb-3">
+        <label class="text-sm font-bold text-slate-500 mb-1 block">รูปพนักงาน (ถ้ามี)</label>
+        <img id="emp-form-photo-preview" src="" class="hidden w-16 h-16 object-cover border border-[#efe3c4] rounded-xl bg-white mb-2">
+        <input type="file" accept="image/*" onchange="Controller.handleEmployeePhotoUpload(event)" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-bold mb-1">
+        <button onclick="Controller.removeEmployeePhoto()" class="text-xs font-bold text-red-400 hover:underline">ลบรูป</button>
+      </div>
+      <div class="mb-3">
         <label class="text-sm font-bold text-slate-500 mb-1 block">PIN</label>
         <input type="text" id="emp-form-pin" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5]" maxlength="6">
       </div>
