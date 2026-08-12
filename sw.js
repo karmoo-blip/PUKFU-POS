@@ -2,11 +2,13 @@
 // เก็บหน้าเว็บหลัก (app shell) ไว้ในเครื่อง เพื่อให้เปิดใช้งานได้แม้ไม่มีอินเทอร์เน็ต
 // หมายเหตุ: ไม่แคช request ที่เป็น POST (การยิง API ไปบันทึกออเดอร์/ข้อมูล) เด็ดขาด
 
-const CACHE_NAME = 'pukfu-pos-shell-v2';
+const CACHE_NAME = 'pukfu-pos-shell-v3';
 
 const APP_SHELL = [
   './',
-  './index.html'
+  './index.html',
+  './style.css',
+  './app.js'
   ];
 
 const CROSS_ORIGIN_ASSETS = [

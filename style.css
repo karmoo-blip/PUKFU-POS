@@ -1,0 +1,109 @@
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+    .indicator { transition: background-color 0.3s ease; }
+    .synced { background-color: #10b981; } 
+    .syncing { background-color: #f59e0b; animation: pulse 1s infinite; } 
+    .error { background-color: #ef4444; } 
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+    @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+    .spin-icon { animation: spin 0.8s linear infinite; }
+    
+    /* ซ่อน Scrollbar เฉพาะบนอุปกรณ์จอสัมผัส (ในคอมจะแสดงแถบเลื่อนเล็กๆ ให้ใช้เมาส์ลากได้) */
+    @media (pointer: coarse) {
+      .hide-scroll::-webkit-scrollbar { display: none; }
+      .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+    }
+    .hide-scroll { -webkit-overflow-scrolling: touch; }
+
+    /* เงาจางบอกใบ้ว่าเลื่อนซ้าย/ขวาได้ (จำเป็นเพราะซ่อน scrollbar ไปแล้วบนจอสัมผัส) */
+    .scroll-fade { position: relative; }
+    .scroll-fade::before, .scroll-fade::after {
+      content: ''; position: absolute; top: 0; bottom: 0; width: 28px;
+      pointer-events: none; z-index: 20; opacity: 1; transition: opacity .2s ease;
+    }
+    .scroll-fade::before { left: 0; background: linear-gradient(to right, var(--fade-color, #fffdf5), transparent); }
+    .scroll-fade::after { right: 0; background: linear-gradient(to left, var(--fade-color, #fffdf5), transparent); }
+    .scroll-fade.at-start::before { opacity: 0; }
+    .scroll-fade.at-end::after { opacity: 0; }
+
+    /* <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg> iOS: เผื่อพื้นที่ปลอดภัย กันเนื้อหามุดใต้ status bar และ home indicator ตอนเปิดเป็นแอปเต็มจอ */
+    html { background: #ffffff; }
+    body > nav {
+      padding-top: env(safe-area-inset-top) !important;
+      height: calc(4rem + env(safe-area-inset-top)) !important;
+    }
+    @media (max-width: 1023.98px) {
+      /* ปักตะกร้าไว้ที่ขอบล่างจริงของจอเสมอ ไม่พึ่ง h-full/dvh ที่ไล่มาจาก body
+         เพราะ Safari บนมือถือ (โดยเฉพาะ iOS) บางทีไม่รีเฟลตความสูงที่คำนวณผ่าน dvh
+         ให้ลูกที่อยู่ลึกๆ ทันทีตอนแถบ address bar ยุบ/ขยาย ทำให้เหลือช่องว่างพื้นหลังโผล่ใต้แถบ Order */
+      #cart-container {
+        position: fixed !important;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      #cart-container[class*="h-[72px]"] { height: calc(72px + env(safe-area-inset-bottom)) !important; }
+      #cart-container[class*="h-[65vh]"] { height: calc(65vh + env(safe-area-inset-bottom)) !important; }
+      /* กันเนื้อหาเมนูโดนแถบตะกร้า (fixed) บังตอนเลื่อนดูสินค้า */
+      #pos-content-scroll { padding-bottom: calc(72px + env(safe-area-inset-bottom) + 1rem) !important; }
+    }
+
+    /* Print Styles */
+    @media print {
+      /* ซ่อนทุกอย่างที่เป็นลูกของ body ยกเว้น receipt-container */
+      body > *:not(#receipt-container) { 
+        display: none !important; 
+      }
+      
+      /* บังคับแสดง receipt-container (แก้บัค Tailwind class="hidden") */
+      #receipt-container {
+        display: block !important;
+        visibility: visible !important;
+        position: relative;
+        width: 80mm; /* ขนาดสลิป 80mm ปกติ */
+        margin: 0;
+        padding: 0;
+        font-family: 'Sarabun', sans-serif;
+        color: #000;
+      }
+      
+      /* ซ่อน Header/Footer ของ Browser */
+      @page { 
+        margin: 0;
+        size: 80mm auto;
+      }
+    }
+
+    /* ===== Pill Checkbox : ปุ่มกดเลือกแบบ Toggle ===== */
+    input[type="checkbox"], input[type="radio"] { accent-color: #154360; }
+
+    div:has(> input[type="checkbox"][id^="rs-show"]),
+    label:has(> input.emp-perm-checkbox) {
+      display: flex; align-items: center; justify-content: center;
+      gap: 0; text-align: center;
+      padding: 0.55rem 0.85rem;
+      border-radius: 9999px;
+      background: #fdf3dd;
+      border: 1.5px solid #efe3c4;
+      color: #0f3550;
+      font-weight: 700; font-size: 0.8rem; line-height: 1.2;
+      cursor: pointer; -webkit-user-select: none; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+      transition: background-color .18s ease, color .18s ease, border-color .18s ease, transform .12s ease;
+    }
+    div:has(> input[type="checkbox"][id^="rs-show"]) > label {
+      color: inherit !important; font-size: inherit !important; font-weight: 700; cursor: pointer;
+    }
+    div:has(> input[type="checkbox"][id^="rs-show"]) > input[type="checkbox"],
+    label > input.emp-perm-checkbox {
+      position: absolute; opacity: 0; width: 0; height: 0; margin: 0; pointer-events: none;
+    }
+    div:has(> input[type="checkbox"][id^="rs-show"]:checked),
+    label:has(> input.emp-perm-checkbox:checked) {
+      background: #154360; border-color: #154360; color: #ffdb58;
+    }
+    div:has(> input[type="checkbox"][id^="rs-show"]:checked) > label { color: #ffdb58 !important; }
+    div:has(> input[type="checkbox"][id^="rs-show"]):active,
+    label:has(> input.emp-perm-checkbox):active { transform: scale(0.96); }
+
