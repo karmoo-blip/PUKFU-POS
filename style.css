@@ -83,6 +83,7 @@
       display: flex; align-items: center; justify-content: center;
       gap: 0; text-align: center;
       padding: 0.55rem 0.85rem;
+      min-height: 2.75rem; /* ~44px: ให้แตะง่ายบนมือถือ ปุ่ม pill toggle เดิมเตี้ยเกินไป */
       border-radius: 9999px;
       background: #fdf3dd;
       border: 1.5px solid #efe3c4;
