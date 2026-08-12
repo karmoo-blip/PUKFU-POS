@@ -3938,7 +3938,7 @@ renderReport(r) {
           .withSuccessHandler(data => {
             if (this.historyViewDate !== dateStr) return;
             this.historyViewData = (data && data.history) || [];
-            if (note) note.innerText = 'ข้อมูลวันที่ ' + dateStr + ' (อ่านอย่างเดียว)';
+            if (note) note.innerText = 'ข้อมูลวันที่ ' + dateStr;
             this.renderHistory();
           })
           .withFailureHandler(() => {
@@ -3969,15 +3969,25 @@ renderReport(r) {
           if (h.items && h.items.length > 0) {
             html += '<div class="mt-2 pl-2 border-l-2 border-slate-200 space-y-1">';
             for (const it of h.items) {
+              const canCancelItem = !off && !it.cancelled;
               html += '<div class="flex justify-between items-center text-sm ' + (it.cancelled ? 'text-slate-400 line-through' : 'text-slate-600') + '">';
               html += '<span>' + it.qty + 'x ' + it.name + (it.note ? ' <span class="text-xs text-slate-400">(' + it.note + ')</span>' : '') + '</span>';
-              html += '<span>฿' + (it.price * it.qty) + '</span></div>';
+              html += '<span class="flex items-center gap-2 shrink-0">฿' + (it.price * it.qty);
+              if (canCancelItem) {
+                html += '<button data-invoice="' + escAttr(h.invoice) + '" data-sku="' + escAttr(it.sku) + '" data-note="' + escAttr(it.note || '') + '" onclick="Controller.cancelOrderItemFromButton(this)" class="text-[10px] font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ยกเลิก</button>';
+              }
+              if (it.cancelled) {
+                html += '<span class="text-[10px] font-bold text-orange-400 whitespace-nowrap">ยกเลิกแล้ว</span>';
+              }
+              html += '</span></div>';
             }
             html += '</div>';
           }
           if (!off) {
               html += '<div class="mt-2 flex flex-wrap justify-end gap-x-3 gap-y-1">';
               html += '<button onclick="Controller.openEditBill(\'' + h.invoice + '\')" class="text-xs font-bold text-primary hover:underline whitespace-nowrap">แก้ไขบิล</button>';
+              html += '<button data-invoice="' + escAttr(h.invoice) + '" onclick="Controller.markAsWaste(this.dataset.invoice)" class="text-xs font-bold text-orange-400 hover:text-orange-600 hover:underline whitespace-nowrap">บันทึกของเสีย</button>';
+              html += '<button data-invoice="' + escAttr(h.invoice) + '" onclick="Controller.cancelOrder(this.dataset.invoice)" class="text-xs font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ยกเลิกบิล</button>';
               html += '</div>';
             }
             if (h.cancelReason) {
@@ -4541,7 +4551,8 @@ renderReport(r) {
           // อัปเดตหน้าจอทันที (optimistic) แล้วค่อยยิงขึ้นเซิร์ฟเวอร์เบื้องหลัง
           // ถ้าเน็ตหลุดจะเก็บเข้าคิวไว้ แล้วระบบ auto-retry จะซิงค์ให้เองเมื่อเน็ตกลับมา
           Controller.updateOrderStatus = async function (invoiceId, status) {
-                    const order = this.history.find(o => o.invoice === invoiceId) || this.syncQueue.find(o => o.invoice === invoiceId);
+                    const isPastDay = !this.history.some(o => o.invoice === invoiceId) && !this.syncQueue.some(o => o.invoice === invoiceId);
+                    const order = this.history.find(o => o.invoice === invoiceId) || this.syncQueue.find(o => o.invoice === invoiceId) || (this.historyViewData || []).find(o => o.invoice === invoiceId);
                     if (!order || order.status === 'cancelled' || order.status === 'waste') return;
 
                     const actionText = status === 'waste' ? 'บันทึกของเสีย' : 'ยกเลิกบิล';
@@ -4568,12 +4579,15 @@ renderReport(r) {
                     order.cancelReason = `${reason.trim()} (โดย ${userName})`;
                     order.cancelUser = userName;
                     order.cancelTimestamp = new Date().toISOString();
-                    const removedCups = order.items.reduce((s, i) => s + i.qty, 0);
-                    this.serverCupCount = Math.max(0, this.serverCupCount - removedCups);
-                    localStorage.setItem('pos_serverCupCount', this.serverCupCount);
+                    // บิลของวันอื่น (ไม่ใช่วันนี้) ยอดแก้วของวันนั้นถูกสรุปปิดไปแล้ว ไม่ต้องไปหักยอดแก้ววันนี้
+                    if (!isPastDay) {
+                              const removedCups = order.items.reduce((s, i) => s + i.qty, 0);
+                              this.serverCupCount = Math.max(0, this.serverCupCount - removedCups);
+                              localStorage.setItem('pos_serverCupCount', this.serverCupCount);
+                              this.updateCupUI();
+                    }
                     this.saveLocalState();
                     this.renderHistory();
-                    this.updateCupUI();
                     this.setIndicator('syncing');
 
                     this.statusQueue.push({ type: 'updateOrderStatus', invoice: order.invoice, status: status, reason: reason.trim(), user: userName, ts: Date.now() });
@@ -4584,7 +4598,8 @@ renderReport(r) {
 
           // เขียนทับ cancelOrderItem เดิม (ยกเลิกรายการเดียวในบิล) ให้ทำงานแบบ offline-first เช่นกัน
           Controller.cancelOrderItem = async function (invoice, sku, note) {
-                    const order = this.history.find(o => o.invoice === invoice);
+                    const isPastDay = !this.history.some(o => o.invoice === invoice);
+                    const order = this.history.find(o => o.invoice === invoice) || (this.historyViewData || []).find(o => o.invoice === invoice);
                     if (!order) return;
                     const item = order.items.find(i => i.sku === sku && (i.note || '') === (note || ''));
                     if (!item || item.cancelled) return;
@@ -4597,11 +4612,14 @@ renderReport(r) {
 
                     item.cancelled = true;
                     item.cancelReason = reason.trim();
-                    this.serverCupCount = Math.max(0, this.serverCupCount - item.qty);
-                    localStorage.setItem('pos_serverCupCount', this.serverCupCount);
+                    // บิลของวันอื่น (ไม่ใช่วันนี้) ยอดแก้วของวันนั้นถูกสรุปปิดไปแล้ว ไม่ต้องไปหักยอดแก้ววันนี้
+                    if (!isPastDay) {
+                              this.serverCupCount = Math.max(0, this.serverCupCount - item.qty);
+                              localStorage.setItem('pos_serverCupCount', this.serverCupCount);
+                              this.updateCupUI();
+                    }
                     this.saveLocalState();
                     this.renderHistory();
-                    this.updateCupUI();
                     this.setIndicator('syncing');
 
                     this.statusQueue.push({
