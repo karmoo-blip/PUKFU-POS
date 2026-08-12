@@ -154,7 +154,7 @@
     //    (แก้ปัญหาภาษาไทยเพี้ยน เพราะไม่พึ่ง code page ของเครื่องพิมพ์)
     // ==========================================================
     const ReceiptImage = {
-      FONT: '"Noto Sans Thai","Sarabun","Leelawadee UI","Thonburi","Tahoma",sans-serif',
+        FONT: '"Sarabun","Noto Sans Thai","Leelawadee UI","Thonburi","Tahoma",sans-serif',
       PAD: 4,
       _fontReady: null,
 
@@ -194,18 +194,26 @@
       // ─── สร้างเอกสารเปล่า ───
       newDoc(paperSize) {
         const width = (paperSize === '58mm') ? 384 : 576;
-        return { width, base: (width >= 576 ? 26 : 23), ops: [] };
+        return { width, base: (width >= 576 ? 24 : 21), ops: [] };
       },
       text(doc, str, o)  { doc.ops.push(Object.assign({ t: 'text', str: String(str == null ? '' : str), size: doc.base, bold: false, align: 'left', indent: 0 }, o || {})); },
       lr(doc, l, r, o)   { doc.ops.push(Object.assign({ t: 'lr', l: String(l == null ? '' : l), r: String(r == null ? '' : r), size: doc.base, bold: false, indent: 0, boldRight: false }, o || {})); },
       // แถวรายการสินค้า: จำนวน | ชื่อ | ราคา
       row3(doc, qty, name, price, o) { doc.ops.push(Object.assign({ t: 'row3', qty: String(qty), name: String(name), price: String(price), size: doc.base, bold: false }, o || {})); },
-      rule(doc)          { doc.ops.push({ t: 'gap', h: 17 }, { t: 'rule' }, { t: 'gap', h: 17 }); }, // เว้นวรรคแทนเส้นประ (ลดความลายตา)
+      rule(doc)          { doc.ops.push({ t: 'gap', h: 12 }, { t: 'rule' }, { t: 'gap', h: 12 }); }, // เว้นวรรคแทนเส้นประ (ลดความลายตา)
       gap(doc, h)        { doc.ops.push({ t: 'gap', h: h || 10 }); },
       image(doc, el, w)  { doc.ops.push({ t: 'img', el: el, w: w }); },
 
       _font(op)  { return ((op.bold ? '700 ' : '400 ') + op.size + 'px ' + this.FONT); },
-      _lineH(op) { return Math.round(op.size * 1.7); },
+      _lineH(op) { return Math.round(op.size * 1.4); },
+
+      // ตัดคำเป็น grapheme cluster (กันตัดกลางสระ/วรรณยุกต์ไทยจนอักษรเพี้ยนตอนขึ้นบรรทัดใหม่)
+      _graphemes(str) {
+        if (typeof Intl !== 'undefined' && Intl.Segmenter) {
+          return Array.from(new Intl.Segmenter('th', { granularity: 'grapheme' }).segment(str), s => s.segment);
+        }
+        return Array.from(str);
+      },
 
       // ตัดบรรทัดให้พอดีความกว้างกระดาษ
       _wrap(ctx, str, maxW) {
@@ -214,7 +222,7 @@
         for (const para of paras) {
           if (ctx.measureText(para).width <= maxW) { out.push(para); continue; }
           let line = '';
-          for (const ch of para) {
+          for (const ch of this._graphemes(para)) {
             if (line && ctx.measureText(line + ch).width > maxW) { out.push(line); line = ch; }
             else line += ch;
           }
@@ -407,6 +415,14 @@
 
       async probeChunkSize() {
         if (this.chunkSize) return this.chunkSize;
+        if (/Android/i.test(navigator.userAgent)) {
+          // Android เจรจา ATT MTU ผ่าน Web Bluetooth ไม่ได้ (ไม่มี API ให้เว็บขอ) เลยส่งได้ครั้งละ 20 ไบต์เท่านั้น
+          // ไม่ใส่ดีเลย์เพิ่มเลย ปล่อยให้ await การเขียนแต่ละก้อนเป็นตัวหน่วงตามจริงแทน (เร็วที่สุดเท่าที่ทำได้)
+          // (ถ้าเขียนข้อมูลพลาดระหว่างพิมพ์ sendData() จะ fallback กลับไปที่ 15ms ให้เองอัตโนมัติ)
+          this.chunkSize = 20;
+          this.chunkDelay = 0;
+          return 20;
+        }
         const CANDIDATES = [512, 244, 182, 100, 20];
         for (const size of CANDIDATES) {
           try {
@@ -609,7 +625,7 @@
         order.items.forEach(item => {
           if (doc._hasItem) R.gap(doc, 17);
           doc._hasItem = true;
-          R.row3(doc, item.qty, item.name, money(item.price * item.qty), { size: small });
+          R.row3(doc, item.qty, item.name, money(item.price * item.qty), { size: small, bold: true });
           if (item.note && settings.showItemNote !== false) R.text(doc, item.note, { size: Math.round(S * 0.8), indent: Math.round(S * 1.7) });
         });
         R.rule(doc);
@@ -650,18 +666,20 @@
         const doc = R.newDoc(settings && settings.paperSize);
         const S = doc.base;
 
-        R.text(doc, 'ใบสั่งทำ', { size: Math.round(S * 1.7), bold: true, align: 'center' });
-        if (queueStr) R.text(doc, queueStr, { size: Math.round(S * 2.2), bold: true, align: 'center' });
+        // ใบนี้ไว้ให้บาริสต้า/ครัวดูอย่างเดียว ไม่ใช่ใบให้ลูกค้า เลยลดขนาดกว่าใบเสร็จได้อีก
+        // (ลดข้อมูลที่ต้องส่งผ่าน Bluetooth โดยไม่กระทบใบเสร็จลูกค้า) แต่คงเลขคิวไว้ใหญ่พอเห็นชัด
+        if (queueStr) R.text(doc, queueStr, { size: Math.round(S * 1.8), bold: true, align: 'center' });
         R.rule(doc);
 
         order.items.forEach(item => {
-          R.text(doc, '- ' + item.qty + 'x ' + item.name, { size: Math.round(S * 1.15), bold: true });
-          if (item.note) R.text(doc, '    ' + item.note, { size: Math.round(S * 0.9) });
+          // ใช้ขนาดตัวอักษรเดียวกับรายการสินค้าในใบเสร็จ (S * 0.86) ให้สม่ำเสมอกัน
+          R.text(doc, '- ' + item.qty + 'x ' + item.name, { size: Math.round(S * 0.86), bold: true });
+          if (item.note) R.text(doc, '    ' + item.note, { size: Math.round(S * 0.8) });
         });
 
         R.rule(doc);
-        R.text(doc, new Date(order.timestamp).toLocaleString('th-TH'), { size: Math.round(S * 0.85), align: 'center' });
-        R.text(doc, 'บิล: ' + order.invoice, { size: Math.round(S * 0.85), align: 'center' });
+        R.text(doc, new Date(order.timestamp).toLocaleString('th-TH'), { size: Math.round(S * 0.75), align: 'center' });
+        R.text(doc, 'บิล: ' + order.invoice, { size: Math.round(S * 0.75), align: 'center' });
         return await this.docToBytes(doc);
       },
 
@@ -689,7 +707,7 @@
       async printReceipt(order, queueStr, settings) {
         await this.sendData(await this.buildReceipt(order, queueStr, settings));
         if (settings.printOrderSlip) {
-          await new Promise(r => setTimeout(r, 150));
+          await new Promise(r => setTimeout(r, 50));
           await this.sendData(await this.buildOrderSlip(order, queueStr, settings));
         }
       },
@@ -889,6 +907,11 @@
 
         google.script.run
           .withSuccessHandler(data => {
+            // Worker เก็บ shop_info เป็น key-value แบบ TEXT ทุกค่าที่ได้กลับมาจึงเป็น string เสมอ
+            // (String(false) === "false" ซึ่งเป็น truthy ใน JS) ต้องแปลงกลับเป็น boolean/number เอง
+            // ไม่งั้น vatEnabled จะเป็นจริงเสมอไม่ว่าจะติ๊กหรือไม่ก็ตาม
+            data.vatEnabled = (data.vatEnabled === true || data.vatEnabled === 'true');
+            data.vatRate = Number(data.vatRate) || 7;
             this.shopInfo = data;
             localStorage.setItem('pos_shopInfo', JSON.stringify(data));
           })
