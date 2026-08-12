@@ -2449,7 +2449,7 @@ renderReport(r) {
             this.setBtnLoading(btn, false);
             if (res.success) {
               this.logPinAttempt('สำรองข้อมูลด้วยตนเอง', true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
-              this.showAlert('สำรองข้อมูลสำเร็จแล้ว: ' + res.fileName, '');
+              this.showAlert('สำรองข้อมูลสำเร็จแล้ว: ' + res.label, '');
               this.fetchBackupList();
             } else {
               this.showAlert(res.message || 'สำรองข้อมูลไม่สำเร็จ', '');
