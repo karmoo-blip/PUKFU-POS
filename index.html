@@ -18,6 +18,8 @@
       }
     })();
   </script>
+  <!-- Local dev convenience: pre-fills API URL/key from config.local.js (gitignored) if present. 404 is harmless when the file doesn't exist. -->
+  <script src="config.local.js" onerror="void 0"></script>
   <!--  สำหรับฝั่ง iOS (iPad, iPhone) -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -77,18 +79,18 @@
       <p id="pin-lock-error" class="hidden text-red-500 text-sm font-bold mb-4">PIN ไม่ถูกต้อง กรุณาลองใหม่</p>
 
       <div class="grid grid-cols-3 gap-3">
-        <button onclick="Controller.pinKeyPress('1')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">1</button>
-        <button onclick="Controller.pinKeyPress('2')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">2</button>
-        <button onclick="Controller.pinKeyPress('3')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">3</button>
-        <button onclick="Controller.pinKeyPress('4')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">4</button>
-        <button onclick="Controller.pinKeyPress('5')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">5</button>
-        <button onclick="Controller.pinKeyPress('6')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">6</button>
-        <button onclick="Controller.pinKeyPress('7')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">7</button>
-        <button onclick="Controller.pinKeyPress('8')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">8</button>
-        <button onclick="Controller.pinKeyPress('9')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">9</button>
-        <button onclick="Controller.pinBackspace()" class="bg-red-50 text-red-400 py-4 rounded-2xl text-lg font-bold hover:bg-red-100">⌫</button>
-        <button onclick="Controller.pinKeyPress('0')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent shadow-sm">0</button>
-        <button onclick="Controller.pinClear()" class="bg-slate-100 text-slate-400 py-4 rounded-2xl text-sm font-bold hover:bg-slate-200">ล้าง</button>
+        <button onclick="Controller.pinKeyPress('1')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">1</button>
+        <button onclick="Controller.pinKeyPress('2')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">2</button>
+        <button onclick="Controller.pinKeyPress('3')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">3</button>
+        <button onclick="Controller.pinKeyPress('4')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">4</button>
+        <button onclick="Controller.pinKeyPress('5')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">5</button>
+        <button onclick="Controller.pinKeyPress('6')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">6</button>
+        <button onclick="Controller.pinKeyPress('7')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">7</button>
+        <button onclick="Controller.pinKeyPress('8')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">8</button>
+        <button onclick="Controller.pinKeyPress('9')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">9</button>
+        <button onclick="Controller.pinBackspace()" class="bg-red-50 text-red-400 py-4 rounded-2xl text-lg font-bold hover:bg-red-100 active:bg-red-100">⌫</button>
+        <button onclick="Controller.pinKeyPress('0')" class="bg-white border border-[#efe3c4] py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">0</button>
+        <button onclick="Controller.pinClear()" class="bg-slate-100 text-slate-400 py-4 rounded-2xl text-sm font-bold hover:bg-slate-200 active:bg-slate-200">ล้าง</button>
       </div>
     </div>
   </div>
@@ -651,7 +653,7 @@
   </main>
 
   <div id="modal-product" class="hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[85vh] overflow-hidden flex flex-col">
       <div class="p-5 border-b border-slate-100 font-bold text-xl text-secondary flex justify-between items-center" id="modal-product-name">
         Product Name
       </div>
@@ -802,7 +804,7 @@
   </div>
 
   <div id="modal-alert" class="hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm overflow-hidden">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm max-h-[85vh] overflow-y-auto">
       <div class="p-6">
         <p id="alert-icon" class="text-4xl mb-3 text-center"></p>
         <p id="alert-message" class="text-secondary font-bold text-center whitespace-pre-line"></p>
@@ -850,18 +852,18 @@
           </div>
 
           <div class="grid grid-cols-3 gap-2 mb-2">
-            <button onclick="Controller.numpad('1')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">1</button>
-            <button onclick="Controller.numpad('2')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">2</button>
-            <button onclick="Controller.numpad('3')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">3</button>
-            <button onclick="Controller.numpad('4')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">4</button>
-            <button onclick="Controller.numpad('5')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">5</button>
-            <button onclick="Controller.numpad('6')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">6</button>
-            <button onclick="Controller.numpad('7')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">7</button>
-            <button onclick="Controller.numpad('8')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">8</button>
-            <button onclick="Controller.numpad('9')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">9</button>
-            <button onclick="Controller.numpad('back')" class="bg-red-50 text-red-400 py-3 rounded-2xl text-xl font-bold hover:bg-red-100">⌫</button>
-            <button onclick="Controller.numpad('0')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">0</button>
-            <button onclick="Controller.numpad('00')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4]">00</button>
+            <button onclick="Controller.numpad('1')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4] active:bg-[#efe3c4]">1</button>
+            <button onclick="Controller.numpad('2')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4] active:bg-[#efe3c4]">2</button>
+            <button onclick="Controller.numpad('3')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4] active:bg-[#efe3c4]">3</button>
+            <button onclick="Controller.numpad('4')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4] active:bg-[#efe3c4]">4</button>
+            <button onclick="Controller.numpad('5')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4] active:bg-[#efe3c4]">5</button>
+            <button onclick="Controller.numpad('6')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4] active:bg-[#efe3c4]">6</button>
+            <button onclick="Controller.numpad('7')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4] active:bg-[#efe3c4]">7</button>
+            <button onclick="Controller.numpad('8')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4] active:bg-[#efe3c4]">8</button>
+            <button onclick="Controller.numpad('9')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4] active:bg-[#efe3c4]">9</button>
+            <button onclick="Controller.numpad('back')" class="bg-red-50 text-red-400 py-3 rounded-2xl text-xl font-bold hover:bg-red-100 active:bg-red-100">⌫</button>
+            <button onclick="Controller.numpad('0')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4] active:bg-[#efe3c4]">0</button>
+            <button onclick="Controller.numpad('00')" class="bg-accent border border-[#efe3c4] py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-[#efe3c4] active:bg-[#efe3c4]">00</button>
           </div>
         </div>
 

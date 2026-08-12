@@ -11,6 +11,12 @@
     function config(force) {
       var url = localStorage.getItem(CFG_URL);
       var key = localStorage.getItem(CFG_KEY);
+      if (!force && !url && !key && window.POS_LOCAL_CONFIG) {
+        url = window.POS_LOCAL_CONFIG.apiUrl;
+        key = window.POS_LOCAL_CONFIG.apiKey;
+        if (url) localStorage.setItem(CFG_URL, url);
+        if (key) localStorage.setItem(CFG_KEY, key);
+      }
       if (force || !url) {
         url = ask("วาง URL ของ backend (Cloudflare Worker หรือ Apps Script /exec)", url);
         if (url) localStorage.setItem(CFG_URL, url);
@@ -2479,9 +2485,9 @@ renderReport(r) {
           let cardStyle = "bg-white rounded-3xl shadow-sm border border-[#efe3c4] cursor-pointer overflow-hidden flex flex-col relative group transition-all duration-200 ";
           
           if (this.isStockMode) {
-             cardStyle += "border-amber-400 border-2 hover:shadow-lg hover:scale-[1.02] ";
+             cardStyle += "border-amber-400 border-2 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] ";
           } else {
-             cardStyle += "hover:shadow-lg hover:shadow-primary/10 hover:border-primary/40 hover:-translate-y-0.5 ";
+             cardStyle += "hover:shadow-lg hover:shadow-primary/10 hover:border-primary/40 hover:-translate-y-0.5 active:scale-[0.98] ";
           }
 
           if (isSoldOut && !this.isStockMode) {
@@ -2505,7 +2511,7 @@ renderReport(r) {
               </div>
               <div class="p-4 flex flex-col justify-between flex-1">
                 <div>
-                  <p class="font-bold text-secondary text-sm leading-tight">${escHtml(item.name)}</p>
+                  <p class="font-bold text-secondary text-sm leading-tight line-clamp-2">${escHtml(item.name)}</p>
                   <p class="text-xs text-slate-400 mt-1">${item.lang2 || '&nbsp;'}</p>
                 </div>
                 <div class="flex justify-between items-center mt-3 pt-3 border-t border-[#efe3c4] relative z-20">
@@ -2784,13 +2790,13 @@ renderReport(r) {
                 </div>
                 <div class="flex flex-col items-end gap-2 shrink-0">
                   <div class="flex items-center bg-slate-50 rounded-lg p-1 border border-slate-100">
-                    <button onclick="Controller.updateQty(${idx}, -1)" class="w-6 h-6 flex items-center justify-center bg-white rounded hover:bg-slate-200 font-bold text-slate-600 shadow-sm">-</button>
+                    <button onclick="Controller.updateQty(${idx}, -1)" class="w-9 h-9 flex items-center justify-center bg-white rounded hover:bg-slate-200 active:bg-slate-300 active:scale-95 font-bold text-slate-600 shadow-sm">-</button>
                     <span class="w-6 text-center font-bold text-sm">${item.qty}</span>
-                    <button onclick="Controller.updateQty(${idx}, 1)" class="w-6 h-6 flex items-center justify-center bg-white rounded hover:bg-slate-200 font-bold text-slate-600 shadow-sm">+</button>
+                    <button onclick="Controller.updateQty(${idx}, 1)" class="w-9 h-9 flex items-center justify-center bg-white rounded hover:bg-slate-200 active:bg-slate-300 active:scale-95 font-bold text-slate-600 shadow-sm">+</button>
                   </div>
-                            <div class="flex items-center gap-3">
-                                <button onclick="Controller.editCartItem(${idx})" class="text-primary hover:text-navy text-xs font-bold underline">แก้ไข</button>
-                                <button onclick="Controller.removeFromCart(${idx})" class="text-red-400 hover:text-red-600 text-xs font-bold underline">Remove</button>
+                            <div class="flex items-center gap-1">
+                                <button onclick="Controller.editCartItem(${idx})" class="text-primary hover:text-navy active:text-navy text-xs font-bold underline p-2">แก้ไข</button>
+                                <button onclick="Controller.removeFromCart(${idx})" class="text-red-400 hover:text-red-600 active:text-red-600 text-xs font-bold underline p-2">Remove</button>
                             </div>
                 </div>
               </div>
