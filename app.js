@@ -884,10 +884,11 @@
         this.sweetnessLevels = JSON.parse(localStorage.getItem('pos_sweetnessLevels')) || [];
         this.paymentMethods = JSON.parse(localStorage.getItem('pos_paymentMethods')) || [];
         this.inventoryData = JSON.parse(localStorage.getItem('pos_inventoryData')) || [];
+        this.notifications = JSON.parse(localStorage.getItem('pos_notifications')) || [];
         this.shopInfo = JSON.parse(localStorage.getItem('pos_shopInfo')) || { address: '', phone: '', taxId: '', vatEnabled: false, vatRate: 7 };
 
         // แสดงข้อมูลที่แคชไว้ในเครื่องก่อน ระหว่างรอข้อมูลใหม่จากเซิร์ฟเวอร์
-        this.checkInventoryExpiry();
+        this.checkNotifications();
         this.renderHistory();
         if (this.menuData.length > 0) {
           this.extractCategories();
@@ -941,10 +942,19 @@
             this.inventoryData = data;
             localStorage.setItem('pos_inventoryData', JSON.stringify(data));
             this.renderInventory();
-            this.checkInventoryExpiry();
           })
           .withFailureHandler(() => console.warn("ใช้ข้อมูลสต๊อกที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
           .getInventoryData();
+
+        google.script.run
+          .withSuccessHandler(data => {
+            this.notifications = data;
+            localStorage.setItem('pos_notifications', JSON.stringify(data));
+            this.renderNotificationList();
+            this.checkNotifications();
+          })
+          .withFailureHandler(() => console.warn("ใช้รายการแจ้งเตือนที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
+          .getNotifications();
 
         google.script.run
           .withSuccessHandler(data => {
@@ -1210,6 +1220,8 @@
       },
 
       inventoryData: [], // เก็บข้อมูลสต๊อก
+      notifications: [], // เก็บรายการแจ้งเตือนหมดอายุ (แยกจากสต๊อก อ้างอิงวัตถุดิบผ่าน inventory_item_id)
+      dismissedNotificationIds: new Set(), // id แจ้งเตือนที่กดปิดไว้ชั่วคราว (เคลียร์เองเมื่อแก้ไขรายการนั้นใหม่)
 
       fetchInventory(btn) {
         this.setIndicator('syncing');
@@ -1221,7 +1233,6 @@
             this.setBtnLoading(btn, false);
             this.inventoryData = data;
             this.renderInventory();
-            this.checkInventoryExpiry();
             this.setIndicator('synced');
           })
           .withFailureHandler(() => {
@@ -1249,7 +1260,6 @@
               
               <div class="flex-1 min-w-0 flex items-center justify-between lg:block">
                 <p class="font-bold text-secondary text-lg truncate">${escHtml(item.name)}</p>
-                ${this._inventoryExpiryBadge(item)}
                 <button onclick='Controller.showInventoryItemForm(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="ml-2 text-xs font-bold text-primary hover:underline whitespace-nowrap">แก้ไข</button>
                 <button onclick="Controller.deleteInventoryItemConfirm('${item.id}')" class="ml-2 text-xs font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ลบ</button>
                   <span id="inv-changed-${idx}" class="lg:hidden hidden text-amber-500 font-bold text-xs whitespace-nowrap ml-2">● แก้ไข</span>
@@ -1279,48 +1289,47 @@
         `).join('');
       },
 
-      // ป้ายสถานะวันหมดอายุต่อรายการ (แสดงเฉพาะรายการที่ตั้งวันหมดอายุไว้)
-      _inventoryExpiryBadge(item) {
-        if (!item.expires_at) return '';
-        const expiresAt = new Date(item.expires_at).getTime();
-        if (isNaN(expiresAt)) return '';
-        const now = Date.now();
-        const twoHoursMs = 2 * 3600 * 1000;
-        if (expiresAt <= now) {
-          return '<span class="ml-2 bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">หมดอายุแล้ว</span>';
-        }
-        if (expiresAt - now <= twoHoursMs) {
-          return '<span class="ml-2 bg-orange-400 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">ใกล้หมดอายุ</span>';
-        }
-        return '';
-      },
-
-      // เช็ควัตถุดิบที่หมดอายุ/ใกล้หมดอายุ อัปเดตแบนเนอร์ในแท็บ Inventory + จุดแดงบนปุ่มแท็บ
-      // เรียกทุกครั้งที่โหลดสต๊อกใหม่ และเป็นระยะระหว่างเปิดแอปทิ้งไว้ (ดู init()/startOfflineSyncWatcher)
-      checkInventoryExpiry() {
+      // คืนรายการแจ้งเตือนที่หมดอายุแล้ว/ใกล้หมดอายุ (ไม่รวมที่ปิดแจ้งเตือนไว้ชั่วคราว) ใช้ทั้งเรนเดอร์แบนเนอร์และปุ่มปิดแจ้งเตือน
+      _getActiveNotifications() {
         const now = Date.now();
         const twoHoursMs = 2 * 3600 * 1000;
         const expired = [];
         const soon = [];
-        (this.inventoryData || []).forEach(item => {
-          if (!item.expires_at) return;
-          const expiresAt = new Date(item.expires_at).getTime();
+        (this.notifications || []).forEach(n => {
+          if (!n.expires_at) return;
+          if (this.dismissedNotificationIds.has(n.id)) return;
+          const expiresAt = new Date(n.expires_at).getTime();
           if (isNaN(expiresAt)) return;
-          if (expiresAt <= now) expired.push(item.name);
-          else if (expiresAt - now <= twoHoursMs) soon.push(item.name);
+          if (expiresAt <= now) expired.push(n);
+          else if (expiresAt - now <= twoHoursMs) soon.push(n);
         });
+        return { expired, soon };
+      },
 
-        const badge = document.getElementById('inventory-expiry-badge');
+      dismissNotificationAlert() {
+        const { expired, soon } = this._getActiveNotifications();
+        [...expired, ...soon].forEach(n => this.dismissedNotificationIds.add(n.id));
+        this.checkNotifications();
+      },
+
+      // เช็คแจ้งเตือนที่หมดอายุ/ใกล้หมดอายุ อัปเดตแบนเนอร์บนหน้า POS + แท็บ Notifications + จุดแดงบนปุ่มแท็บ
+      // เรียกทุกครั้งที่โหลดข้อมูลแจ้งเตือนใหม่ และเป็นระยะระหว่างเปิดแอปทิ้งไว้ (ดู init()/startOfflineSyncWatcher)
+      checkNotifications() {
+        const { expired: expiredList, soon: soonList } = this._getActiveNotifications();
+        const expired = expiredList.map(n => n.item_name);
+        const soon = soonList.map(n => n.item_name);
+
+        const badge = document.getElementById('notification-badge');
         const count = expired.length + soon.length;
         if (badge) {
           badge.innerText = count;
           badge.classList.toggle('hidden', count === 0);
         }
 
-        const alertBox = document.getElementById('inventory-expiry-alert');
-        const alertText = document.getElementById('inventory-expiry-alert-text');
-        const posAlertBox = document.getElementById('pos-inventory-expiry-alert');
-        const posAlertText = document.getElementById('pos-inventory-expiry-alert-text');
+        const alertBox = document.getElementById('notification-alert');
+        const alertText = document.getElementById('notification-alert-text');
+        const posAlertBox = document.getElementById('pos-notification-alert');
+        const posAlertText = document.getElementById('pos-notification-alert-text');
         if (count === 0) {
           if (alertBox) alertBox.classList.add('hidden');
           if (posAlertBox) posAlertBox.classList.add('hidden');
@@ -1449,7 +1458,7 @@
       },
 
       getAllowedTabs(user) {
-        const allTabs = ['printer', 'history', 'summary', 'report', 'inventory', 'stock', 'employees', 'log', 'addons', 'sweetness', 'payment', 'backup'];
+        const allTabs = ['printer', 'history', 'summary', 'report', 'inventory', 'stock', 'employees', 'log', 'addons', 'sweetness', 'payment', 'notifications', 'backup'];
         if (user.role === 'Owner' || user.role === 'Admin') return allTabs;
         return user.permissions ? user.permissions.split(',').filter(t => allTabs.includes(t)) : [];
       },
@@ -1538,6 +1547,7 @@
         if (tab === 'log') this.fetchAccessLog();
         if (tab === 'addons') { this.renderAddonList(); this.fetchAddons(); }
         if (tab === 'sweetness') { this.renderSweetnessList(); this.fetchSweetnessLevels(); }
+        if (tab === 'notifications') { this.renderNotificationList(); this.fetchNotifications(); }
         if (tab === 'payment') this.fetchPaymentMethods();
         if (tab === 'report') this.initReportTab();
         if (tab === 'backup') { this.fetchBackupList(); this.fetchArchiveList(); }
@@ -2259,11 +2269,7 @@
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">หน่วย</label>'
             + '<input id="inv-item-unit" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.unit) + '">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">จำนวนคงเหลือ</label>'
-            + '<input id="inv-item-stock" type="number" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + (Number(it.stock) || 0) + '">'
-            + '<label class="text-sm font-bold text-slate-500 mb-1 block">เปิดใช้เมื่อ <span class="font-normal text-slate-400">(ถ้ามี)</span></label>'
-            + '<input id="inv-item-opened-at" type="datetime-local" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + this._isoToLocalInput(it.opened_at) + '">'
-            + '<label class="text-sm font-bold text-slate-500 mb-1 block">หมดอายุเมื่อ <span class="font-normal text-slate-400">(ถ้ามี)</span></label>'
-            + '<input id="inv-item-expires-at" type="datetime-local" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-5" value="' + this._isoToLocalInput(it.expires_at) + '">'
+            + '<input id="inv-item-stock" type="number" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-5" value="' + (Number(it.stock) || 0) + '">'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeInventoryItemForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
             + '<button onclick="Controller.saveInventoryItemForm()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึก</button>'
@@ -2281,10 +2287,6 @@
           const name = document.getElementById('inv-item-name').value.trim();
           const unit = document.getElementById('inv-item-unit').value.trim();
           const stock = Number(document.getElementById('inv-item-stock').value) || 0;
-          const openedAtLocal = document.getElementById('inv-item-opened-at').value;
-          const expiresAtLocal = document.getElementById('inv-item-expires-at').value;
-          const openedAt = openedAtLocal ? new Date(openedAtLocal).toISOString() : null;
-          const expiresAt = expiresAtLocal ? new Date(expiresAtLocal).toISOString() : null;
           if (!name) return this.showAlert('กรุณากรอกชื่อวัตถุดิบ', '');
           const id = this.editingInventoryId || '';
           this.closeInventoryItemForm();
@@ -2300,7 +2302,7 @@
               }
             })
             .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
-            .saveInventoryItem({ id: id, name: name, unit: unit, stock: stock, openedAt: openedAt, expiresAt: expiresAt });
+            .saveInventoryItem({ id: id, name: name, unit: unit, stock: stock });
         },
 
         async deleteInventoryItemConfirm(id) {
@@ -2321,6 +2323,137 @@
             })
             .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
             .deleteInventoryItem(id);
+        },
+
+        fetchNotifications() {
+          this.setIndicator('syncing');
+          google.script.run
+            .withSuccessHandler(data => {
+              this.notifications = data;
+              localStorage.setItem('pos_notifications', JSON.stringify(data));
+              this.renderNotificationList();
+              this.checkNotifications();
+              this.setIndicator('synced');
+            })
+            .withFailureHandler(() => {
+              this.setIndicator('error');
+              this.showAlert('ดึงข้อมูลแจ้งเตือนล้มเหลว', '');
+            })
+            .getNotifications();
+        },
+
+        renderNotificationList() {
+          const container = document.getElementById('notification-list');
+          if (!container) return;
+
+          if (this.notifications.length === 0) {
+            container.innerHTML = '<div class="p-8 text-center text-slate-400">ยังไม่มีการแจ้งเตือน</div>';
+            return;
+          }
+
+          const now = Date.now();
+          const twoHoursMs = 2 * 3600 * 1000;
+          let html = '';
+          this.notifications.forEach(n => {
+            const expiresAt = n.expires_at ? new Date(n.expires_at).getTime() : null;
+            let statusBadge = '';
+            if (expiresAt && !isNaN(expiresAt)) {
+              if (expiresAt <= now) statusBadge = '<span class="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">หมดอายุแล้ว</span>';
+              else if (expiresAt - now <= twoHoursMs) statusBadge = '<span class="bg-orange-400 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">ใกล้หมดอายุ</span>';
+            }
+            html += `
+              <div class="flex items-center justify-between p-4 hover:bg-[#fffdf5] transition-colors">
+                <div>
+                  <p class="font-bold text-secondary flex items-center gap-2">${escHtml(n.item_name)} ${statusBadge}</p>
+                  <p class="text-xs text-slate-400 mt-1">
+                    ${n.opened_at ? 'เปิดใช้: ' + new Date(n.opened_at).toLocaleString() : ''}
+                    ${n.expires_at ? (n.opened_at ? ' | ' : '') + 'หมดอายุ: ' + new Date(n.expires_at).toLocaleString() : ''}
+                  </p>
+                </div>
+                <button onclick="Controller.deleteNotification('${n.id}')" class="text-sm font-bold text-red-400 hover:underline shrink-0">ลบ</button>
+              </div>
+            `;
+          });
+          container.innerHTML = html;
+        },
+
+        openNotificationForm() {
+          const old = document.getElementById('modal-notification-form');
+          if (old) old.remove();
+          const itemOptions = (this.inventoryData || [])
+            .map(it => `<option value="${it.id}">${escHtml(it.name)}</option>`)
+            .join('');
+          const wrap = document.createElement('div');
+          wrap.id = 'modal-notification-form';
+          wrap.className = 'fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
+          wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-xl">'
+            + '<h3 class="font-bold text-lg text-secondary mb-4">เพิ่มแจ้งเตือน</h3>'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">วัตถุดิบ</label>'
+            + '<select id="notif-item-id" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3">' + itemOptions + '</select>'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">เปิดใช้เมื่อ <span class="font-normal text-slate-400">(ถ้ามี)</span></label>'
+            + '<input id="notif-opened-at" type="datetime-local" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3">'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">หมดอายุเมื่อ</label>'
+            + '<input id="notif-expires-at" type="datetime-local" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-5">'
+            + '<div class="flex gap-2">'
+            + '<button onclick="Controller.closeNotificationForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
+            + '<button onclick="Controller.saveNotificationForm()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึก</button>'
+            + '</div></div>';
+          document.body.appendChild(wrap);
+        },
+
+        closeNotificationForm() {
+          const m = document.getElementById('modal-notification-form');
+          if (m) m.remove();
+        },
+
+        saveNotificationForm() {
+          const itemSelect = document.getElementById('notif-item-id');
+          const itemId = itemSelect ? itemSelect.value : '';
+          const item = (this.inventoryData || []).find(it => String(it.id) === String(itemId));
+          if (!item) return this.showAlert('กรุณาเพิ่มวัตถุดิบในสต๊อกก่อน จึงจะเลือกได้', '');
+
+          const openedAtLocal = document.getElementById('notif-opened-at').value;
+          const expiresAtLocal = document.getElementById('notif-expires-at').value;
+          const openedAt = openedAtLocal ? new Date(openedAtLocal).toISOString() : null;
+          const expiresAt = expiresAtLocal ? new Date(expiresAtLocal).toISOString() : null;
+          if (!expiresAt) return this.showAlert('กรุณาระบุวันหมดอายุ', '');
+
+          this.closeNotificationForm();
+          this.showLoading();
+          google.script.run
+            .withSuccessHandler(res => {
+              this.hideLoading();
+              if (res && res.success) {
+                this.fetchNotifications();
+                this.showAlert('บันทึกแจ้งเตือนแล้ว', '');
+              } else {
+                this.showAlert((res && res.error) || 'บันทึกไม่สำเร็จ', '');
+              }
+            })
+            .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+            .saveNotification({ inventoryItemId: item.id, itemName: item.name, openedAt: openedAt, expiresAt: expiresAt });
+        },
+
+        async deleteNotification(id) {
+          const confirmDelete = await this.showConfirm('ต้องการลบแจ้งเตือนนี้หรือไม่?', '');
+          if (!confirmDelete) return;
+
+          this.dismissedNotificationIds.delete(id);
+          this.setIndicator('syncing');
+          google.script.run
+            .withSuccessHandler(res => {
+              if (res && res.success) {
+                this.fetchNotifications();
+              } else {
+                this.setIndicator('error');
+                this.showAlert('ลบไม่สำเร็จ', '');
+              }
+            })
+            .withFailureHandler(() => {
+              this.setIndicator('error');
+              this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
+            })
+            .deleteNotification(id);
         },
 
         openEditBill(invoice) {
@@ -4753,8 +4886,8 @@ renderReport(r) {
                                 this.updateSyncQueueBadge();
                     }, 20000);
 
-                    // เช็ควัตถุดิบหมดอายุเป็นระยะ (ไม่ต้องรอเน็ต เทียบเวลาจากข้อมูลที่โหลดไว้ในเครื่องอยู่แล้ว)
-                    setInterval(() => this.checkInventoryExpiry(), 60000);
+                    // เช็คแจ้งเตือนหมดอายุเป็นระยะ (ไม่ต้องรอเน็ต เทียบเวลาจากข้อมูลที่โหลดไว้ในเครื่องอยู่แล้ว)
+                    setInterval(() => this.checkNotifications(), 60000);
 
                     // มือถือมักหยุด/หน่วง setInterval ตอนแอปถูกสลับไปพัก (background tab/PWA)
                     // พอสลับกลับมาเปิดอีกครั้ง (visibilitychange) ให้ดึงข้อมูลใหม่ + ลอง sync คิวที่ค้างทันที
@@ -4763,7 +4896,7 @@ renderReport(r) {
                     document.addEventListener('visibilitychange', () => {
                                 if (document.visibilityState !== 'visible') return;
                                 trySyncAll();
-                                this.checkInventoryExpiry();
+                                this.checkNotifications();
                                 if (Date.now() - this.lastServerRefreshAt < 15000) return;
                                 this.lastServerRefreshAt = Date.now();
                                 this.setIndicator('syncing');
