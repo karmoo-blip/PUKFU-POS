@@ -15,6 +15,12 @@
     }
     .hide-scroll { -webkit-overflow-scrolling: touch; }
 
+    /* กันปุ่มแท็บ Settings ค้างสี hover (bg-accent) หลังแตะบนมือถือ (iOS Safari ค้าง :hover จนกว่าจะแตะที่อื่น)
+       ทำให้แท็บที่เพิ่งเลือก (มีแถบ indicator สีเนวี่ลอยอยู่ใต้ปุ่มอยู่แล้ว) ดูเหมือนมีสองสีทับกัน */
+    @media (hover: none) {
+      button[id^="settings-tab-"]:hover { background-color: transparent; }
+    }
+
     /* เงาจางบอกใบ้ว่าเลื่อนซ้าย/ขวาได้ (จำเป็นเพราะซ่อน scrollbar ไปแล้วบนจอสัมผัส) */
     .scroll-fade { position: relative; }
     .scroll-fade::before, .scroll-fade::after {
