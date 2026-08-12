@@ -883,9 +883,11 @@
         this.addons = JSON.parse(localStorage.getItem('pos_addons')) || [];
         this.sweetnessLevels = JSON.parse(localStorage.getItem('pos_sweetnessLevels')) || [];
         this.paymentMethods = JSON.parse(localStorage.getItem('pos_paymentMethods')) || [];
+        this.inventoryData = JSON.parse(localStorage.getItem('pos_inventoryData')) || [];
         this.shopInfo = JSON.parse(localStorage.getItem('pos_shopInfo')) || { address: '', phone: '', taxId: '', vatEnabled: false, vatRate: 7 };
 
         // แสดงข้อมูลที่แคชไว้ในเครื่องก่อน ระหว่างรอข้อมูลใหม่จากเซิร์ฟเวอร์
+        this.checkInventoryExpiry();
         this.renderHistory();
         if (this.menuData.length > 0) {
           this.extractCategories();
@@ -933,6 +935,16 @@
           })
           .withFailureHandler(() => console.warn("ใช้วิธีชำระเงินที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
           .getPaymentMethods();
+
+        google.script.run
+          .withSuccessHandler(data => {
+            this.inventoryData = data;
+            localStorage.setItem('pos_inventoryData', JSON.stringify(data));
+            this.renderInventory();
+            this.checkInventoryExpiry();
+          })
+          .withFailureHandler(() => console.warn("ใช้ข้อมูลสต๊อกที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
+          .getInventoryData();
 
         google.script.run
           .withSuccessHandler(data => {
@@ -1307,15 +1319,23 @@
 
         const alertBox = document.getElementById('inventory-expiry-alert');
         const alertText = document.getElementById('inventory-expiry-alert-text');
-        if (alertBox && alertText) {
-          if (count === 0) {
-            alertBox.classList.add('hidden');
-          } else {
-            const parts = [];
-            if (expired.length) parts.push(`หมดอายุแล้ว: ${expired.join(', ')}`);
-            if (soon.length) parts.push(`ใกล้หมดอายุ: ${soon.join(', ')}`);
-            alertText.innerText = ' ' + parts.join(' | ');
+        const posAlertBox = document.getElementById('pos-inventory-expiry-alert');
+        const posAlertText = document.getElementById('pos-inventory-expiry-alert-text');
+        if (count === 0) {
+          if (alertBox) alertBox.classList.add('hidden');
+          if (posAlertBox) posAlertBox.classList.add('hidden');
+        } else {
+          const parts = [];
+          if (expired.length) parts.push(`หมดอายุแล้ว: ${expired.join(', ')}`);
+          if (soon.length) parts.push(`ใกล้หมดอายุ: ${soon.join(', ')}`);
+          const message = parts.join(' | ');
+          if (alertBox && alertText) {
+            alertText.innerText = ' ' + message;
             alertBox.classList.remove('hidden');
+          }
+          if (posAlertBox && posAlertText) {
+            posAlertText.innerText = message;
+            posAlertBox.classList.remove('hidden');
           }
         }
       },
