@@ -334,13 +334,22 @@
         <div id="notification-list" class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm divide-y divide-[#efe3c4] max-h-[60vh] overflow-y-auto"></div>
       </div>
 
-      <div id="settings-panel-stock" class="settings-panel hidden">
-        <div class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm p-6 max-w-md">
+      <div id="settings-panel-stock" class="settings-panel hidden flex flex-col">
+        <div class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm p-6 max-w-md mb-4">
           <p class="text-sm text-slate-400 mb-1">สถานะปัจจุบัน</p>
           <p id="stock-status-label" class="text-2xl font-black text-secondary mb-4">ปกติ</p>
           <p class="text-sm text-slate-400 mb-4">เปิดโหมดนี้เพื่อคลิกที่สินค้าในหน้า POS แล้วสลับสถานะ Sold Out ได้ทันที</p>
           <button id="btn-toggle-stock" onclick="Controller.toggleStockMode()" class="w-full bg-primary text-white py-3 rounded-2xl font-bold hover:brightness-95 transition">เปิดโหมดจัดการสต๊อก</button>
         </div>
+
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+          <p class="text-sm text-slate-400">จัดการสินค้าในเมนู (เพิ่ม/แก้ไข/ลบ)</p>
+          <div class="flex gap-2 w-full sm:w-auto">
+            <button onclick="Controller.showProductForm(null)" class="flex-1 sm:flex-none justify-center items-center flex bg-emerald-500 text-white hover:brightness-95 px-4 py-2 rounded-2xl font-bold transition">+ เพิ่มสินค้า</button>
+            <button onclick="Controller.fetchMenuForAdmin(this)" class="flex-1 sm:flex-none justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
+          </div>
+        </div>
+        <div id="product-list" class="flex-1 overflow-y-auto bg-white rounded-3xl border border-[#efe3c4] shadow-sm divide-y divide-[#efe3c4] max-h-[55vh]"></div>
       </div>
 
       <div id="settings-panel-printer" class="settings-panel hidden">

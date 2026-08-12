@@ -1543,7 +1543,7 @@
         if (tab === 'summary') this.fetchSummary();
         if (tab === 'inventory') this.fetchInventory();
         if (tab === 'employees') this.fetchEmployeeList();
-        if (tab === 'stock') this.renderStockPanel();
+        if (tab === 'stock') { this.renderStockPanel(); this.renderProductList(); }
         if (tab === 'log') this.fetchAccessLog();
         if (tab === 'addons') { this.renderAddonList(); this.fetchAddons(); }
         if (tab === 'sweetness') { this.renderSweetnessList(); this.fetchSweetnessLevels(); }
@@ -2323,6 +2323,137 @@
             })
             .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
             .deleteInventoryItem(id);
+        },
+
+        fetchMenuForAdmin(btn) {
+          this.setIndicator('syncing');
+          this.setBtnLoading(btn, true);
+          google.script.run
+            .withSuccessHandler(data => {
+              this.setBtnLoading(btn, false);
+              this.menuData = data;
+              localStorage.setItem('pos_menuData', JSON.stringify(data));
+              this.soldOutItems = data.filter(item => item.isSoldOut).map(item => item.name);
+              localStorage.setItem('pos_soldOut', JSON.stringify(this.soldOutItems));
+              this.extractCategories();
+              this.renderProductList();
+              this.setIndicator('synced');
+            })
+            .withFailureHandler(() => {
+              this.setBtnLoading(btn, false);
+              this.showAlert('ไม่สามารถโหลดข้อมูลสินค้าได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+              this.setIndicator('error');
+            })
+            .getMenuData();
+        },
+
+        renderProductList() {
+          const list = document.getElementById('product-list');
+          if (!list) return;
+          if (this.menuData.length === 0) {
+            list.innerHTML = '<div class="p-8 text-center text-slate-400 font-bold">ยังไม่มีสินค้า กด "+ เพิ่มสินค้า" เพื่อเริ่มเพิ่มเมนู</div>';
+            return;
+          }
+          const sorted = [...this.menuData].sort((a, b) => (a.category || '').localeCompare(b.category || '') || String(a.name || '').localeCompare(String(b.name || '')));
+          list.innerHTML = sorted.map(item => `
+            <div class="p-4 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
+              <div class="min-w-0">
+                <p class="font-bold text-secondary truncate">${escHtml(item.name)} ${item.isSoldOut ? '<span class="text-xs font-bold text-red-400">(หมด)</span>' : ''}</p>
+                <p class="text-xs text-slate-400 truncate">${escHtml(item.sku)} · ${escHtml(item.category || 'ไม่มีหมวดหมู่')} · ฿${Number(item.price) || 0}</p>
+              </div>
+              <div class="shrink-0 flex items-center gap-3">
+                <button onclick='Controller.showProductForm(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="text-xs font-bold text-primary hover:underline">แก้ไข</button>
+                <button onclick="Controller.deleteProductConfirm('${escHtml(item.sku)}')" class="text-xs font-bold text-red-400 hover:text-red-600 hover:underline">ลบ</button>
+              </div>
+            </div>
+          `).join('');
+        },
+
+        showProductForm(item) {
+          const old = document.getElementById('modal-product-item');
+          if (old) old.remove();
+          const it = item || { sku: '', name: '', lang2: '', price: 0, cost: 0, category: '', image: '' };
+          const q = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
+          const wrap = document.createElement('div');
+          wrap.id = 'modal-product-item';
+          wrap.className = 'fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
+          wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-xl max-h-[90vh] overflow-y-auto">'
+            + '<h3 class="font-bold text-lg text-secondary mb-4">' + (item ? 'แก้ไขสินค้า' : 'เพิ่มสินค้า') + '</h3>'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">รหัสสินค้า (SKU)</label>'
+            + '<input id="prod-sku" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3' + (item ? ' bg-slate-100 text-slate-400' : '') + '" value="' + q(it.sku) + '"' + (item ? ' readonly' : '') + '>'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อสินค้า</label>'
+            + '<input id="prod-name" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.name) + '">'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อภาษาอังกฤษ (ถ้ามี)</label>'
+            + '<input id="prod-lang2" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.lang2) + '">'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">หมวดหมู่</label>'
+            + '<input id="prod-category" list="prod-category-list" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.category) + '">'
+            + '<datalist id="prod-category-list">' + (this.categories || []).filter(c => c !== 'All').map(c => '<option value="' + q(c) + '">').join('') + '</datalist>'
+            + '<div class="flex gap-3 mb-3">'
+            + '<div class="flex-1"><label class="text-sm font-bold text-slate-500 mb-1 block">ราคาขาย</label>'
+            + '<input id="prod-price" type="number" step="0.01" class="w-full border border-[#efe3c4] rounded-xl p-2.5" value="' + (Number(it.price) || 0) + '"></div>'
+            + '<div class="flex-1"><label class="text-sm font-bold text-slate-500 mb-1 block">ต้นทุน (ถ้ามี)</label>'
+            + '<input id="prod-cost" type="number" step="0.01" class="w-full border border-[#efe3c4] rounded-xl p-2.5" value="' + (Number(it.cost) || 0) + '"></div>'
+            + '</div>'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">ลิงก์รูปภาพ (ถ้ามี)</label>'
+            + '<input id="prod-image" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-5" value="' + q(it.image) + '">'
+            + '<div class="flex gap-2">'
+            + '<button onclick="Controller.closeProductForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
+            + '<button onclick="Controller.saveProductForm()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึก</button>'
+            + '</div></div>';
+          this.editingProductIsNew = !item;
+          document.body.appendChild(wrap);
+        },
+
+        closeProductForm() {
+          const m = document.getElementById('modal-product-item');
+          if (m) m.remove();
+        },
+
+        saveProductForm() {
+          const sku = document.getElementById('prod-sku').value.trim();
+          const name = document.getElementById('prod-name').value.trim();
+          const lang2 = document.getElementById('prod-lang2').value.trim();
+          const category = document.getElementById('prod-category').value.trim();
+          const price = Number(document.getElementById('prod-price').value) || 0;
+          const cost = Number(document.getElementById('prod-cost').value) || 0;
+          const image = document.getElementById('prod-image').value.trim();
+          if (!sku) return this.showAlert('กรุณากรอกรหัสสินค้า (SKU)', '');
+          if (!name) return this.showAlert('กรุณากรอกชื่อสินค้า', '');
+          const isNew = !!this.editingProductIsNew;
+          this.closeProductForm();
+          this.showLoading();
+          google.script.run
+            .withSuccessHandler(res => {
+              this.hideLoading();
+              if (res && res.success) {
+                this.fetchMenuForAdmin();
+                this.showAlert('บันทึกสินค้าแล้ว', '');
+              } else {
+                this.showAlert((res && res.error) || 'บันทึกไม่สำเร็จ', '');
+              }
+            })
+            .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+            .saveMenuItem({ sku, name, lang2, category, price, cost, image, isNew });
+        },
+
+        async deleteProductConfirm(sku) {
+          const item = (this.menuData || []).find(x => String(x.sku) === String(sku));
+          const ok = await this.showConfirm('ต้องการลบสินค้า "' + (item ? item.name : sku) + '" ออกจากเมนูหรือไม่?', '');
+          if (!ok) return;
+          this.showLoading();
+          google.script.run
+            .withSuccessHandler(res => {
+              this.hideLoading();
+              if (res && res.success) {
+                this.logPinAttempt('ลบสินค้า: ' + (item ? item.name : sku), true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
+                this.fetchMenuForAdmin();
+                this.showAlert('ลบสินค้าแล้ว', '');
+              } else {
+                this.showAlert((res && res.error) || 'ลบไม่สำเร็จ', '');
+              }
+            })
+            .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+            .deleteMenuItem(sku);
         },
 
         fetchNotifications() {

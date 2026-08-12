@@ -60,6 +60,37 @@ handlers.toggleSoldOut = async (env, args) => {
   return { success: true };
 };
 
+handlers.saveMenuItem = async (env, args) => {
+  const m = args[0] || {};
+  const sku = String(m.sku || "").trim();
+  const name = String(m.name || "").trim();
+  if (!sku) return { success: false, error: "กรุณาระบุรหัสสินค้า (SKU)" };
+  if (!name) return { success: false, error: "กรุณาระบุชื่อสินค้า" };
+  const price = Number(m.price) || 0;
+  const cost = Number(m.cost) || 0;
+  const category = String(m.category || "").trim();
+  const lang2 = String(m.lang2 || "").trim();
+  const image = String(m.image || "").trim();
+  const existing = await env.DB.prepare("SELECT sku FROM menu WHERE sku = ?").bind(sku).first();
+  if (m.isNew && existing) return { success: false, error: "มีรหัสสินค้านี้อยู่แล้ว" };
+  if (existing) {
+    await env.DB.prepare("UPDATE menu SET name=?, price=?, image=?, lang2=?, category=?, cost=? WHERE sku=?")
+      .bind(name, price, image, lang2, category, cost, sku).run();
+  } else {
+    await env.DB.prepare("INSERT INTO menu (sku, name, price, image, lang2, category, cost, is_sold_out) VALUES (?,?,?,?,?,?,?,0)")
+      .bind(sku, name, price, image, lang2, category, cost).run();
+  }
+  return { success: true, sku };
+};
+
+handlers.deleteMenuItem = async (env, args) => {
+  const a0 = args[0];
+  const sku = a0 && typeof a0 === "object" ? a0.sku : a0;
+  if (!sku) return { success: false, error: "missing sku" };
+  await env.DB.prepare("DELETE FROM menu WHERE sku = ?").bind(sku).run();
+  return { success: true };
+};
+
 handlers.getInventoryData = async (env) => {
   const r = await env.DB.prepare("SELECT * FROM inventory").all();
   return r.results.map((row) => Object.assign({}, row, { stock: row.current_stock }));
