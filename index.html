@@ -185,8 +185,9 @@
             <span id="cart-total" class="text-primary text-2xl">฿0.00</span>
           </div>
           <div class="flex gap-2">
-            <button id="btn-hold-order" onclick="Controller.holdCurrentOrder()" class="hidden w-1/3 bg-amber-400 hover:bg-amber-500 text-white py-4 rounded-2xl font-bold text-lg shadow-md shadow-amber-400/30 transition-all">พักบิล</button>
-            <button id="btn-checkout" onclick="Controller.openCheckout()" class="w-full bg-primary hover:brightness-95 text-white py-4 rounded-2xl font-bold text-lg shadow-md shadow-primary/30 transition-all">Checkout</button>
+            <button id="btn-print-order-slip" onclick="Controller.printOrderSlipNow()" class="hidden shrink-0 w-14 bg-slate-500 hover:bg-slate-600 text-white py-4 rounded-2xl shadow-md transition-all" title="พิมพ์ใบสั่ง (ก่อนชำระเงิน)">🖨️</button>
+            <button id="btn-hold-order" onclick="Controller.holdCurrentOrder()" class="hidden flex-1 bg-amber-400 hover:bg-amber-500 text-white py-4 rounded-2xl font-bold text-lg shadow-md shadow-amber-400/30 transition-all">พักบิล</button>
+            <button id="btn-checkout" onclick="Controller.openCheckout()" class="flex-1 bg-primary hover:brightness-95 text-white py-4 rounded-2xl font-bold text-lg shadow-md shadow-primary/30 transition-all">Checkout</button>
           </div>
         </div>
       </div>

@@ -3414,11 +3414,14 @@ renderReport(r) {
         let total = 0;
         const btnHold = document.getElementById('btn-hold-order');
         const btnCheckout = document.getElementById('btn-checkout');
+        const btnPrintSlip = document.getElementById('btn-print-order-slip');
         const btnShowHeld = document.getElementById('btn-show-held-orders');
-        
+
         if (this.cart.length === 0) {
            container.innerHTML = `<div class="text-center text-slate-400 my-auto text-sm font-bold">ไม่มีสินค้าในตะกร้า</div>`;
-           if(btnHold) { btnHold.classList.add('hidden'); btnCheckout.classList.remove('w-2/3'); btnCheckout.classList.add('w-full'); }
+           if(btnHold) btnHold.classList.add('hidden');
+           if(btnPrintSlip) btnPrintSlip.classList.add('hidden');
+           if(btnCheckout) { btnCheckout.classList.remove('flex-[2]'); btnCheckout.classList.add('flex-1'); }
         } else {
           container.innerHTML = this.cart.map((item, idx) => {
             total += item.price * item.qty;
@@ -3443,7 +3446,9 @@ renderReport(r) {
               </div>
             `;
           }).join('');
-          if(btnHold) { btnHold.classList.remove('hidden'); btnCheckout.classList.remove('w-full'); btnCheckout.classList.add('w-2/3'); }
+          if(btnHold) btnHold.classList.remove('hidden');
+          if(btnPrintSlip) btnPrintSlip.classList.remove('hidden');
+          if(btnCheckout) { btnCheckout.classList.remove('flex-1'); btnCheckout.classList.add('flex-[2]'); }
         }
         document.getElementById('cart-total').innerText = `฿${total.toFixed(2)}`;
         
@@ -3766,6 +3771,67 @@ renderReport(r) {
         this.queueNumber++;
         localStorage.setItem('pos_queueNumber', this.queueNumber);
         return 'PK' + q.toString().padStart(2, '0');
+      },
+
+      // พิมพ์ใบสั่งครัวจากตะกร้าปัจจุบันก่อนลูกค้าจ่ายเงิน ไม่สร้างออเดอร์/บิลใดๆ ในระบบ
+      // (บิลจริงยังสร้างตอน Checkout ตามปกติ เลขคิวจริงก็ยังผูกกับตอนนั้น ไม่ใช่ตอนนี้)
+      async printOrderSlipNow() {
+        if (this.cart.length === 0) return this.showAlert('ตะกร้าว่าง ไม่มีอะไรให้พิมพ์', '');
+
+        const fakeOrder = {
+          items: this.cart,
+          timestamp: new Date().toISOString(),
+          invoice: '(ยังไม่ชำระ)'
+        };
+
+        if (BluetoothPrinter.isConnected) {
+          try {
+            const bytes = await BluetoothPrinter.buildOrderSlip(fakeOrder, null, this.receiptSettings);
+            await BluetoothPrinter.sendData(bytes);
+          } catch (e) {
+            console.warn('BT Print Error:', e.message);
+            this.showAlert('พิมพ์ผ่าน Bluetooth ไม่สำเร็จ: ' + e.message, '');
+          }
+          return;
+        }
+
+        const container = document.getElementById('receipt-container');
+        if (!container) return;
+
+        const paperSize = this.receiptSettings.paperSize || '80mm';
+        let styleEl = document.getElementById('dynamic-print-style');
+        if (!styleEl) {
+          styleEl = document.createElement('style');
+          styleEl.id = 'dynamic-print-style';
+          document.head.appendChild(styleEl);
+        }
+        styleEl.innerHTML = `
+          @media print {
+            @page { margin: 0; size: ${paperSize} auto; }
+            #receipt-container { width: ${paperSize} !important; }
+          }
+        `;
+
+        const dateStr = new Date(fakeOrder.timestamp).toLocaleString('th-TH');
+        const slipItems = this.cart.map(item => `
+          <div style="margin-bottom: 8px; font-weight: bold; font-size: 1.1em;">
+            <div>- ${item.qty}x ${escHtml(item.name)}</div>
+            ${item.note ? `<div style="font-size: 0.9em; padding-left: 10px; font-weight: normal;"> ${escHtml(item.note)}</div>` : ''}
+          </div>
+        `).join('');
+
+        container.innerHTML = `
+          <div style="padding: 10px;">
+            <div style="text-align: center; font-weight: bold; font-size: 1.3em; margin-bottom: 10px; background: #000; color: #fff; padding: 4px; border-radius: 4px;">ใบสั่งทำเครื่องดื่ม (Order)</div>
+            <div style="border-bottom: 2px solid #000; margin-bottom: 10px;"></div>
+            ${slipItems}
+            <div style="border-bottom: 2px solid #000; margin-top: 10px; margin-bottom: 10px;"></div>
+            <div style="font-size: 0.8em; text-align: center;">วันที่: ${dateStr}</div>
+            <div style="font-size: 0.8em; text-align: center;">ยังไม่ชำระเงิน</div>
+          </div>
+        `;
+
+        setTimeout(() => window.print(), 100);
       },
 
         async printReceipt(order, queueStr) {
