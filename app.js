@@ -2241,6 +2241,7 @@
             ['ยอดขายรวม', money(r.total)],
             ['กำไร', money(r.totalProfit)],
             ['ต้นทุนรวม', money(r.totalCost)],
+            ['ต้นทุนของเสีย', money(r.wasteCost)],
             ['จำนวนบิล', String(r.billCount || 0)],
             ['จำนวนแก้ว', String(r.cupCount || 0)],
             ['เฉลี่ยต่อบิล', money(r.avgPerBill)],
@@ -2762,6 +2763,7 @@ renderReport(r) {
         document.getElementById('rp-bills').innerText = r.billCount.toLocaleString();
         document.getElementById('rp-cups').innerText = r.cupCount.toLocaleString();
         document.getElementById('rp-cost').innerText = fmt(r.totalCost);
+        document.getElementById('rp-waste-cost').innerText = fmt(r.wasteCost);
         document.getElementById('rp-avg').innerText = fmt(r.avgPerBill);
         document.getElementById('rp-cash').innerText = fmt(r.cash);
         document.getElementById('rp-other').innerText = fmt(r.other);
@@ -4768,26 +4770,37 @@ renderReport(r) {
             
             let totalCost = 0;
             let totalProfit = 0;
-            
+            let wasteCost = 0;
+
             combined.forEach(order => {
               const orderDateStr = new Date(order.timestamp).toLocaleDateString();
-              if (orderDateStr === todayStr && order.status !== 'cancelled' && order.status !== 'waste') {
-                order.items.forEach(item => {
-                   if (item.cancelled) return; // ข้ามรายการที่ถูกยกเลิกไปแล้ว
-                   //  หาต้นทุนจาก menuData โดยใช้ SKU (เพราะประวัติที่ดึงจากเซิร์ฟเวอร์ไม่ได้เก็บต้นทุนไว้)
-                   const menuProduct = this.menuData.find(m => m.sku === item.sku);
-                   const itemCost = menuProduct ? (menuProduct.cost || 0) : (item.cost || 0);
-                   
+              if (orderDateStr !== todayStr || order.status === 'cancelled') return;
+              const isWaste = order.status === 'waste';
+              order.items.forEach(item => {
+                 if (item.cancelled) return; // ข้ามรายการที่ถูกยกเลิกไปแล้ว
+                 //  หาต้นทุนจาก menuData โดยใช้ SKU (เพราะประวัติที่ดึงจากเซิร์ฟเวอร์ไม่ได้เก็บต้นทุนไว้)
+                 const menuProduct = this.menuData.find(m => m.sku === item.sku);
+                 const itemCost = menuProduct ? (menuProduct.cost || 0) : (item.cost || 0);
+
+                 if (isWaste) {
+                   wasteCost += itemCost * item.qty;
+                 } else {
                    totalCost += itemCost * item.qty;
                    totalProfit += (item.price - itemCost) * item.qty;
-                });
-              }
+                 }
+              });
             });
-            
+            totalProfit -= wasteCost;
+
             const costEl = document.getElementById('sum-cost');
             const profitEl = document.getElementById('sum-profit');
             if (costEl) costEl.innerText = `฿${totalCost.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             if (profitEl) profitEl.innerText = `฿${totalProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+
+            const wasteBanner = document.getElementById('sum-waste-banner');
+            const wasteCostEl = document.getElementById('sum-waste-cost');
+            if (wasteCostEl) wasteCostEl.innerText = `฿${wasteCost.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            if (wasteBanner) wasteBanner.classList.toggle('hidden', wasteCost <= 0);
             // ------------------------------------------
 
             const breakdownContainer = document.getElementById('sum-breakdown-container');

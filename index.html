@@ -275,6 +275,10 @@
             <p id="sum-profit" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
           </div>
         </div>
+        <div id="sum-waste-banner" class="hidden bg-orange-50 border border-orange-200 text-orange-600 rounded-2xl p-4 mt-3 lg:mt-6 flex justify-between items-center">
+          <span class="font-bold text-sm">ต้นทุนของเสียวันนี้</span>
+          <span id="sum-waste-cost" class="font-black text-lg">฿0.00</span>
+        </div>
                 <!-- ส่วนจัดการเงินทอน (New!) -->
         <div class="bg-white p-4 lg:p-6 rounded-3xl border border-[#efe3c4] shadow-sm mt-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
@@ -637,6 +641,7 @@
               <p class="text-sm font-bold text-slate-500 mb-3">สรุปเพิ่มเติม</p>
               <div class="space-y-2 text-sm">
                 <div class="flex justify-between"><span class="text-slate-500 font-bold">ต้นทุนรวม</span><span id="rp-cost" class="font-black text-secondary">฿0.00</span></div>
+                <div class="flex justify-between"><span class="text-slate-500 font-bold">ต้นทุนของเสีย</span><span id="rp-waste-cost" class="font-black text-orange-500">฿0.00</span></div>
                 <div class="flex justify-between"><span class="text-slate-500 font-bold">เฉลี่ยต่อบิล</span><span id="rp-avg" class="font-black text-secondary">฿0.00</span></div>
                 <div class="flex justify-between"><span class="text-slate-500 font-bold">เงินสด</span><span id="rp-cash" class="font-black text-secondary">฿0.00</span></div>
                 <div class="flex justify-between"><span class="text-slate-500 font-bold">ไม่ใช่เงินสด</span><span id="rp-other" class="font-black text-secondary">฿0.00</span></div>

@@ -519,6 +519,9 @@ async function summaryByRange(env, start, end) {
   const sales = await env.DB.prepare(
     "SELECT *, date(timestamp, '+7 hours') AS bkk_date FROM sales WHERE date(timestamp, '+7 hours') BETWEEN ? AND ? AND cancelled = 0 AND invoice NOT IN (SELECT invoice FROM payments WHERE LOWER(IFNULL(status, '')) IN ('cancelled', 'waste'))"
   ).bind(startDay, endDay).all();
+  const wasteSales = await env.DB.prepare(
+    "SELECT * FROM sales WHERE date(timestamp, '+7 hours') BETWEEN ? AND ? AND cancelled = 0 AND invoice IN (SELECT invoice FROM payments WHERE LOWER(IFNULL(status, '')) = 'waste')"
+  ).bind(startDay, endDay).all();
   const paymentsR = await env.DB.prepare(
     "SELECT *, date(timestamp, '+7 hours') AS bkk_date FROM payments WHERE date(timestamp, '+7 hours') BETWEEN ? AND ? AND (status IS NULL OR LOWER(status) NOT IN ('cancelled', 'waste'))"
   ).bind(startDay, endDay).all();
@@ -575,11 +578,16 @@ async function summaryByRange(env, start, end) {
   const topSellers = Object.values(topMap).sort((a, b) => b.qty - a.qty).slice(0, 10);
   const dailyList = Object.values(daily).sort((a, b) => (a.date < b.date ? 1 : -1));
 
+  let wasteCost = 0;
+  for (const s of wasteSales.results) {
+    wasteCost += (costMap[s.sku] || 0) * Number(s.qty || 0);
+  }
+
   const billCount = paymentsR.results.length;
-  const totalProfit = total - totalCost;
+  const totalProfit = total - totalCost - wasteCost;
   const avgPerBill = billCount ? total / billCount : 0;
   return {
-    success: true, total, totalProfit, billCount, cupCount, totalCost,
+    success: true, total, totalProfit, billCount, cupCount, totalCost, wasteCost,
     avgPerBill, cash, other, qr: other, byType, topSellers, daily: dailyList, floatCash,
   };
 }
