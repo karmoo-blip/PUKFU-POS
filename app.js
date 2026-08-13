@@ -2351,14 +2351,17 @@
             + '<h3 class="font-bold text-lg text-secondary mb-4">' + (item ? 'แก้ไขวัตถุดิบ' : 'เพิ่มวัตถุดิบ') + '</h3>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อวัตถุดิบ</label>'
             + '<input id="inv-item-name" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.name) + '">'
-            + '<label class="text-sm font-bold text-slate-500 mb-1 block">หน่วย</label>'
-            + '<input id="inv-item-unit" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.unit) + '">'
-            + '<label class="text-sm font-bold text-slate-500 mb-1 block">จำนวนคงเหลือ</label>'
-            + '<input id="inv-item-stock" type="number" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + (Number(it.stock) || 0) + '">'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">หน่วย (สำหรับคำนวณสูตร/คงเหลือ เช่น g, ml)</label>'
+            + '<input id="inv-item-unit" oninput="Controller.updateInvStockUnitToggle()" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.unit) + '">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">หน่วยซื้อ (ถ้ามี — เช่น ถุง, ขวด)</label>'
-            + '<input id="inv-item-purchase-unit" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.purchase_unit) + '" placeholder="ไม่บังคับ">'
-            + '<label class="text-sm font-bold text-slate-500 mb-1 block">1 หน่วยซื้อ = กี่ ' + q(it.unit || 'หน่วยหลัก') + '</label>'
-            + '<input id="inv-item-purchase-factor" type="number" min="0" step="0.01" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + (Number(it.purchase_factor) || '') + '" placeholder="เช่น 1000">'
+            + '<input id="inv-item-purchase-unit" oninput="Controller.updateInvStockUnitToggle()" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.purchase_unit) + '" placeholder="ไม่บังคับ">'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">1 หน่วยซื้อ = กี่หน่วย (เช่น 1 ถุง = 1000)</label>'
+            + '<input id="inv-item-purchase-factor" type="number" min="0" step="0.01" oninput="Controller.updateInvStockUnitToggle()" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + (Number(it.purchase_factor) || '') + '" placeholder="เช่น 1000">'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">จำนวนคงเหลือ</label>'
+            + '<div class="flex gap-2 mb-3">'
+            + '<input id="inv-item-stock" type="number" step="0.01" class="flex-1 border border-[#efe3c4] rounded-xl p-2.5" value="' + (Number(it.stock) || 0) + '">'
+            + '<select id="inv-item-stock-unit-toggle" class="border border-[#efe3c4] rounded-xl p-2.5 text-sm bg-white hidden"></select>'
+            + '</div>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">รูปวัตถุดิบ (ถ้ามี)</label>'
             + '<img id="inv-item-image-preview" src="' + q(it.photo) + '" class="' + (it.photo ? '' : 'hidden ') + 'w-16 h-16 object-cover border border-[#efe3c4] rounded-xl bg-white mb-2">'
             + '<input type="file" accept="image/*" onchange="Controller.handleInventoryImageUpload(event)" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-bold mb-1">'
@@ -2370,6 +2373,30 @@
           this.editingInventoryId = it.id || '';
           this.editingInventoryImage = it.photo || '';
           document.body.appendChild(wrap);
+          this.updateInvStockUnitToggle();
+        },
+
+        // อัปเดต dropdown เลือกหน่วยข้าง "จำนวนคงเหลือ" ให้ตรงกับหน่วยซื้อ/หน่วยหลักที่เพิ่งพิมพ์
+        // (เผื่อรับของเข้าครั้งแรกเป็นถุง จะได้ใส่จำนวนถุงตรงๆ ไม่ต้องคำนวณเป็นกรัมเอง)
+        updateInvStockUnitToggle() {
+          const unitEl = document.getElementById('inv-item-unit');
+          const puEl = document.getElementById('inv-item-purchase-unit');
+          const pfEl = document.getElementById('inv-item-purchase-factor');
+          const toggle = document.getElementById('inv-item-stock-unit-toggle');
+          if (!unitEl || !toggle) return;
+          const unit = unitEl.value.trim();
+          const purchaseUnit = puEl ? puEl.value.trim() : '';
+          const purchaseFactor = pfEl ? Number(pfEl.value) || 0 : 0;
+          if (!purchaseUnit || purchaseFactor <= 0) {
+            toggle.classList.add('hidden');
+            toggle.innerHTML = '';
+            return;
+          }
+          toggle.innerHTML = '<option value="1">' + escHtml(unit || 'หน่วยหลัก') + '</option>'
+            + '<option value="' + purchaseFactor + '">' + escHtml(purchaseUnit) + '</option>';
+          toggle.classList.remove('hidden');
+          // ถ้าสลับหน่วยหลังกรอกตัวเลขไว้แล้ว (เช่น ตอนแก้ไขรายการเดิม) ล้างค่าทิ้งกันตัวเลขเดิมถูกตีความผิดหน่วย
+          toggle.onchange = () => { document.getElementById('inv-item-stock').value = 0; };
         },
 
         handleInventoryImageUpload(event) {
@@ -2389,9 +2416,11 @@
         saveInventoryItemForm() {
           const name = document.getElementById('inv-item-name').value.trim();
           const unit = document.getElementById('inv-item-unit').value.trim();
-          const stock = Number(document.getElementById('inv-item-stock').value) || 0;
           const purchaseUnit = document.getElementById('inv-item-purchase-unit').value.trim();
           const purchaseFactor = Number(document.getElementById('inv-item-purchase-factor').value) || 0;
+          const stockToggle = document.getElementById('inv-item-stock-unit-toggle');
+          const stockFactor = (stockToggle && !stockToggle.classList.contains('hidden')) ? (Number(stockToggle.value) || 1) : 1;
+          const stock = (Number(document.getElementById('inv-item-stock').value) || 0) * stockFactor;
           if (!name) return this.showAlert('กรุณากรอกชื่อวัตถุดิบ', '');
           const id = this.editingInventoryId || '';
           const photo = this.editingInventoryImage || '';
