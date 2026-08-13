@@ -21,6 +21,7 @@ async function ensureExtraTables(env) {
     "CREATE TABLE IF NOT EXISTS archive_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, archive_id INTEGER, timestamp TEXT, invoice TEXT, total REAL, payment_type TEXT, order_note TEXT, status TEXT, cancel_reason TEXT, cancelled_by TEXT, cancelled_at TEXT)",
     "CREATE TABLE IF NOT EXISTS sweetness_levels (id TEXT PRIMARY KEY, name TEXT, sort_order INTEGER)",
     "CREATE TABLE IF NOT EXISTS notifications (id TEXT PRIMARY KEY, inventory_item_id TEXT, item_name TEXT, opened_at TEXT, expires_at TEXT, created_at TEXT)",
+    "CREATE TABLE IF NOT EXISTS recipes (id TEXT PRIMARY KEY, menu_sku TEXT, inventory_item_id TEXT, qty REAL)",
   ];
   for (const s of stmts) {
     await env.DB.prepare(s).run();
@@ -322,6 +323,31 @@ handlers.deleteNotification = async (env, args) => {
   return { success: true };
 };
 
+handlers.getRecipes = async (env) => {
+  await ensureExtraTables(env);
+  const r = await env.DB.prepare("SELECT * FROM recipes").all();
+  return r.results;
+};
+
+handlers.saveRecipesForMenuItem = async (env, args) => {
+  await ensureExtraTables(env);
+  const a = args[0] || {};
+  const menuSku = String(a.menuSku || "").trim();
+  if (!menuSku) return { success: false, error: "missing menuSku" };
+  const ingredients = Array.isArray(a.ingredients) ? a.ingredients : [];
+  await env.DB.prepare("DELETE FROM recipes WHERE menu_sku = ?").bind(menuSku).run();
+  let i = 0;
+  for (const ing of ingredients) {
+    const inventoryItemId = ing.inventoryItemId || ing.inventory_item_id;
+    const qty = Number(ing.qty) || 0;
+    if (!inventoryItemId || qty <= 0) continue;
+    const id = "RCP-" + menuSku + "-" + (i++);
+    await env.DB.prepare("INSERT INTO recipes (id, menu_sku, inventory_item_id, qty) VALUES (?, ?, ?, ?)")
+      .bind(id, menuSku, inventoryItemId, qty).run();
+  }
+  return { success: true };
+};
+
 handlers.getShopInfo = async (env) => {
   const r = await env.DB.prepare("SELECT * FROM shop_info").all();
   const obj = {};
@@ -341,7 +367,25 @@ handlers.saveShopInfo = async (env, args) => {
   return { success: true };
 };
 
+// หักสต๊อกวัตถุดิบตามสูตร (ถ้าสินค้า sku นี้มีการตั้งสูตรไว้) ปล่อยให้ติดลบได้ ไม่บล็อกการขาย
+// แค่เป็นสัญญาณเตือนให้ไปเติมสต๊อก บันทึกลง inventory_log ด้วย recorded_by = "auto:<invoice>" เพื่อแยกจากการเบิกมือ
+async function deductRecipeStock(env, sku, saleQty, invoice) {
+  if (!sku || saleQty <= 0) return;
+  const recipeR = await env.DB.prepare("SELECT * FROM recipes WHERE menu_sku = ?").bind(sku).all();
+  for (const rcp of recipeR.results) {
+    const item = await env.DB.prepare("SELECT name, current_stock FROM inventory WHERE id = ?").bind(rcp.inventory_item_id).first();
+    if (!item) continue;
+    const deduct = Number(rcp.qty || 0) * saleQty;
+    const newStock = Number(item.current_stock || 0) - deduct;
+    await env.DB.prepare("UPDATE inventory SET current_stock = ? WHERE id = ?").bind(newStock, rcp.inventory_item_id).run();
+    await env.DB.prepare(
+      "INSERT INTO inventory_log (timestamp, item_name, change, new_stock, recorded_by) VALUES (?, ?, ?, ?, ?)"
+    ).bind(nowIso(), item.name, -deduct, newStock, "auto:" + invoice).run();
+  }
+}
+
 async function syncOfflineOrders(env, args) {
+  await ensureExtraTables(env);
   const orders = Array.isArray(args[0]) ? args[0] : [args[0]];
   let count = 0;
   for (const o of orders) {
@@ -355,8 +399,10 @@ async function syncOfflineOrders(env, args) {
       .bind(timestamp, invoice, total, paymentType, orderNote, status).run();
     const items = o.items || [];
     for (const it of items) {
+      const qty = Number(it.qty || 0);
       await env.DB.prepare('INSERT INTO sales (timestamp, invoice, sku, name, qty, price, note, payment_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(timestamp, invoice, it.sku || '', it.name || '', Number(it.qty || 0), Number(it.price || 0), it.note || '', paymentType).run();
+        .bind(timestamp, invoice, it.sku || '', it.name || '', qty, Number(it.price || 0), it.note || '', paymentType).run();
+      await deductRecipeStock(env, it.sku || '', qty, invoice);
     }
     count++;
   }

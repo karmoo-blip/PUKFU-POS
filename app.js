@@ -778,7 +778,10 @@
       cupCount: 0,
       serverCupCount: 0,    // ยอดรวมแก้วจากส่วนกลาง
       heldOrders: [], // ระบบพักบิล
-      
+      productSearchQuery: '',
+      inventorySearchQuery: '',
+      recipes: [], // สูตร: {id, menu_sku, inventory_item_id, qty}
+
       queueNumber: 1,       // เลขคิวของวัน
       receiptSettings: {
         header: 'Pukfu Coffee',
@@ -887,6 +890,7 @@
         this.paymentMethods = JSON.parse(localStorage.getItem('pos_paymentMethods')) || [];
         this.inventoryData = JSON.parse(localStorage.getItem('pos_inventoryData')) || [];
         this.notifications = JSON.parse(localStorage.getItem('pos_notifications')) || [];
+        this.recipes = JSON.parse(localStorage.getItem('pos_recipes')) || [];
         this.shopInfo = JSON.parse(localStorage.getItem('pos_shopInfo')) || { address: '', phone: '', taxId: '', vatEnabled: false, vatRate: 7 };
 
         // แสดงข้อมูลที่แคชไว้ในเครื่องก่อน ระหว่างรอข้อมูลใหม่จากเซิร์ฟเวอร์
@@ -957,6 +961,14 @@
           })
           .withFailureHandler(() => console.warn("ใช้รายการแจ้งเตือนที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
           .getNotifications();
+
+        google.script.run
+          .withSuccessHandler(data => {
+            this.recipes = data;
+            localStorage.setItem('pos_recipes', JSON.stringify(data));
+          })
+          .withFailureHandler(() => console.warn("ใช้สูตรที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
+          .getRecipes();
 
         google.script.run
           .withSuccessHandler(data => {
@@ -1245,6 +1257,11 @@
           .getInventoryData();
       },
 
+      filterInventoryList(q) {
+        this.inventorySearchQuery = q;
+        this.renderInventory();
+      },
+
       renderInventory() {
         const list = document.getElementById('inventory-list');
         
@@ -1256,7 +1273,19 @@
            return;
         }
 
-        list.innerHTML = this.inventoryData.map((item, idx) => `
+        // เก็บ idx เดิมไว้ (ผูกกับ id ของ input เบิกออก/เติมเข้า ที่ saveAllInventory ใช้อ้างอิง)
+        // แม้กรองรายการด้วยช่องค้นหาแล้ว ก็ต้องไม่เปลี่ยนเลข idx ของแต่ละแถว
+        const q = (this.inventorySearchQuery || '').trim().toLowerCase();
+        const entries = this.inventoryData
+          .map((item, idx) => ({ item, idx }))
+          .filter(({ item }) => !q || (item.name || '').toLowerCase().includes(q));
+
+        if (entries.length === 0) {
+           list.innerHTML = '<div class="p-8 text-center text-slate-400 font-bold">ไม่พบวัตถุดิบที่ค้นหา</div>';
+           return;
+        }
+
+        list.innerHTML = entries.map(({ item, idx }) => `
           <div class="p-4 flex flex-col hover:bg-slate-50 transition-colors border-b border-slate-100">
            <div class="flex flex-col gap-3 lg:grid lg:items-center" style="grid-template-columns: 1fr 6rem 6rem 6rem 6rem 6rem;">
               
@@ -2405,6 +2434,11 @@
             .getMenuData();
         },
 
+        filterProductList(q) {
+          this.productSearchQuery = q;
+          this.renderProductList();
+        },
+
         renderProductList() {
           const list = document.getElementById('product-list');
           if (!list) return;
@@ -2412,7 +2446,17 @@
             list.innerHTML = '<div class="p-8 text-center text-slate-400 font-bold">ยังไม่มีสินค้า กด "+ เพิ่มสินค้า" เพื่อเริ่มเพิ่มเมนู</div>';
             return;
           }
-          const sorted = [...this.menuData].sort((a, b) => (a.category || '').localeCompare(b.category || '') || String(a.name || '').localeCompare(String(b.name || '')));
+          const q = (this.productSearchQuery || '').trim().toLowerCase();
+          const filtered = !q ? this.menuData : this.menuData.filter(item =>
+            (item.name || '').toLowerCase().includes(q) ||
+            (item.sku || '').toLowerCase().includes(q) ||
+            (item.category || '').toLowerCase().includes(q)
+          );
+          if (filtered.length === 0) {
+            list.innerHTML = '<div class="p-8 text-center text-slate-400 font-bold">ไม่พบสินค้าที่ค้นหา</div>';
+            return;
+          }
+          const sorted = [...filtered].sort((a, b) => (a.category || '').localeCompare(b.category || '') || String(a.name || '').localeCompare(String(b.name || '')));
           list.innerHTML = sorted.map(item => `
             <div class="p-4 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
               <div class="flex items-center gap-3 min-w-0">
@@ -2423,6 +2467,7 @@
                 </div>
               </div>
               <div class="shrink-0 flex items-center gap-3">
+                <button onclick="Controller.openRecipeForm('${escHtml(item.sku)}')" class="text-xs font-bold text-emerald-600 hover:underline">สูตร</button>
                 <button onclick='Controller.showProductForm(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="text-xs font-bold text-primary hover:underline">แก้ไข</button>
                 <button onclick="Controller.deleteProductConfirm('${escHtml(item.sku)}')" class="text-xs font-bold text-red-400 hover:text-red-600 hover:underline">ลบ</button>
               </div>
@@ -2546,6 +2591,76 @@
             })
             .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
             .deleteMenuItem(sku);
+        },
+
+        _recipeRowHtml(inventoryItemId, qty) {
+          const opts = ['<option value="">-- เลือกวัตถุดิบ --</option>']
+            .concat((this.inventoryData || []).map(inv => '<option value="' + inv.id + '"' + (inv.id === inventoryItemId ? ' selected' : '') + '>' + escHtml(inv.name) + ' (' + escHtml(inv.unit || '') + ')</option>'))
+            .join('');
+          return '<div class="recipe-row flex items-center gap-2 mb-2">'
+            + '<select class="recipe-ing-select flex-1 border border-[#efe3c4] rounded-xl p-2 text-sm bg-white">' + opts + '</select>'
+            + '<input type="number" min="0" step="0.01" class="recipe-ing-qty w-20 border border-[#efe3c4] rounded-xl p-2 text-sm text-center" value="' + (qty || '') + '">'
+            + '<button onclick="this.closest(\'.recipe-row\').remove()" class="text-red-400 hover:text-red-600 font-bold px-2">✕</button>'
+            + '</div>';
+        },
+
+        openRecipeForm(sku) {
+          const item = (this.menuData || []).find(x => String(x.sku) === String(sku));
+          if (!item) return this.showAlert('ไม่พบสินค้านี้', '');
+          const old = document.getElementById('modal-recipe-form');
+          if (old) old.remove();
+          this.editingRecipeSku = sku;
+          const rows = (this.recipes || []).filter(r => r.menu_sku === sku);
+          const wrap = document.createElement('div');
+          wrap.id = 'modal-recipe-form';
+          wrap.className = 'fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
+          wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-xl max-h-[90vh] overflow-y-auto">'
+            + '<h3 class="font-bold text-lg text-secondary mb-1">สูตร: ' + escHtml(item.name) + '</h3>'
+            + '<p class="text-xs text-slate-400 mb-4">เลือกวัตถุดิบและจำนวนที่ใช้ต่อสินค้า 1 ชิ้น ระบบจะหักสต๊อกอัตโนมัติเมื่อขาย</p>'
+            + '<div id="recipe-rows">' + (rows.length ? rows.map(r => this._recipeRowHtml(r.inventory_item_id, r.qty)).join('') : '') + '</div>'
+            + (rows.length === 0 ? '<p id="recipe-empty-note" class="text-xs text-slate-400 mb-2">ยังไม่ได้ตั้งสูตรสำหรับสินค้านี้</p>' : '')
+            + '<button onclick="Controller.addRecipeRow()" class="text-sm font-bold text-primary hover:underline mb-4">+ เพิ่มวัตถุดิบ</button>'
+            + '<div class="flex gap-2">'
+            + '<button onclick="Controller.closeRecipeForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
+            + '<button onclick="Controller.saveRecipeForm()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึกสูตร</button>'
+            + '</div></div>';
+          document.body.appendChild(wrap);
+        },
+
+        addRecipeRow() {
+          const note = document.getElementById('recipe-empty-note');
+          if (note) note.remove();
+          document.getElementById('recipe-rows').insertAdjacentHTML('beforeend', this._recipeRowHtml('', ''));
+        },
+
+        closeRecipeForm() {
+          const m = document.getElementById('modal-recipe-form');
+          if (m) m.remove();
+        },
+
+        saveRecipeForm() {
+          const menuSku = this.editingRecipeSku;
+          const ingredients = Array.from(document.querySelectorAll('#modal-recipe-form .recipe-row')).map(row => ({
+            inventoryItemId: row.querySelector('.recipe-ing-select').value,
+            qty: Number(row.querySelector('.recipe-ing-qty').value) || 0
+          })).filter(ing => ing.inventoryItemId && ing.qty > 0);
+          this.closeRecipeForm();
+          this.showLoading();
+          google.script.run
+            .withSuccessHandler(res => {
+              this.hideLoading();
+              if (res && res.success) {
+                google.script.run
+                  .withSuccessHandler(data => { this.recipes = data; localStorage.setItem('pos_recipes', JSON.stringify(data)); })
+                  .withFailureHandler(() => {})
+                  .getRecipes();
+                this.showAlert('บันทึกสูตรแล้ว', '');
+              } else {
+                this.showAlert((res && res.error) || 'บันทึกไม่สำเร็จ', '');
+              }
+            })
+            .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+            .saveRecipesForMenuItem({ menuSku, ingredients });
         },
 
         fetchNotifications() {
