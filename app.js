@@ -1298,9 +1298,9 @@
                 ${item.purchase_unit && Number(item.purchase_factor) > 0 ? `
                   <div class="block mt-1">
                     <span class="text-xs text-slate-400">หน่วยที่ป้อนเบิก/เติม:</span>
-                    <select id="inv-unit-toggle-${idx}" class="text-xs border border-slate-200 rounded-lg px-1.5 py-0.5 ml-1">
+                    <select id="inv-unit-toggle-${idx}" onchange="Controller.updateInvRowStockDisplay(${idx})" class="text-xs border border-slate-200 rounded-lg px-1.5 py-0.5 ml-1">
+                      <option value="${Number(item.purchase_factor)}" selected>${escHtml(item.purchase_unit)} (1 = ${Number(item.purchase_factor)} ${escHtml(item.unit)})</option>
                       <option value="1">${escHtml(item.unit)}</option>
-                      <option value="${Number(item.purchase_factor)}">${escHtml(item.purchase_unit)} (1 = ${Number(item.purchase_factor)} ${escHtml(item.unit)})</option>
                     </select>
                   </div>
                 ` : ''}
@@ -1308,20 +1308,24 @@
 
               <div class="flex items-center justify-between lg:justify-center bg-slate-100 lg:bg-transparent p-2.5 lg:p-0 rounded-xl">
                 <span class="text-xs font-bold text-slate-400 lg:hidden">คงเหลือ</span>
-                <span class="font-black text-lg text-secondary">${item.stock}</span>
+                <span id="inv-stock-display-${idx}" class="font-black text-lg text-secondary">${
+                  item.purchase_unit && Number(item.purchase_factor) > 0
+                    ? this._formatStockForUnit(item.stock, Number(item.purchase_factor)) + ' ' + escHtml(item.purchase_unit)
+                    : item.stock + (item.unit ? ' ' + escHtml(item.unit) : '')
+                }</span>
               </div>
 
               <div class="flex items-center justify-between lg:justify-center bg-red-50 lg:bg-transparent p-3 lg:p-0 rounded-xl">
-                <span class="text-xs font-bold text-red-400 lg:hidden">เบิกออก (${item.unit})</span>
+                <span class="text-xs font-bold text-red-400 lg:hidden">เบิกออก (<span id="inv-withdraw-unit-${idx}">${escHtml(item.purchase_unit && Number(item.purchase_factor) > 0 ? item.purchase_unit : item.unit)}</span>)</span>
                 <input type="number" min="0" id="inv-withdraw-${idx}" value="0" oninput="Controller.markInventoryChanged(${idx})" class="w-20 lg:w-16 text-center font-black text-lg border border-slate-200 rounded-lg py-1.5 focus:outline-none focus:border-red-400 bg-white shadow-inner">
               </div>
 
               <div class="flex items-center justify-between lg:justify-center bg-emerald-50 lg:bg-transparent p-3 lg:p-0 rounded-xl">
-                <span class="text-xs font-bold text-emerald-500 lg:hidden">เติมเข้า (${item.unit})</span>
+                <span class="text-xs font-bold text-emerald-500 lg:hidden">เติมเข้า (<span id="inv-restock-unit-${idx}">${escHtml(item.purchase_unit && Number(item.purchase_factor) > 0 ? item.purchase_unit : item.unit)}</span>)</span>
                 <input type="number" min="0" id="inv-restock-${idx}" value="0" oninput="Controller.markInventoryChanged(${idx})" class="w-20 lg:w-16 text-center font-black text-lg border border-slate-200 rounded-lg py-1.5 focus:outline-none focus:border-emerald-400 bg-white shadow-inner">
               </div>
 
-              <div class="hidden lg:flex text-slate-500 font-bold text-sm items-center justify-center">${item.unit}</div>
+              <div id="inv-unit-col-${idx}" class="hidden lg:flex text-slate-500 font-bold text-sm items-center justify-center">${escHtml(item.purchase_unit && Number(item.purchase_factor) > 0 ? item.purchase_unit : item.unit)}</div>
               <div class="hidden lg:flex items-center justify-end">
                 <span id="inv-changed-${idx}-desktop" class="hidden text-amber-500 font-bold text-xs">● แก้ไข</span>
               </div>
@@ -1388,6 +1392,29 @@
             posAlertBox.classList.remove('hidden');
           }
         }
+      },
+
+      // แปลงจำนวนคงเหลือ (เก็บเป็นหน่วยหลักเสมอ) ให้โชว์เป็นหน่วยที่เลือกดู ปัดทศนิยมไม่เกิน 2 ตำแหน่งแล้วตัด 0 ท้ายทิ้ง
+      _formatStockForUnit(baseStock, factor) {
+        const val = Number(baseStock) / (factor || 1);
+        return Number(val.toFixed(2)).toString();
+      },
+
+      updateInvRowStockDisplay(idx) {
+        const item = this.inventoryData[idx];
+        const toggle = document.getElementById(`inv-unit-toggle-${idx}`);
+        const display = document.getElementById(`inv-stock-display-${idx}`);
+        if (!item || !toggle || !display) return;
+        const factor = Number(toggle.value) || 1;
+        const unitLabel = factor === 1 ? item.unit : item.purchase_unit;
+        display.textContent = this._formatStockForUnit(item.stock, factor) + (unitLabel ? ' ' + unitLabel : '');
+
+        const withdrawUnitEl = document.getElementById(`inv-withdraw-unit-${idx}`);
+        const restockUnitEl = document.getElementById(`inv-restock-unit-${idx}`);
+        const unitColEl = document.getElementById(`inv-unit-col-${idx}`);
+        if (withdrawUnitEl) withdrawUnitEl.textContent = unitLabel;
+        if (restockUnitEl) restockUnitEl.textContent = unitLabel;
+        if (unitColEl) unitColEl.textContent = unitLabel;
       },
 
       markInventoryChanged(idx) {
