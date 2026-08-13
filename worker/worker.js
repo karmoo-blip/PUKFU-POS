@@ -827,18 +827,24 @@ handlers.syncFloatCashLogs = syncFloatCashLogs;
 
 handlers.saveInventoryItem = async (env, args) => {
   await ensureColumn(env, "inventory", "photo", "TEXT");
+  await ensureColumn(env, "inventory", "purchase_unit", "TEXT");
+  await ensureColumn(env, "inventory", "purchase_factor", "REAL");
   const it = args[0] || {};
   const name = String(it.name || "").trim();
   if (!name) return { success: false, error: "missing name" };
   const unit = String(it.unit || "").trim();
   const stock = Number(it.stock ?? it.current_stock ?? 0) || 0;
   const photo = String(it.photo || "");
+  const purchaseUnit = String(it.purchaseUnit || it.purchase_unit || "").trim();
+  const purchaseFactor = Number(it.purchaseFactor ?? it.purchase_factor) || 0;
   const id = it.id || "ITM-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
   const existing = await env.DB.prepare("SELECT id FROM inventory WHERE id = ?").bind(id).first();
   if (existing) {
-    await env.DB.prepare("UPDATE inventory SET name = ?, unit = ?, current_stock = ?, photo = ? WHERE id = ?").bind(name, unit, stock, photo, id).run();
+    await env.DB.prepare("UPDATE inventory SET name = ?, unit = ?, current_stock = ?, photo = ?, purchase_unit = ?, purchase_factor = ? WHERE id = ?")
+      .bind(name, unit, stock, photo, purchaseUnit, purchaseFactor, id).run();
   } else {
-    await env.DB.prepare("INSERT INTO inventory (id, name, current_stock, unit, photo) VALUES (?, ?, ?, ?, ?)").bind(id, name, stock, unit, photo).run();
+    await env.DB.prepare("INSERT INTO inventory (id, name, current_stock, unit, photo, purchase_unit, purchase_factor) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .bind(id, name, stock, unit, photo, purchaseUnit, purchaseFactor).run();
   }
   return { success: true, id: id };
 };

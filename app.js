@@ -1295,6 +1295,15 @@
                 <button onclick='Controller.showInventoryItemForm(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="ml-2 text-xs font-bold text-primary hover:underline whitespace-nowrap">แก้ไข</button>
                 <button onclick="Controller.deleteInventoryItemConfirm('${item.id}')" class="ml-2 text-xs font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ลบ</button>
                   <span id="inv-changed-${idx}" class="lg:hidden hidden text-amber-500 font-bold text-xs whitespace-nowrap ml-2">● แก้ไข</span>
+                ${item.purchase_unit && Number(item.purchase_factor) > 0 ? `
+                  <div class="block mt-1">
+                    <span class="text-xs text-slate-400">หน่วยที่ป้อนเบิก/เติม:</span>
+                    <select id="inv-unit-toggle-${idx}" class="text-xs border border-slate-200 rounded-lg px-1.5 py-0.5 ml-1">
+                      <option value="1">${escHtml(item.unit)}</option>
+                      <option value="${Number(item.purchase_factor)}">${escHtml(item.purchase_unit)} (1 = ${Number(item.purchase_factor)} ${escHtml(item.unit)})</option>
+                    </select>
+                  </div>
+                ` : ''}
               </div>
 
               <div class="flex items-center justify-between lg:justify-center bg-slate-100 lg:bg-transparent p-2.5 lg:p-0 rounded-xl">
@@ -1387,8 +1396,8 @@
         const badgeMobile = document.getElementById(`inv-changed-${idx}`);
         const badgeDesktop = document.getElementById(`inv-changed-${idx}-desktop`);
 
-        const withdraw = parseInt(withdrawEl.value, 10) || 0;
-        const restock = parseInt(restockEl.value, 10) || 0;
+        const withdraw = parseFloat(withdrawEl.value) || 0;
+        const restock = parseFloat(restockEl.value) || 0;
         const changed = withdraw !== 0 || restock !== 0;
 
         withdrawEl.classList.toggle('border-amber-400', withdraw !== 0);
@@ -1408,8 +1417,12 @@
           const restockEl = document.getElementById(`inv-restock-${idx}`);
           if (!withdrawEl || !restockEl) return;
 
-          const withdraw = parseInt(withdrawEl.value, 10) || 0;
-          const restock = parseInt(restockEl.value, 10) || 0;
+          // ถ้าตั้งหน่วยซื้อไว้ (เช่น 1 ถุง = 1000 g) แล้วเลือกป้อนเป็นหน่วยซื้อ ต้องแปลงเป็นหน่วยหลักก่อนคำนวณสต๊อก
+          const unitToggle = document.getElementById(`inv-unit-toggle-${idx}`);
+          const factor = unitToggle ? Number(unitToggle.value) || 1 : 1;
+
+          const withdraw = (parseFloat(withdrawEl.value) || 0) * factor;
+          const restock = (parseFloat(restockEl.value) || 0) * factor;
           if (withdraw === 0 && restock === 0) return;
 
           const newStock = item.stock - withdraw + restock;
@@ -2342,6 +2355,10 @@
             + '<input id="inv-item-unit" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.unit) + '">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">จำนวนคงเหลือ</label>'
             + '<input id="inv-item-stock" type="number" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + (Number(it.stock) || 0) + '">'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">หน่วยซื้อ (ถ้ามี — เช่น ถุง, ขวด)</label>'
+            + '<input id="inv-item-purchase-unit" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.purchase_unit) + '" placeholder="ไม่บังคับ">'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">1 หน่วยซื้อ = กี่ ' + q(it.unit || 'หน่วยหลัก') + '</label>'
+            + '<input id="inv-item-purchase-factor" type="number" min="0" step="0.01" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + (Number(it.purchase_factor) || '') + '" placeholder="เช่น 1000">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">รูปวัตถุดิบ (ถ้ามี)</label>'
             + '<img id="inv-item-image-preview" src="' + q(it.photo) + '" class="' + (it.photo ? '' : 'hidden ') + 'w-16 h-16 object-cover border border-[#efe3c4] rounded-xl bg-white mb-2">'
             + '<input type="file" accept="image/*" onchange="Controller.handleInventoryImageUpload(event)" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-bold mb-1">'
@@ -2373,6 +2390,8 @@
           const name = document.getElementById('inv-item-name').value.trim();
           const unit = document.getElementById('inv-item-unit').value.trim();
           const stock = Number(document.getElementById('inv-item-stock').value) || 0;
+          const purchaseUnit = document.getElementById('inv-item-purchase-unit').value.trim();
+          const purchaseFactor = Number(document.getElementById('inv-item-purchase-factor').value) || 0;
           if (!name) return this.showAlert('กรุณากรอกชื่อวัตถุดิบ', '');
           const id = this.editingInventoryId || '';
           const photo = this.editingInventoryImage || '';
@@ -2389,7 +2408,7 @@
               }
             })
             .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
-            .saveInventoryItem({ id: id, name: name, unit: unit, stock: stock, photo: photo });
+            .saveInventoryItem({ id: id, name: name, unit: unit, stock: stock, photo: photo, purchaseUnit: purchaseUnit, purchaseFactor: purchaseFactor });
         },
 
         async deleteInventoryItemConfirm(id) {
