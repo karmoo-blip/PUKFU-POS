@@ -3189,6 +3189,17 @@ renderReport(r) {
         URL.revokeObjectURL(url);
       },
 
+      // รวมข้อมูล backup หลายตาราง (object: {ชื่อตาราง: [แถว, ...]}) เป็น CSV ไฟล์เดียว คั่นแต่ละตารางด้วยหัวข้อ
+      _buildBackupCsv(data) {
+        const sections = [];
+        for (const table of Object.keys(data)) {
+          sections.push('# ' + table);
+          sections.push(this._rowsToCsv(data[table]) || '(no data)');
+          sections.push('');
+        }
+        return sections.join('\r\n');
+      },
+
       exportBackupToExcel(id) {
         google.script.run
           .withSuccessHandler(res => {
@@ -3196,13 +3207,7 @@ renderReport(r) {
               this.showAlert('ไม่พบข้อมูล backup นี้', '');
               return;
             }
-            const sections = [];
-            for (const table of Object.keys(res.data)) {
-              sections.push('# ' + table);
-              sections.push(this._rowsToCsv(res.data[table]) || '(no data)');
-              sections.push('');
-            }
-            this._downloadTextFile(`pukfu-backup-${id}.csv`, sections.join('\r\n'));
+            this._downloadTextFile(`pukfu-backup-${id}.csv`, this._buildBackupCsv(res.data));
           })
           .withFailureHandler(() => {
             this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
@@ -3210,6 +3215,7 @@ renderReport(r) {
           .getBackupData(id);
       },
 
+      // สำรองข้อมูล + ดาวน์โหลดไฟล์ CSV ทันทีในคลิกเดียว (เดิมต้องกดสำรองก่อน แล้วไปหาไฟล์ในลิสต์เพื่อกด Export Excel อีกที)
       manualBackupNow(btn) {
         this.setBtnLoading(btn, true);
         google.script.run
@@ -3217,7 +3223,10 @@ renderReport(r) {
             this.setBtnLoading(btn, false);
             if (res.success) {
               this.logPinAttempt('สำรองข้อมูลด้วยตนเอง', true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
-              this.showAlert('สำรองข้อมูลสำเร็จแล้ว: ' + res.label, '');
+              if (res.data) {
+                this._downloadTextFile(`pukfu-backup-${res.label}.csv`, this._buildBackupCsv(res.data));
+              }
+              this.showAlert('สำรองข้อมูลสำเร็จแล้ว และดาวน์โหลดไฟล์ให้แล้ว: ' + res.label, '');
               this.fetchBackupList();
             } else {
               this.showAlert(res.message || 'สำรองข้อมูลไม่สำเร็จ', '');

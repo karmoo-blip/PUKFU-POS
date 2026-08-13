@@ -674,8 +674,8 @@
       <div id="settings-panel-backup" class="settings-panel hidden">
         <div class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm p-6 mb-4">
           <h3 class="font-bold text-lg text-secondary mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 13h8v6H8z"/></svg> สำรองข้อมูล</h3>
-          <p class="text-sm text-slate-400 mb-4">ระบบสำรองข้อมูลทั้งหมดอัตโนมัติทุก 30 วัน และเก็บไว้ 180 วันย้อนหลัง (เก่ากว่านั้นจะถูกลบทิ้งอัตโนมัติ) สามารถกดสำรองด้วยตัวเองได้ตลอดเวลา และกด Export Excel เพื่อดาวน์โหลดข้อมูลแต่ละไฟล์ backup ได้</p>
-          <button id="btn-manual-backup" onclick="Controller.manualBackupNow(this)" class="w-full sm:w-auto bg-primary text-white px-6 py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md shadow-primary/30">สำรองข้อมูลเดี๋ยวนี้</button>
+          <p class="text-sm text-slate-400 mb-4">ระบบสำรองข้อมูลทั้งหมดอัตโนมัติทุก 30 วัน และเก็บไว้ 180 วันย้อนหลัง (เก่ากว่านั้นจะถูกลบทิ้งอัตโนมัติ) แต่ backup พวกนี้เก็บอยู่ในฐานข้อมูลเดียวกับข้อมูลจริง — <b>แนะนำให้กดปุ่มด้านล่างเป็นประจำ</b> (เช่น สัปดาห์ละครั้ง) เพื่อดาวน์โหลดไฟล์เก็บไว้นอกระบบด้วย เช่น ใน Google Drive หรืออีเมลตัวเอง</p>
+          <button id="btn-manual-backup" onclick="Controller.manualBackupNow(this)" class="w-full sm:w-auto bg-primary text-white px-6 py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md shadow-primary/30">สำรองข้อมูล + ดาวน์โหลดทันที</button>
         </div>
 
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">

@@ -753,7 +753,7 @@ handlers.createBackup = async (env, args) => {
   }
   await env.DB.prepare("INSERT INTO backups (created_at, label, data) VALUES (?,?,?)")
     .bind(nowIso(), label, JSON.stringify(data)).run();
-  return { success: true, label };
+  return { success: true, label, data };
 };
 
 handlers.getBackupData = async (env, args) => {
