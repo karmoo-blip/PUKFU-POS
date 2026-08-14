@@ -1,3 +1,14 @@
+    /* ===== Design tokens: จุดเดียวที่กำหนดสีแบรนด์ทั้งหมด (ใช้ทั้งจาก Tailwind config ใน index.html และ CSS ตรงนี้) ===== */
+    :root {
+      --color-primary: #154360;   /* Navy Blue - สีหลัก ปุ่ม/หัวข้อ */
+      --color-secondary: #0f3550; /* Navy เข้ม - สีตัวหนังสือ */
+      --color-accent: #fff3d1;    /* Mustard อ่อน - พื้นหลังไฮไลต์ */
+      --color-mustard: #ffdb58;   /* Mustard Yellow */
+      --color-sand: #efe3c4;      /* เส้นขอบ/เส้นแบ่งที่ใช้ซ้ำทั่วทั้งแอป */
+      --color-cream: #fffdf5;     /* พื้นหลังหลักของหน้า */
+      --color-ink: #6b5f6a;       /* สีตัวหนังสือหลักบน body */
+    }
+
     ::-webkit-scrollbar { width: 6px; height: 6px; }
     ::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
     .indicator { transition: background-color 0.3s ease; }
@@ -27,8 +38,8 @@
       content: ''; position: absolute; top: 0; bottom: 0; width: 28px;
       pointer-events: none; z-index: 20; opacity: 1; transition: opacity .2s ease;
     }
-    .scroll-fade::before { left: 0; background: linear-gradient(to right, var(--fade-color, #fffdf5), transparent); }
-    .scroll-fade::after { right: 0; background: linear-gradient(to left, var(--fade-color, #fffdf5), transparent); }
+    .scroll-fade::before { left: 0; background: linear-gradient(to right, var(--fade-color, var(--color-cream)), transparent); }
+    .scroll-fade::after { right: 0; background: linear-gradient(to left, var(--fade-color, var(--color-cream)), transparent); }
     .scroll-fade.at-start::before { opacity: 0; }
     .scroll-fade.at-end::after { opacity: 0; }
 
@@ -82,7 +93,7 @@
     }
 
     /* ===== Pill Checkbox : ปุ่มกดเลือกแบบ Toggle ===== */
-    input[type="checkbox"], input[type="radio"] { accent-color: #154360; }
+    input[type="checkbox"], input[type="radio"] { accent-color: var(--color-primary); }
 
     label:has(> input[type="checkbox"][id^="rs-show"]),
     label:has(> input.emp-perm-checkbox) {
@@ -92,8 +103,8 @@
       min-height: 2.75rem; /* ~44px: ให้แตะง่ายบนมือถือ ปุ่ม pill toggle เดิมเตี้ยเกินไป */
       border-radius: 9999px;
       background: #fdf3dd;
-      border: 1.5px solid #efe3c4;
-      color: #0f3550;
+      border: 1.5px solid var(--color-sand);
+      color: var(--color-secondary);
       font-weight: 700; font-size: 0.8rem; line-height: 1.2;
       cursor: pointer; -webkit-user-select: none; user-select: none;
       -webkit-tap-highlight-color: transparent;
@@ -105,7 +116,7 @@
     }
     label:has(> input[type="checkbox"][id^="rs-show"]:checked),
     label:has(> input.emp-perm-checkbox:checked) {
-      background: #154360; border-color: #154360; color: #ffdb58;
+      background: var(--color-primary); border-color: var(--color-primary); color: var(--color-mustard);
     }
     label:has(> input[type="checkbox"][id^="rs-show"]):active,
     label:has(> input.emp-perm-checkbox):active { transform: scale(0.96); }

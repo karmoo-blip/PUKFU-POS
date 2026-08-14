@@ -1078,8 +1078,8 @@
           const isActive = cat === this.activeCategory;
           // เปลี่ยนสีปุ่มถ้าถูกเลือกอยู่
           const btnStyle = isActive 
-            ? 'bg-primary text-white shadow-md shadow-primary/30' 
-            : 'bg-white text-secondary border border-[#efe3c4] hover:bg-accent';
+            ? 'bg-gradient-to-b from-primary to-secondary text-white shadow-md shadow-primary/30'
+            : 'bg-white text-secondary border border-sand hover:bg-accent';
             
           return `<button onclick="Controller.selectCategory('${cat}')" class="whitespace-nowrap px-5 min-h-[2.75rem] inline-flex items-center justify-center rounded-full font-bold text-sm transition-all active:scale-95 ${btnStyle}">${cat}</button>`;
         }).join('');
@@ -1246,7 +1246,7 @@
           b.innerText = btn.label;
           b.className = btn.style === 'primary'
             ? 'flex-1 py-2.5 bg-primary text-white rounded-xl font-bold hover:brightness-95 transition'
-            : 'flex-1 py-2.5 border border-[#efe3c4] bg-white text-slate-500 rounded-xl font-bold hover:bg-accent transition';
+            : 'flex-1 py-2.5 border border-sand bg-white text-slate-500 rounded-xl font-bold hover:bg-accent transition';
           b.onclick = () => {
             const result = btn.value === '__INPUT__' ? inputEl.value : btn.value;
             document.getElementById('modal-alert').classList.add('hidden');
@@ -2048,7 +2048,7 @@
           else if (index === 2) rankIcon = '';
 
           html += `
-            <div class="flex items-center p-4 hover:bg-[#fffdf5] transition-colors">
+            <div class="flex items-center p-4 hover:bg-cream transition-colors">
               <div class="w-10 text-center text-2xl mr-4">${rankIcon}</div>
               <div class="flex-1">
                 <p class="font-bold text-secondary text-lg">${escHtml(item.name)}</p>
@@ -2092,7 +2092,7 @@
           const priceDisplay = addon.price >= 0 ? `+฿${addon.price}` : `-฿${Math.abs(addon.price)}`;
           const priceColor = addon.price >= 0 ? 'text-primary' : 'text-emerald-500';
           html += `
-            <div class="flex items-center justify-between p-4 hover:bg-[#fffdf5] transition-colors">
+            <div class="flex items-center justify-between p-4 hover:bg-cream transition-colors">
               <div>
                 <p class="font-bold text-secondary">${escHtml(addon.name)} <span class="${priceColor} ml-1">(${priceDisplay})</span></p>
                 <div class="flex items-center gap-2 mt-1">
@@ -2215,7 +2215,7 @@
         let html = '';
         this.sweetnessLevels.forEach(sw => {
           html += `
-            <div class="flex items-center justify-between p-4 hover:bg-[#fffdf5] transition-colors">
+            <div class="flex items-center justify-between p-4 hover:bg-cream transition-colors">
               <div>
                 <p class="font-bold text-secondary">${escHtml(sw.name)}</p>
                 <p class="text-xs text-slate-400 mt-1">ลำดับ: ${sw.sort_order ?? 0}</p>
@@ -2470,20 +2470,20 @@
           wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-xl">'
             + '<h3 class="font-bold text-lg text-secondary mb-4">' + (item ? 'แก้ไขวัตถุดิบ' : 'เพิ่มวัตถุดิบ') + '</h3>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อวัตถุดิบ</label>'
-            + '<input id="inv-item-name" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.name) + '">'
+            + '<input id="inv-item-name" class="w-full border border-sand rounded-xl p-2.5 mb-3" value="' + q(it.name) + '">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">หน่วย (สำหรับคำนวณสูตร/คงเหลือ เช่น g, ml)</label>'
-            + '<input id="inv-item-unit" oninput="Controller.updateInvStockUnitToggle()" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.unit) + '">'
+            + '<input id="inv-item-unit" oninput="Controller.updateInvStockUnitToggle()" class="w-full border border-sand rounded-xl p-2.5 mb-3" value="' + q(it.unit) + '">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">หน่วยซื้อ (ถ้ามี — เช่น ถุง, ขวด)</label>'
-            + '<input id="inv-item-purchase-unit" oninput="Controller.updateInvStockUnitToggle()" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.purchase_unit) + '" placeholder="ไม่บังคับ">'
+            + '<input id="inv-item-purchase-unit" oninput="Controller.updateInvStockUnitToggle()" class="w-full border border-sand rounded-xl p-2.5 mb-3" value="' + q(it.purchase_unit) + '" placeholder="ไม่บังคับ">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">1 หน่วยซื้อ = กี่หน่วย (เช่น 1 ถุง = 1000)</label>'
-            + '<input id="inv-item-purchase-factor" type="number" min="0" step="0.01" oninput="Controller.updateInvStockUnitToggle()" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + (Number(it.purchase_factor) || '') + '" placeholder="เช่น 1000">'
+            + '<input id="inv-item-purchase-factor" type="number" min="0" step="0.01" oninput="Controller.updateInvStockUnitToggle()" class="w-full border border-sand rounded-xl p-2.5 mb-3" value="' + (Number(it.purchase_factor) || '') + '" placeholder="เช่น 1000">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">จำนวนคงเหลือ</label>'
             + '<div class="flex gap-2 mb-3">'
-            + '<input id="inv-item-stock" type="number" step="0.01" class="flex-1 border border-[#efe3c4] rounded-xl p-2.5" value="' + (Number(it.stock) || 0) + '">'
-            + '<select id="inv-item-stock-unit-toggle" class="border border-[#efe3c4] rounded-xl p-2.5 text-sm bg-white hidden"></select>'
+            + '<input id="inv-item-stock" type="number" step="0.01" class="flex-1 border border-sand rounded-xl p-2.5" value="' + (Number(it.stock) || 0) + '">'
+            + '<select id="inv-item-stock-unit-toggle" class="border border-sand rounded-xl p-2.5 text-sm bg-white hidden"></select>'
             + '</div>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">รูปวัตถุดิบ (ถ้ามี)</label>'
-            + '<img id="inv-item-image-preview" src="' + q(it.photo) + '" class="' + (it.photo ? '' : 'hidden ') + 'w-16 h-16 object-cover border border-[#efe3c4] rounded-xl bg-white mb-2">'
+            + '<img id="inv-item-image-preview" src="' + q(it.photo) + '" class="' + (it.photo ? '' : 'hidden ') + 'w-16 h-16 object-cover border border-sand rounded-xl bg-white mb-2">'
             + '<input type="file" accept="image/*" onchange="Controller.handleInventoryImageUpload(event)" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-bold mb-1">'
             + '<button onclick="Controller.removeInventoryImage()" class="text-xs font-bold text-red-400 hover:underline mb-5">ลบรูป</button>'
             + '<div class="flex gap-2">'
@@ -2654,11 +2654,11 @@
           wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-xl max-h-[90vh] overflow-y-auto">'
             + '<h3 class="font-bold text-lg text-secondary mb-4">' + (item ? 'แก้ไขสินค้า' : 'เพิ่มสินค้า') + '</h3>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">รหัสสินค้า (SKU)</label>'
-            + '<input id="prod-sku" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3' + (item ? ' bg-slate-100 text-slate-400' : '') + '" value="' + q(it.sku) + '"' + (item ? ' readonly' : '') + '>'
+            + '<input id="prod-sku" class="w-full border border-sand rounded-xl p-2.5 mb-3' + (item ? ' bg-slate-100 text-slate-400' : '') + '" value="' + q(it.sku) + '"' + (item ? ' readonly' : '') + '>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อสินค้า</label>'
-            + '<input id="prod-name" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.name) + '">'
+            + '<input id="prod-name" class="w-full border border-sand rounded-xl p-2.5 mb-3" value="' + q(it.name) + '">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อภาษาอังกฤษ (ถ้ามี)</label>'
-            + '<input id="prod-lang2" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3" value="' + q(it.lang2) + '">'
+            + '<input id="prod-lang2" class="w-full border border-sand rounded-xl p-2.5 mb-3" value="' + q(it.lang2) + '">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">หมวดหมู่</label>'
             + (() => {
                 const known = (this.categories || []).filter(c => c !== 'All');
@@ -2666,17 +2666,17 @@
                 const opts = ['<option value="">(ไม่ระบุ)</option>']
                   .concat(cats.map(c => '<option value="' + q(c) + '"' + (c === it.category ? ' selected' : '') + '>' + q(c) + '</option>'))
                   .concat(['<option value="__new__">+ หมวดหมู่ใหม่...</option>']);
-                return '<select id="prod-category" onchange="Controller.toggleNewCategoryInput()" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-2 bg-white">' + opts.join('') + '</select>'
-                  + '<input id="prod-category-new" placeholder="ชื่อหมวดหมู่ใหม่" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3 hidden">';
+                return '<select id="prod-category" onchange="Controller.toggleNewCategoryInput()" class="w-full border border-sand rounded-xl p-2.5 mb-2 bg-white">' + opts.join('') + '</select>'
+                  + '<input id="prod-category-new" placeholder="ชื่อหมวดหมู่ใหม่" class="w-full border border-sand rounded-xl p-2.5 mb-3 hidden">';
               })()
             + '<div class="flex gap-3 mb-3">'
             + '<div class="flex-1"><label class="text-sm font-bold text-slate-500 mb-1 block">ราคาขาย</label>'
-            + '<input id="prod-price" type="number" step="0.01" class="w-full border border-[#efe3c4] rounded-xl p-2.5" value="' + (Number(it.price) || 0) + '"></div>'
+            + '<input id="prod-price" type="number" step="0.01" class="w-full border border-sand rounded-xl p-2.5" value="' + (Number(it.price) || 0) + '"></div>'
             + '<div class="flex-1"><label class="text-sm font-bold text-slate-500 mb-1 block">ต้นทุน (ถ้ามี)</label>'
-            + '<input id="prod-cost" type="number" step="0.01" class="w-full border border-[#efe3c4] rounded-xl p-2.5" value="' + (Number(it.cost) || 0) + '"></div>'
+            + '<input id="prod-cost" type="number" step="0.01" class="w-full border border-sand rounded-xl p-2.5" value="' + (Number(it.cost) || 0) + '"></div>'
             + '</div>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">รูปสินค้า (ถ้ามี)</label>'
-            + '<img id="prod-image-preview" src="' + q(it.image) + '" class="' + (it.image ? '' : 'hidden ') + 'w-20 h-20 object-cover border border-[#efe3c4] rounded-xl bg-white mb-2">'
+            + '<img id="prod-image-preview" src="' + q(it.image) + '" class="' + (it.image ? '' : 'hidden ') + 'w-20 h-20 object-cover border border-sand rounded-xl bg-white mb-2">'
             + '<input type="file" accept="image/*" onchange="Controller.handleProductImageUpload(event)" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-bold mb-1">'
             + '<button onclick="Controller.removeProductImage()" class="text-xs font-bold text-red-400 hover:underline mb-5">ลบรูป</button>'
             + '<div class="flex gap-2">'
@@ -2766,8 +2766,8 @@
             .concat((this.inventoryData || []).map(inv => '<option value="' + inv.id + '"' + (inv.id === inventoryItemId ? ' selected' : '') + '>' + escHtml(inv.name) + ' (' + escHtml(inv.unit || '') + ')</option>'))
             .join('');
           return '<div class="recipe-row flex items-center gap-2 mb-2">'
-            + '<select class="recipe-ing-select flex-1 border border-[#efe3c4] rounded-xl p-2 text-sm bg-white">' + opts + '</select>'
-            + '<input type="number" min="0" step="0.01" class="recipe-ing-qty w-20 border border-[#efe3c4] rounded-xl p-2 text-sm text-center" value="' + (qty || '') + '">'
+            + '<select class="recipe-ing-select flex-1 border border-sand rounded-xl p-2 text-sm bg-white">' + opts + '</select>'
+            + '<input type="number" min="0" step="0.01" class="recipe-ing-qty w-20 border border-sand rounded-xl p-2 text-sm text-center" value="' + (qty || '') + '">'
             + '<button onclick="this.closest(\'.recipe-row\').remove()" class="text-red-400 hover:text-red-600 font-bold px-2">✕</button>'
             + '</div>';
         },
@@ -2868,7 +2868,7 @@
               else if (expiresAt - now <= twoHoursMs) statusBadge = '<span class="bg-orange-400 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">ใกล้หมดอายุ</span>';
             }
             html += `
-              <div class="flex items-center justify-between p-4 hover:bg-[#fffdf5] transition-colors">
+              <div class="flex items-center justify-between p-4 hover:bg-cream transition-colors">
                 <div>
                   <p class="font-bold text-secondary flex items-center gap-2">${escHtml(n.item_name)} ${statusBadge}</p>
                   <p class="text-xs text-slate-400 mt-1">
@@ -2895,11 +2895,11 @@
           wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-xl">'
             + '<h3 class="font-bold text-lg text-secondary mb-4">เพิ่มแจ้งเตือน</h3>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">วัตถุดิบ</label>'
-            + '<select id="notif-item-id" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3">' + itemOptions + '</select>'
+            + '<select id="notif-item-id" class="w-full border border-sand rounded-xl p-2.5 mb-3">' + itemOptions + '</select>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">เปิดใช้เมื่อ <span class="font-normal text-slate-400">(ถ้ามี)</span></label>'
-            + '<input id="notif-opened-at" type="datetime-local" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3">'
+            + '<input id="notif-opened-at" type="datetime-local" class="w-full border border-sand rounded-xl p-2.5 mb-3">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">หมดอายุเมื่อ <span class="font-normal text-slate-400">(ถ้าไม่ระบุ จะเก็บเป็นบันทึกเฉยๆ ไม่มีแจ้งเตือน)</span></label>'
-            + '<input id="notif-expires-at" type="datetime-local" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-5">'
+            + '<input id="notif-expires-at" type="datetime-local" class="w-full border border-sand rounded-xl p-2.5 mb-5">'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeNotificationForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
             + '<button onclick="Controller.saveNotificationForm()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึก</button>'
@@ -2987,9 +2987,9 @@
             + '<div class="flex items-center gap-2 text-[11px] font-bold text-slate-400 mb-1"><div class="flex-1">รายการ</div><div class="w-16 text-center">จำนวน</div><div class="w-20 text-center">ราคา</div></div>'
             + '<div class="mb-4">' + (rows || '<p class="text-sm text-slate-400 py-3">ไม่มีรายการสินค้า</p>') + '</div>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">วิธีชำระเงิน</label>'
-            + '<select id="eb-payment" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3">' + pm + '</select>'
+            + '<select id="eb-payment" class="w-full border border-sand rounded-xl p-2.5 mb-3">' + pm + '</select>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">หมายเหตุบิล</label>'
-            + '<input id="eb-note" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-5" value="' + q(order.note) + '">'
+            + '<input id="eb-note" class="w-full border border-sand rounded-xl p-2.5 mb-5" value="' + q(order.note) + '">'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeEditBill()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
             + '<button onclick="Controller.saveEditBill()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึกการแก้ไข</button>'
@@ -3111,7 +3111,7 @@ renderReport(r) {
         }
 
         container.innerHTML = this.paymentMethods.map(m => `
-          <div class="flex items-center justify-between p-4 hover:bg-[#fffdf5] transition-colors">
+          <div class="flex items-center justify-between p-4 hover:bg-cream transition-colors">
             <div>
               <p class="font-bold text-secondary">${escHtml(m.name)} ${m.isCash ? '<span class="text-xs text-emerald-500 ml-1">(เงินสด)</span>' : ''}</p>
               <div class="flex items-center gap-2 mt-1">
@@ -3431,7 +3431,7 @@ renderReport(r) {
           const originalIdx = this.menuData.indexOf(item);
           const isSoldOut = this.soldOutItems.includes(item.name);
           
-          let cardStyle = "bg-white rounded-3xl shadow-sm border border-[#efe3c4] cursor-pointer overflow-hidden flex flex-col relative group transition-all duration-200 ";
+          let cardStyle = "bg-white rounded-3xl shadow-md border border-sand cursor-pointer overflow-hidden flex flex-col relative group transition-all duration-200 ";
           
           if (this.isStockMode) {
              cardStyle += "border-amber-400 border-2 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] ";
@@ -3452,10 +3452,10 @@ renderReport(r) {
           return `
             <div onclick="Controller.selectProduct(${originalIdx})" class="${cardStyle}">
               ${soldOutBadge}
-              <div class="h-32 bg-slate-100 w-full relative overflow-hidden">
+              <div class="h-32 bg-gradient-to-br from-accent to-sand w-full relative overflow-hidden">
                 ${item.image
                   ? `<div class="absolute inset-0 bg-cover bg-center transition-transform duration-300 ${!isSoldOut && !this.isStockMode ? 'group-hover:scale-105' : ''}" style="background-image: url('${item.image}');"></div>`
-                  : `<div class="absolute inset-0 flex items-center justify-center text-4xl text-slate-300"></div>`
+                  : `<div class="absolute inset-0 flex items-center justify-center text-primary/25"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.75rem;height:2.75rem"><path d="M6 8h12l-1.2 11a2 2 0 0 1-2 1.8H9.2a2 2 0 0 1-2-1.8L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M9.5 12.5c1 .8 2 .8 3 0s2-.8 3 0" /></svg></div>`
                 }
               </div>
               <div class="p-4 flex flex-col justify-between flex-1">
@@ -3463,7 +3463,7 @@ renderReport(r) {
                   <p class="font-bold text-secondary text-sm leading-tight line-clamp-2">${escHtml(item.name)}</p>
                   <p class="text-xs text-slate-400 mt-1">${item.lang2 || '&nbsp;'}</p>
                 </div>
-                <div class="flex justify-between items-center mt-3 pt-3 border-t border-[#efe3c4] relative z-20">
+                <div class="flex justify-between items-center mt-3 pt-3 border-t border-sand relative z-20">
                   <p class="text-primary font-black text-lg">฿${item.price}</p>
                   ${!this.isStockMode && !isSoldOut ? `<div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg group-hover:bg-primary group-hover:text-white group-active:bg-primary group-active:text-white transition-colors">+</div>` : ''}
                   ${this.isStockMode ? `<div class="text-xs font-bold ${isSoldOut ? 'text-red-500' : 'text-emerald-500'}">${isSoldOut ? ' หมด' : ' มีของ'}</div>` : ''}
@@ -3557,7 +3557,7 @@ renderReport(r) {
         if (!container) return;
         let html = '';
         this.sweetnessLevels.forEach(sw => {
-          html += `<button class="mod-btn border border-[#efe3c4] px-4 min-h-[2.75rem] inline-flex items-center justify-center rounded-full text-sm font-bold text-slate-500 hover:bg-accent active:scale-95 transition-all" onclick="Controller.selectSweetness(this)">${escHtml(sw.name)}</button>`;
+          html += `<button class="mod-btn border border-sand px-4 min-h-[2.75rem] inline-flex items-center justify-center rounded-full text-sm font-bold text-slate-500 hover:bg-accent active:scale-95 transition-all" onclick="Controller.selectSweetness(this)">${escHtml(sw.name)}</button>`;
         });
         container.innerHTML = html;
       },
@@ -3572,7 +3572,7 @@ renderReport(r) {
         } else {
           activeAddons.forEach(addon => {
             const isSelected = this.selectedAddons.some(a => a.id === addon.id);
-            const activeClass = isSelected ? 'bg-primary text-white border-primary' : 'border-[#efe3c4] text-slate-500 hover:bg-accent';
+            const activeClass = isSelected ? 'bg-primary text-white border-primary' : 'border-sand text-slate-500 hover:bg-accent';
             const priceDisplay = addon.price >= 0 ? `+฿${addon.price}` : `-฿${Math.abs(addon.price)}`;
             html += `<button onclick="Controller.toggleAddon('${addon.id}')" class="border px-4 min-h-[2.75rem] inline-flex items-center justify-center rounded-full text-sm font-bold active:scale-95 transition-all ${activeClass}">${escHtml(addon.name)} (${priceDisplay})</button>`;
           });
@@ -3746,7 +3746,7 @@ renderReport(r) {
           container.innerHTML = this.cart.map((item, idx) => {
             total += item.price * item.qty;
             return `
-              <div class="flex justify-between items-start bg-white p-3 rounded-2xl border border-[#efe3c4] shadow-sm gap-2">
+              <div class="flex justify-between items-start bg-white p-3 rounded-2xl border border-sand shadow-sm gap-2">
                 <div class="flex-1 min-w-0">
                   <p class="font-bold text-sm text-secondary truncate">${escHtml(item.name)}</p>
                   <p class="text-xs text-slate-400 mt-0.5">${escHtml(item.note || '-')}</p>
@@ -3754,12 +3754,12 @@ renderReport(r) {
                 </div>
                 <div class="flex flex-col items-end gap-2 shrink-0">
                   <div class="flex items-center bg-slate-50 rounded-lg p-1 border border-slate-100">
-                    <button onclick="Controller.updateQty(${idx}, -1)" class="w-9 h-9 flex items-center justify-center bg-white rounded hover:bg-slate-200 active:bg-slate-300 active:scale-95 font-bold text-slate-600 shadow-sm">-</button>
+                    <button onclick="Controller.updateQty(${idx}, -1)" class="w-9 h-9 flex items-center justify-center bg-white rounded-full hover:bg-slate-200 active:bg-slate-300 active:scale-95 font-bold text-slate-600 shadow-sm">-</button>
                     <span class="w-6 text-center font-bold text-sm">${item.qty}</span>
-                    <button onclick="Controller.updateQty(${idx}, 1)" class="w-9 h-9 flex items-center justify-center bg-white rounded hover:bg-slate-200 active:bg-slate-300 active:scale-95 font-bold text-slate-600 shadow-sm">+</button>
+                    <button onclick="Controller.updateQty(${idx}, 1)" class="w-9 h-9 flex items-center justify-center bg-white rounded-full hover:bg-slate-200 active:bg-slate-300 active:scale-95 font-bold text-slate-600 shadow-sm">+</button>
                   </div>
                             <div class="flex items-center gap-1">
-                                <button onclick="Controller.editCartItem(${idx})" class="text-primary hover:text-navy active:text-navy text-xs font-bold underline p-2">แก้ไข</button>
+                                <button onclick="Controller.editCartItem(${idx})" class="text-primary text-xs font-bold underline p-2">แก้ไข</button>
                                 <button onclick="Controller.removeFromCart(${idx})" class="text-red-400 hover:text-red-600 active:text-red-600 text-xs font-bold underline p-2">Remove</button>
                             </div>
                 </div>
