@@ -1327,7 +1327,7 @@
         if(list) list.classList.remove('opacity-50', 'pointer-events-none');
 
         if (this.inventoryData.length === 0) {
-           list.innerHTML = '<div class="p-8 text-center text-slate-400 font-bold">ยังไม่มีข้อมูลวัตถุดิบ กรุณาเพิ่มข้อมูลในแท็บ Inventory</div>';
+           list.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>ยังไม่มีข้อมูลวัตถุดิบ กรุณาเพิ่มข้อมูลในแท็บ Inventory</div>';
            return;
         }
 
@@ -1339,7 +1339,7 @@
           .filter(({ item }) => !q || (item.name || '').toLowerCase().includes(q));
 
         if (entries.length === 0) {
-           list.innerHTML = '<div class="p-8 text-center text-slate-400 font-bold">ไม่พบวัตถุดิบที่ค้นหา</div>';
+           list.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>ไม่พบวัตถุดิบที่ค้นหา</div>';
            return;
         }
 
@@ -4800,7 +4800,7 @@ renderReport(r) {
         if (!list) return;
         const sorted = rows.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
         if (sorted.length === 0) {
-          list.innerHTML = '<div class="p-8 text-center text-slate-400">ไม่มีบิลในวันที่เลือก</div>';
+          list.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/></svg>ไม่มีบิลในวันที่เลือก</div>';
           return;
         }
         let html = '';
@@ -4869,6 +4869,11 @@ renderReport(r) {
         ];
         // เรียงตามเวลาใหม่สุด
         combined.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+        if (combined.length === 0) {
+          list.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/></svg>ยังไม่มีบิลวันนี้</div>';
+          return;
+        }
 
         list.innerHTML = combined.map((h, idx) => {
           const isCancelled = h.status === 'cancelled';
