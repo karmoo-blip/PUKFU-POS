@@ -174,7 +174,7 @@
           <div class="flex items-center gap-3">
             <span id="cart-total-mobile" class="text-primary font-bold lg:hidden">฿0.00</span>
             <span id="cart-toggle-icon" class="text-slate-400 lg:hidden font-bold">▲</span>
-            <div class="hidden lg:flex w-8 h-8 bg-slate-50 rounded-full items-center justify-center text-slate-400 text-xs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.5 11h10L20 7H6"/></svg></div>
+            <div class="hidden lg:flex w-8 h-8 bg-primary/10 rounded-full items-center justify-center text-primary text-xs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.5 11h10L20 7H6"/></svg></div>
           </div>
         </div>
         
@@ -190,7 +190,7 @@
           </div>
           <div class="flex gap-2">
             <button id="btn-print-order-slip" onclick="Controller.printOrderSlipNow()" class="hidden shrink-0 w-14 bg-slate-500 hover:bg-slate-600 text-white py-4 rounded-2xl shadow-md transition-all" title="พิมพ์ใบสั่ง (ก่อนชำระเงิน)">🖨️</button>
-            <button id="btn-hold-order" onclick="Controller.holdCurrentOrder()" class="hidden flex-1 bg-amber-400 hover:bg-amber-500 text-white py-4 rounded-2xl font-bold text-lg shadow-md shadow-amber-400/30 transition-all">พักบิล</button>
+            <button id="btn-hold-order" onclick="Controller.holdCurrentOrder()" class="hidden flex-1 bg-gradient-to-b from-amber-400 to-amber-500 hover:brightness-110 text-white py-4 rounded-2xl font-bold text-lg shadow-md shadow-amber-400/30 transition-all">พักบิล</button>
             <button id="btn-checkout" onclick="Controller.openCheckout()" class="flex-1 bg-gradient-to-b from-primary to-secondary hover:brightness-110 text-white py-4 rounded-2xl font-bold text-lg shadow-md shadow-primary/30 transition-all">Checkout</button>
           </div>
         </div>
@@ -753,7 +753,7 @@
       </div>
       <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0" style="padding-bottom: max(1rem, env(safe-area-inset-bottom))">
         <button onclick="Controller.closeModal('modal-product')" class="px-5 min-h-[2.75rem] border border-sand bg-white text-slate-500 rounded-2xl font-bold hover:bg-accent active:scale-95 transition-all">Cancel</button>
-        <button id="btn-modal-add-cart" onclick="Controller.addToCartFromModal()" class="px-5 min-h-[2.75rem] bg-primary hover:brightness-95 text-white rounded-2xl font-bold shadow-md shadow-primary/30 active:scale-95 transition-all"> Add to Cart </button>
+        <button id="btn-modal-add-cart" onclick="Controller.addToCartFromModal()" class="px-5 min-h-[2.75rem] bg-gradient-to-b from-primary to-secondary hover:brightness-110 text-white rounded-2xl font-bold shadow-md shadow-primary/30 active:scale-95 transition-all"> Add to Cart </button>
       </div>
     </div>
   </div>
