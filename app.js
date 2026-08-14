@@ -1185,10 +1185,10 @@
 
       _alertResolve: null,
 
-      showAlert(message, icon) {
+      showAlert(message, icon, type) {
         return new Promise(resolve => {
           this._openAlertModal({
-            message, icon: icon || 'ℹ', input: false,
+            message, type: type || 'info', input: false,
             buttons: [{ label: 'ตกลง', style: 'primary', value: true }]
           });
           this._alertResolve = resolve;
@@ -1198,7 +1198,7 @@
       showConfirm(message, icon) {
         return new Promise(resolve => {
           this._openAlertModal({
-            message, icon: icon || '', input: false,
+            message, type: 'warning', input: false,
             buttons: [
               { label: 'ยกเลิก', style: 'ghost', value: false },
               { label: 'ยืนยัน', style: 'primary', value: true }
@@ -1212,7 +1212,7 @@
         opts = opts || {};
         return new Promise(resolve => {
           this._openAlertModal({
-            message, icon: opts.icon || '', input: true,
+            message, type: 'edit', input: true,
             inputType: opts.type || 'text', placeholder: opts.placeholder || '',
             buttons: [
               { label: 'ยกเลิก', style: 'ghost', value: null },
@@ -1223,8 +1223,19 @@
         });
       },
 
+      // ไอคอนวงกลมสีตามประเภทของ dialog (info=ℹ, warning=คำถาม/ยืนยัน, edit=กรอกข้อมูล)
+      // เดิม alert-icon แทบไม่เคยถูกส่งค่ามาจริง (ทุกจุดเรียกส่ง '' เกือบหมด) เลยว่างเปล่าตลอด เปลี่ยนมาผูกกับประเภท dialog แทนให้มีไอคอนเสมอ
+      _alertIconVariants: {
+        info: { cls: 'bg-sky-100 text-sky-500', svg: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>' },
+        warning: { cls: 'bg-amber-100 text-amber-500', svg: '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/>' },
+        edit: { cls: 'bg-primary/15 text-primary', svg: '<path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>' },
+      },
+
       _openAlertModal(cfg) {
-        document.getElementById('alert-icon').innerText = cfg.icon;
+        const iconEl = document.getElementById('alert-icon');
+        const variant = this._alertIconVariants[cfg.type] || this._alertIconVariants.info;
+        iconEl.className = `w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center ${variant.cls}`;
+        iconEl.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1.75rem;height:1.75rem">${variant.svg}</svg>`;
         document.getElementById('alert-message').innerText = cfg.message;
         const inputWrap = document.getElementById('alert-input-wrap');
         const inputEl = document.getElementById('alert-input');
@@ -1283,6 +1294,7 @@
       inventoryData: [], // เก็บข้อมูลสต๊อก
       notifications: [], // เก็บรายการแจ้งเตือนหมดอายุ (แยกจากสต๊อก อ้างอิงวัตถุดิบผ่าน inventory_item_id)
       dismissedNotificationIds: new Set(), // id แจ้งเตือนที่กดปิดไว้ชั่วคราว (เคลียร์เองเมื่อแก้ไขรายการนั้นใหม่)
+      _alertedNotificationIds: new Set(), // id ที่เด้ง popup แจ้งไปแล้วในเซสชันนี้ (ทั้งหมดอายุแล้ว/ใกล้หมดอายุ) กันไม่ให้เด้งซ้ำทุกรอบเช็ค (60 วิ/ครั้ง)
 
       fetchInventory(btn) {
         this.setIndicator('syncing');
@@ -1426,37 +1438,24 @@
 
       // เช็คแจ้งเตือนที่หมดอายุ/ใกล้หมดอายุ อัปเดตแบนเนอร์บนหน้า POS + แท็บ Notifications + จุดแดงบนปุ่มแท็บ
       // เรียกทุกครั้งที่โหลดข้อมูลแจ้งเตือนใหม่ และเป็นระยะระหว่างเปิดแอปทิ้งไว้ (ดู init()/startOfflineSyncWatcher)
+      // ใช้ popup เป็นช่องทางแจ้งเตือนหลักช่องทางเดียว (ไม่มีแบนเนอร์ค้างจอแล้ว) เด้งครั้งเดียวต่อรายการต่อเซสชัน ไม่ก่อกวนทุกรอบเช็ค 60 วิ
       checkNotifications() {
         const { expired: expiredList, soon: soonList } = this._getActiveNotifications();
-        const expired = expiredList.map(n => n.item_name);
-        const soon = soonList.map(n => n.item_name);
 
-        const count = expired.length + soon.length;
+        const count = expiredList.length + soonList.length;
         document.querySelectorAll('.notification-badge').forEach(badge => {
           badge.innerText = count;
           badge.classList.toggle('hidden', count === 0);
         });
 
-        const alertBox = document.getElementById('notification-alert');
-        const alertText = document.getElementById('notification-alert-text');
-        const posAlertBox = document.getElementById('pos-notification-alert');
-        const posAlertText = document.getElementById('pos-notification-alert-text');
-        if (count === 0) {
-          if (alertBox) alertBox.classList.add('hidden');
-          if (posAlertBox) posAlertBox.classList.add('hidden');
-        } else {
+        const newlyExpired = expiredList.filter(n => !this._alertedNotificationIds.has(n.id));
+        const newlySoon = soonList.filter(n => !this._alertedNotificationIds.has(n.id));
+        if (newlyExpired.length > 0 || newlySoon.length > 0) {
+          [...newlyExpired, ...newlySoon].forEach(n => this._alertedNotificationIds.add(n.id));
           const parts = [];
-          if (expired.length) parts.push(`หมดอายุแล้ว: ${expired.join(', ')}`);
-          if (soon.length) parts.push(`ใกล้หมดอายุ: ${soon.join(', ')}`);
-          const message = parts.join(' | ');
-          if (alertBox && alertText) {
-            alertText.innerText = ' ' + message;
-            alertBox.classList.remove('hidden');
-          }
-          if (posAlertBox && posAlertText) {
-            posAlertText.innerText = message;
-            posAlertBox.classList.remove('hidden');
-          }
+          if (newlyExpired.length) parts.push(`หมดอายุแล้ว: ${newlyExpired.map(n => n.item_name).join(', ')}`);
+          if (newlySoon.length) parts.push(`ใกล้หมดอายุ: ${newlySoon.map(n => n.item_name).join(', ')}`);
+          this.showAlert(parts.join('\n'), '', 'warning');
         }
       },
 
