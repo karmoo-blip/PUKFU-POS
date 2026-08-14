@@ -3834,7 +3834,7 @@ renderReport(r) {
         }
 
         container.innerHTML = enabledMethods.map(m => `
-          <button data-method-id="${escAttr(m.id)}" onclick="Controller.setPaymentMode(this.dataset.methodId)" class="pay-method-btn flex-1 min-w-[100px] py-2.5 rounded-xl font-bold text-sm border-2 border-transparent transition bg-accent text-secondary">${escAttr(m.name)}</button>
+          <button data-method-id="${escAttr(m.id)}" onclick="Controller.setPaymentMode(this.dataset.methodId)" class="pay-method-btn flex-1 min-w-[100px] min-h-[2.75rem] rounded-xl font-bold text-sm border-2 border-transparent transition active:scale-95 bg-accent text-secondary">${escAttr(m.name)}</button>
         `).join('');
 
         const defaultMethod = enabledMethods.find(m => m.id === this.currentPaymentMethodId) || enabledMethods[0];
@@ -3894,9 +3894,9 @@ renderReport(r) {
 
         document.querySelectorAll('.pay-method-btn').forEach(btn => {
           if (btn.dataset.methodId === method.id) {
-            btn.className = 'pay-method-btn flex-1 min-w-[100px] py-2.5 rounded-xl font-bold text-sm border-2 border-primary transition bg-primary text-white';
+            btn.className = 'pay-method-btn flex-1 min-w-[100px] min-h-[2.75rem] rounded-xl font-bold text-sm border-2 border-primary transition active:scale-95 bg-primary text-white';
           } else {
-            btn.className = 'pay-method-btn flex-1 min-w-[100px] py-2.5 rounded-xl font-bold text-sm border-2 border-transparent transition bg-accent text-secondary';
+            btn.className = 'pay-method-btn flex-1 min-w-[100px] min-h-[2.75rem] rounded-xl font-bold text-sm border-2 border-transparent transition active:scale-95 bg-accent text-secondary';
           }
         });
 
