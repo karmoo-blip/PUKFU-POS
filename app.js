@@ -3532,12 +3532,12 @@ renderReport(r) {
 
       selectSweetness(selectedBtn) {
         document.querySelectorAll('.mod-btn').forEach(btn => {
-          btn.classList.remove('bg-primary', 'text-white', 'border-primary');
+          btn.classList.remove('bg-gradient-to-b', 'from-primary', 'to-secondary', 'text-white', 'border-primary');
           btn.classList.add('text-slate-500', 'border-slate-200');
           btn.removeAttribute('data-selected');
         });
         selectedBtn.classList.remove('text-slate-500', 'border-slate-200');
-        selectedBtn.classList.add('bg-primary', 'text-white', 'border-primary');
+        selectedBtn.classList.add('bg-gradient-to-b', 'from-primary', 'to-secondary', 'text-white', 'border-primary');
         selectedBtn.setAttribute('data-selected', 'true');
       },
 
@@ -3572,7 +3572,7 @@ renderReport(r) {
         } else {
           activeAddons.forEach(addon => {
             const isSelected = this.selectedAddons.some(a => a.id === addon.id);
-            const activeClass = isSelected ? 'bg-primary text-white border-primary' : 'border-sand text-slate-500 hover:bg-accent';
+            const activeClass = isSelected ? 'bg-gradient-to-b from-primary to-secondary text-white border-primary' : 'border-sand text-slate-500 hover:bg-accent';
             const priceDisplay = addon.price >= 0 ? `+฿${addon.price}` : `-฿${Math.abs(addon.price)}`;
             html += `<button onclick="Controller.toggleAddon('${addon.id}')" class="border px-4 min-h-[2.75rem] inline-flex items-center justify-center rounded-full text-sm font-bold active:scale-95 transition-all ${activeClass}">${escHtml(addon.name)} (${priceDisplay})</button>`;
           });
@@ -3738,7 +3738,10 @@ renderReport(r) {
         const btnShowHeld = document.getElementById('btn-show-held-orders');
 
         if (this.cart.length === 0) {
-           container.innerHTML = `<div class="text-center text-slate-400 my-auto text-sm font-bold">ไม่มีสินค้าในตะกร้า</div>`;
+           container.innerHTML = `<div class="flex flex-col items-center justify-center gap-2 my-auto text-slate-400">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.5 11h10L20 7H6"/></svg>
+             <span class="text-sm font-bold">ไม่มีสินค้าในตะกร้า</span>
+           </div>`;
            if(btnHold) btnHold.classList.add('hidden');
            if(btnPrintSlip) btnPrintSlip.classList.add('hidden');
            if(btnCheckout) { btnCheckout.classList.remove('flex-[2]'); btnCheckout.classList.add('flex-1'); }
