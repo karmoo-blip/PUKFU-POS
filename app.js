@@ -3967,7 +3967,7 @@ renderReport(r) {
 
         document.querySelectorAll('.pay-method-btn').forEach(btn => {
           if (btn.dataset.methodId === method.id) {
-            btn.className = 'pay-method-btn flex-1 min-w-[100px] min-h-[2.75rem] rounded-xl font-bold text-sm border-2 border-primary transition active:scale-95 bg-primary text-white';
+            btn.className = 'pay-method-btn flex-1 min-w-[100px] min-h-[2.75rem] rounded-xl font-bold text-sm border-2 border-primary transition active:scale-95 bg-gradient-to-b from-primary to-secondary text-white';
           } else {
             btn.className = 'pay-method-btn flex-1 min-w-[100px] min-h-[2.75rem] rounded-xl font-bold text-sm border-2 border-transparent transition active:scale-95 bg-accent text-secondary';
           }

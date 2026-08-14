@@ -916,7 +916,7 @@
   <div id="modal-checkout" class="hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-50 flex items-end lg:items-center justify-center lg:p-4">
     <div class="relative bg-white rounded-t-3xl lg:rounded-2xl shadow-xl w-full lg:max-w-md flex flex-col overflow-hidden max-h-[90vh]">
       <div class="lg:hidden absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1.5 rounded-full bg-white/50 z-10" aria-hidden="true"></div>
-      <div class="p-5 bg-primary text-white font-bold text-xl text-center rounded-t-3xl lg:rounded-t-2xl shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> Payment</div>
+      <div class="p-5 bg-gradient-to-b from-primary to-secondary text-white font-bold text-xl text-center rounded-t-3xl lg:rounded-t-2xl shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> Payment</div>
       <div class="p-6 overflow-y-auto flex-1">
         <p class="text-center text-sm font-bold text-slate-400 mb-1">ยอดรวมที่ต้องชำระ</p>
         <h3 class="text-4xl font-black text-center mb-2 text-secondary" id="checkout-total">฿0.00</h3>
@@ -968,7 +968,7 @@
       </div>
       <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-between gap-3 shrink-0" style="padding-bottom: max(1rem, env(safe-area-inset-bottom))">
         <button onclick="Controller.closeModal('modal-checkout')" class="flex-1 py-3 border border-sand bg-white rounded-2xl text-slate-500 font-bold hover:bg-accent active:scale-95 transition-all">Cancel</button>
-        <button onclick="Controller.submitOrder()" id="btn-submit-order" class="flex-[1.5] py-3 bg-primary text-white rounded-2xl font-bold shadow-md shadow-primary/30 hover:brightness-95 active:scale-95 transition-all"> Confirm Order </button>
+        <button onclick="Controller.submitOrder()" id="btn-submit-order" class="flex-[1.5] py-3 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl font-bold shadow-md shadow-primary/30 hover:brightness-110 active:scale-95 transition-all"> Confirm Order </button>
       </div>
     </div>
   </div>
