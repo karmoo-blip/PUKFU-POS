@@ -744,13 +744,14 @@
 
       isCartOpenMobile: false, // สถานะว่าตะกร้าเปิดอยู่ไหม
 
-      toggleMobileCart() {
+      toggleMobileCart(forceOpen) {
         if (window.innerWidth >= 1024) return; // ถ้าเป็นจอคอมพิวเตอร์ให้ข้ามฟังก์ชันนี้ไป
-        
-        this.isCartOpenMobile = !this.isCartOpenMobile;
+
+        this.isCartOpenMobile = forceOpen !== undefined ? forceOpen : !this.isCartOpenMobile;
         const container = document.getElementById('cart-container');
         const icon = document.getElementById('cart-toggle-icon');
-        
+        container.style.height = ''; // ล้างความสูงที่ตั้งเองไว้ระหว่างลาก (ถ้ามี) ให้คลาสด้านล่างคุมความสูงแทน
+
         if (this.isCartOpenMobile) {
           container.classList.remove('h-[72px]');
           container.classList.add('h-[65vh]'); // ดึงตะกร้าขึ้นมา 65% ของหน้าจอ
@@ -760,6 +761,51 @@
           container.classList.add('h-[72px]'); // พับเก็บเหลือ 72px
           icon.innerText = '▲';
         }
+      },
+
+      // ลากแถบหัวตะกร้าขึ้น/ลงเพื่อกาง/พับตะกร้าบนมือถือ (แตะเฉยๆ ไม่ลาก ยังคงพับ/กางผ่าน onclick เดิมตามปกติ)
+      initCartDrag() {
+        const header = document.getElementById('cart-mobile-header');
+        const container = document.getElementById('cart-container');
+        if (!header || !container || header.dataset.dragInit) return;
+        header.dataset.dragInit = '1';
+
+        let startY = 0, startHeight = 0, dragging = false, moved = false;
+        const minH = 72;
+        const maxH = () => window.innerHeight * 0.65;
+
+        header.addEventListener('touchstart', (e) => {
+          if (window.innerWidth >= 1024) return;
+          startY = e.touches[0].clientY;
+          startHeight = container.getBoundingClientRect().height;
+          dragging = true;
+          moved = false;
+          container.style.transition = 'none';
+          // เอาคลาส h-[72px]/h-[65vh] ออกชั่วคราว (มี !important ใน style.css) จะได้กำหนดความสูงเองผ่าน inline style ตอนลากได้
+          container.classList.remove('h-[72px]', 'h-[65vh]');
+          container.style.height = startHeight + 'px';
+        }, { passive: true });
+
+        header.addEventListener('touchmove', (e) => {
+          if (!dragging) return;
+          const dy = startY - e.touches[0].clientY; // ลากขึ้น = บวก
+          if (Math.abs(dy) > 8) moved = true;
+          if (!moved) return;
+          e.preventDefault();
+          const h = Math.min(maxH(), Math.max(minH, startHeight + dy));
+          container.style.height = h + 'px';
+        }, { passive: false });
+
+        header.addEventListener('touchend', (e) => {
+          if (!dragging) return;
+          dragging = false;
+          container.style.transition = '';
+          if (!moved) return; // แค่แตะเฉยๆ ปล่อยให้ click ที่ตามมาสลับสถานะตามปกติ
+          e.preventDefault(); // กัน click สังเคราะห์ที่ตามมาสลับสถานะซ้ำ
+          const finalH = container.getBoundingClientRect().height;
+          const mid = (minH + maxH()) / 2;
+          this.toggleMobileCart(finalH > mid);
+        }, { passive: false });
       },
 
       paymentMode: 'QR',
@@ -852,6 +898,7 @@
         ReceiptImage.ensureFont(); // พรีโหลดฟอนต์ไทยล่วงหน้า บิลแรกจะพิมพ์ได้ไวขึ้น
         this.initPinLock();
         this.startAutoLockWatcher();
+        this.initCartDrag();
 
         this.switchView('pos'); // ตั้งต้นให้แสดงหน้า POS
         this.checkAndClearDailyCache();
@@ -1034,7 +1081,7 @@
             ? 'bg-primary text-white shadow-md shadow-primary/30' 
             : 'bg-white text-secondary border border-[#efe3c4] hover:bg-accent';
             
-          return `<button onclick="Controller.selectCategory('${cat}')" class="whitespace-nowrap px-5 py-2 rounded-full font-bold text-sm transition-all ${btnStyle}">${cat}</button>`;
+          return `<button onclick="Controller.selectCategory('${cat}')" class="whitespace-nowrap px-5 min-h-[2.75rem] inline-flex items-center justify-center rounded-full font-bold text-sm transition-all active:scale-95 ${btnStyle}">${cat}</button>`;
         }).join('');
         this.initScrollFade('menu-categories');
       },
@@ -3348,7 +3395,7 @@ renderReport(r) {
                 </div>
                 <div class="flex justify-between items-center mt-3 pt-3 border-t border-[#efe3c4] relative z-20">
                   <p class="text-primary font-black text-lg">฿${item.price}</p>
-                  ${!this.isStockMode && !isSoldOut ? `<div class="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg group-hover:bg-primary group-hover:text-white transition-colors">+</div>` : ''}
+                  ${!this.isStockMode && !isSoldOut ? `<div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg group-hover:bg-primary group-hover:text-white group-active:bg-primary group-active:text-white transition-colors">+</div>` : ''}
                   ${this.isStockMode ? `<div class="text-xs font-bold ${isSoldOut ? 'text-red-500' : 'text-emerald-500'}">${isSoldOut ? ' หมด' : ' มีของ'}</div>` : ''}
                 </div>
               </div>
@@ -3440,7 +3487,7 @@ renderReport(r) {
         if (!container) return;
         let html = '';
         this.sweetnessLevels.forEach(sw => {
-          html += `<button class="mod-btn border border-[#efe3c4] px-4 py-2 rounded-full text-sm font-bold text-slate-500 hover:bg-accent transition-all" onclick="Controller.selectSweetness(this)">${escHtml(sw.name)}</button>`;
+          html += `<button class="mod-btn border border-[#efe3c4] px-4 min-h-[2.75rem] inline-flex items-center justify-center rounded-full text-sm font-bold text-slate-500 hover:bg-accent active:scale-95 transition-all" onclick="Controller.selectSweetness(this)">${escHtml(sw.name)}</button>`;
         });
         container.innerHTML = html;
       },
@@ -3457,7 +3504,7 @@ renderReport(r) {
             const isSelected = this.selectedAddons.some(a => a.id === addon.id);
             const activeClass = isSelected ? 'bg-primary text-white border-primary' : 'border-[#efe3c4] text-slate-500 hover:bg-accent';
             const priceDisplay = addon.price >= 0 ? `+฿${addon.price}` : `-฿${Math.abs(addon.price)}`;
-            html += `<button onclick="Controller.toggleAddon('${addon.id}')" class="border px-4 py-2 rounded-full text-sm font-bold transition-all ${activeClass}">${escHtml(addon.name)} (${priceDisplay})</button>`;
+            html += `<button onclick="Controller.toggleAddon('${addon.id}')" class="border px-4 min-h-[2.75rem] inline-flex items-center justify-center rounded-full text-sm font-bold active:scale-95 transition-all ${activeClass}">${escHtml(addon.name)} (${priceDisplay})</button>`;
           });
         }
         container.innerHTML = html;
