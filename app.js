@@ -2311,6 +2311,7 @@
             ['กำไร', money(r.totalProfit)],
             ['ต้นทุนรวม', money(r.totalCost)],
             ['ต้นทุนของเสีย', money(r.wasteCost)],
+            ['คืนเงินลูกค้า', money(r.refundedTotal)],
             ['จำนวนบิล', String(r.billCount || 0)],
             ['จำนวนแก้ว', String(r.cupCount || 0)],
             ['เฉลี่ยต่อบิล', money(r.avgPerBill)],
@@ -2954,6 +2955,7 @@ renderReport(r) {
         document.getElementById('rp-cups').innerText = r.cupCount.toLocaleString();
         document.getElementById('rp-cost').innerText = fmt(r.totalCost);
         document.getElementById('rp-waste-cost').innerText = fmt(r.wasteCost);
+        document.getElementById('rp-refund-total').innerText = fmt(r.refundedTotal);
         document.getElementById('rp-avg').innerText = fmt(r.avgPerBill);
         document.getElementById('rp-cash').innerText = fmt(r.cash);
         document.getElementById('rp-other').innerText = fmt(r.other);
@@ -4701,9 +4703,15 @@ renderReport(r) {
           if (!off) {
               html += '<div class="mt-2 flex flex-wrap justify-end gap-x-3 gap-y-1">';
               html += '<button onclick="Controller.openEditBill(\'' + h.invoice + '\')" class="text-xs font-bold text-primary hover:underline whitespace-nowrap">แก้ไขบิล</button>';
+              if ((Number(h.total || 0) - Number(h.refundedTotal || 0)) > 0) {
+                html += '<button data-invoice="' + escAttr(h.invoice) + '" onclick="Controller.refundOrder(this.dataset.invoice)" class="text-xs font-bold text-sky-500 hover:text-sky-700 hover:underline whitespace-nowrap">คืนเงิน</button>';
+              }
               html += '<button data-invoice="' + escAttr(h.invoice) + '" onclick="Controller.markAsWaste(this.dataset.invoice)" class="text-xs font-bold text-orange-400 hover:text-orange-600 hover:underline whitespace-nowrap">บันทึกของเสีย</button>';
               html += '<button data-invoice="' + escAttr(h.invoice) + '" onclick="Controller.cancelOrder(this.dataset.invoice)" class="text-xs font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ยกเลิกบิล</button>';
               html += '</div>';
+            }
+            if (h.refundedTotal > 0) {
+              html += '<div class="mt-2 bg-sky-50 text-sky-600 text-xs font-bold px-3 py-2 rounded-lg">คืนเงินแล้ว ฿' + Number(h.refundedTotal).toFixed(2) + ' จาก ฿' + Number(h.total).toFixed(2) + '</div>';
             }
             if (h.cancelReason) {
             html += '<div class="mt-2 bg-red-50 text-red-500 text-xs font-bold px-3 py-2 rounded-lg">ยกเลิกแล้ว: ' + h.cancelReason + '</div>';
@@ -4762,6 +4770,7 @@ renderReport(r) {
                 `}).join('')}
               </div>
             ` : ''}
+            ${h.refundedTotal > 0 ? `<div class="mt-2 bg-sky-50 text-sky-600 text-xs font-bold px-3 py-2 rounded-lg">คืนเงินแล้ว ฿${Number(h.refundedTotal).toFixed(2)} จาก ฿${Number(h.total).toFixed(2)}</div>` : ''}
             ${isCancelled
               ? `<div class="mt-2 bg-red-50 text-red-500 text-xs font-bold px-3 py-2 rounded-lg"> ยกเลิกแล้ว: ${escHtml(h.cancelReason)}</div>`
               : isWaste
@@ -4769,6 +4778,7 @@ renderReport(r) {
               : `<div class="mt-2 flex flex-wrap justify-end gap-x-3 gap-y-1">
                    <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.openEditBill(this.dataset.invoice)" class="text-xs font-bold text-primary hover:text-primary hover:underline whitespace-nowrap">แก้ไขบิล</button>
                             <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.printReceiptByInvoice(this.dataset.invoice)" class="text-xs font-bold text-slate-400 hover:text-slate-600 hover:underline whitespace-nowrap"> พิมพ์</button>
+                   ${(Number(h.total || 0) - Number(h.refundedTotal || 0)) > 0 ? `<button data-invoice="${escAttr(h.invoice)}" onclick="Controller.refundOrder(this.dataset.invoice)" class="text-xs font-bold text-sky-500 hover:text-sky-700 hover:underline whitespace-nowrap">คืนเงิน</button>` : ''}
                    <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.markAsWaste(this.dataset.invoice)" class="text-xs font-bold text-orange-400 hover:text-orange-600 hover:underline whitespace-nowrap">บันทึกของเสีย</button>
                    <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.cancelOrder(this.dataset.invoice)" class="text-xs font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ยกเลิกบิล</button>
                  </div>`
@@ -4782,6 +4792,47 @@ renderReport(r) {
       
       markAsWaste(invoiceId) {
         this.updateOrderStatus(invoiceId, 'waste');
+      },
+
+      // คืนเงินบางส่วน/เต็มจำนวนให้บิล ไม่แตะ sales/payments/สต๊อกเลย ของยังถือว่าขายไปแล้วจริง แค่คืนเงินให้ลูกค้า
+      // คืนได้หลายครั้งต่อบิล (เช่น คืน 10 บาทวันนี้ อีก 5 บาทวันหลัง) เซิร์ฟเวอร์เป็นคนเช็คยอดคงเหลือที่คืนได้จริง
+      async refundOrder(invoiceId) {
+        const order = this.findOrderByInvoice(invoiceId);
+        if (!order) return this.showAlert('ไม่พบบิลนี้', '');
+        if (order.status === 'cancelled' || order.status === 'waste') return;
+
+        const remaining = Number(order.total || 0) - Number(order.refundedTotal || 0);
+        if (remaining <= 0) return this.showAlert('บิลนี้คืนเงินครบแล้ว', '');
+
+        const amountStr = await this.showPrompt(
+          `บิล ${order.invoice} คืนเงินได้ไม่เกิน ${remaining.toFixed(2)} บาท ระบุจำนวนที่จะคืน:`,
+          { type: 'number', placeholder: remaining.toFixed(2) }
+        );
+        if (amountStr === null) return;
+        const amount = Number(amountStr);
+        if (!amount || amount <= 0) return this.showAlert('กรุณาระบุจำนวนเงินที่มากกว่า 0', '');
+        if (amount > remaining) return this.showAlert(`คืนเงินได้ไม่เกิน ${remaining.toFixed(2)} บาท`, '');
+
+        const reason = await this.showPrompt(`ระบุเหตุผลที่คืนเงิน ฿${amount.toFixed(2)}:`, {});
+        if (reason === null) return;
+        if (reason.trim() === '') return this.showAlert('กรุณาระบุเหตุผลก่อนคืนเงิน', '');
+
+        const userName = this.currentSettingsUser ? this.currentSettingsUser.name : 'พนักงาน';
+        this.showLoading();
+        google.script.run
+          .withSuccessHandler(res => {
+            this.hideLoading();
+            if (res && res.success) {
+              this.logPinAttempt(`คืนเงิน: ${order.invoice} ฿${amount.toFixed(2)}`, true, userName);
+              order.refundedTotal = res.refundedTotal;
+              this.renderHistory();
+              this.showAlert('คืนเงินสำเร็จแล้ว', '');
+            } else {
+              this.showAlert((res && res.error) || 'คืนเงินไม่สำเร็จ', '');
+            }
+          })
+          .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+          .refundOrder({ invoice: order.invoice, amount: amount, reason: reason.trim(), user: userName });
       },
 
       async updateOrderStatus(invoiceId, status) {
@@ -4989,7 +5040,9 @@ renderReport(r) {
                  }
               });
             });
+            const refundedTotal = Number(stats.refundedTotal) || 0;
             totalProfit -= wasteCost;
+            totalProfit -= refundedTotal;
 
             const costEl = document.getElementById('sum-cost');
             const profitEl = document.getElementById('sum-profit');
@@ -5000,6 +5053,11 @@ renderReport(r) {
             const wasteCostEl = document.getElementById('sum-waste-cost');
             if (wasteCostEl) wasteCostEl.innerText = `฿${wasteCost.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
             if (wasteBanner) wasteBanner.classList.toggle('hidden', wasteCost <= 0);
+
+            const refundBanner = document.getElementById('sum-refund-banner');
+            const refundTotalEl = document.getElementById('sum-refund-total');
+            if (refundTotalEl) refundTotalEl.innerText = `฿${refundedTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            if (refundBanner) refundBanner.classList.toggle('hidden', refundedTotal <= 0);
             // ------------------------------------------
 
             const breakdownContainer = document.getElementById('sum-breakdown-container');

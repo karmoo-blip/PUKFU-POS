@@ -22,6 +22,7 @@ async function ensureExtraTables(env) {
     "CREATE TABLE IF NOT EXISTS sweetness_levels (id TEXT PRIMARY KEY, name TEXT, sort_order INTEGER)",
     "CREATE TABLE IF NOT EXISTS notifications (id TEXT PRIMARY KEY, inventory_item_id TEXT, item_name TEXT, opened_at TEXT, expires_at TEXT, created_at TEXT)",
     "CREATE TABLE IF NOT EXISTS recipes (id TEXT PRIMARY KEY, menu_sku TEXT, inventory_item_id TEXT, qty REAL)",
+    "CREATE TABLE IF NOT EXISTS refunds (id TEXT PRIMARY KEY, invoice TEXT, amount REAL, reason TEXT, refunded_by TEXT, created_at TEXT)",
   ];
   for (const s of stmts) {
     await env.DB.prepare(s).run();
@@ -479,6 +480,36 @@ async function cancelSalesItems(env, args) {
   return { success: true, newTotal: newTotal, wholeBillCancelled: wholeBillCancelled };
 }
 
+// คืนเงินบางส่วน/เต็มจำนวนให้บิล โดยไม่แตะ sales/payments/สต๊อกเลย (ของยังถือว่าขายไปแล้วจริง แค่คืนเงินให้)
+// รองรับคืนเงินหลายครั้งต่อบิลได้ (เช่น คืน 10 บาทวันนี้ อีก 5 บาทวันหลัง) เก็บเป็นประวัติแยกแต่ละครั้ง
+async function refundOrder(env, args) {
+  await ensureExtraTables(env);
+  const a0 = args && args[0];
+  const isObj = a0 && typeof a0 === "object";
+  const invoice = isObj ? a0.invoice : a0;
+  const amount = Number(isObj ? a0.amount : args[1]) || 0;
+  const reason = (isObj ? a0.reason : args[2]) || "";
+  const user = (isObj ? a0.user : args[3]) || "";
+  if (!invoice) return { success: false, error: "missing invoice" };
+  if (amount <= 0) return { success: false, error: "จำนวนเงินคืนต้องมากกว่า 0" };
+
+  const payment = await env.DB.prepare("SELECT total FROM payments WHERE invoice = ?").bind(invoice).first();
+  if (!payment) return { success: false, error: "ไม่พบบิลนี้" };
+
+  const refundedR = await env.DB.prepare("SELECT IFNULL(SUM(amount), 0) AS t FROM refunds WHERE invoice = ?").bind(invoice).first();
+  const alreadyRefunded = Number((refundedR && refundedR.t) || 0);
+  const remaining = Number(payment.total || 0) - alreadyRefunded;
+  if (amount > remaining) {
+    return { success: false, error: `คืนเงินได้ไม่เกิน ${remaining.toFixed(2)} บาท (คืนไปแล้ว ${alreadyRefunded.toFixed(2)} บาท)` };
+  }
+
+  const id = "RFD-" + invoice + "-" + Date.now();
+  await env.DB.prepare("INSERT INTO refunds (id, invoice, amount, reason, refunded_by, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+    .bind(id, invoice, amount, reason, user, nowIso()).run();
+
+  return { success: true, id, refundedTotal: alreadyRefunded + amount };
+}
+
 async function posDataForDay(env, day) {
   const today = day || bkkToday();
   const payR = await env.DB.prepare(
@@ -532,6 +563,18 @@ async function posDataForDay(env, day) {
   }
 
   history.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+  if (history.length > 0) {
+    await ensureExtraTables(env);
+    const invoiceList = history.map((h) => h.invoice);
+    const placeholders = invoiceList.map(() => "?").join(",");
+    const refundR = await env.DB.prepare(
+      `SELECT invoice, SUM(amount) AS t FROM refunds WHERE invoice IN (${placeholders}) GROUP BY invoice`
+    ).bind(...invoiceList).all();
+    const refundByInvoice = {};
+    for (const row of refundR.results) refundByInvoice[row.invoice] = Number(row.t || 0);
+    for (const h of history) h.refundedTotal = refundByInvoice[h.invoice] || 0;
+  }
 
   const voidInvoices = new Set(
     payR.results
@@ -629,11 +672,17 @@ async function summaryByRange(env, start, end) {
     wasteCost += (costMap[s.sku] || 0) * Number(s.qty || 0);
   }
 
+  await ensureExtraTables(env);
+  const refundR = await env.DB.prepare(
+    "SELECT IFNULL(SUM(amount), 0) AS t FROM refunds WHERE date(created_at, '+7 hours') BETWEEN ? AND ?"
+  ).bind(startDay, endDay).first();
+  const refundedTotal = Number((refundR && refundR.t) || 0);
+
   const billCount = paymentsR.results.length;
-  const totalProfit = total - totalCost - wasteCost;
+  const totalProfit = total - totalCost - wasteCost - refundedTotal;
   const avgPerBill = billCount ? total / billCount : 0;
   return {
-    success: true, total, totalProfit, billCount, cupCount, totalCost, wasteCost,
+    success: true, total, totalProfit, billCount, cupCount, totalCost, wasteCost, refundedTotal,
     avgPerBill, cash, other, qr: other, byType, topSellers, daily: dailyList, floatCash,
   };
 }
@@ -822,6 +871,7 @@ handlers.updateInventoryStock = updateInventoryStock;
 handlers.syncOfflineOrders = syncOfflineOrders;
 handlers.updateOrderStatus = updateOrderStatus;
 handlers.cancelSalesItems = cancelSalesItems;
+handlers.refundOrder = refundOrder;
 handlers.syncFloatCashLogs = syncFloatCashLogs;
 
 
