@@ -205,7 +205,20 @@
         <p class="text-sm text-slate-400" id="settings-user-label"></p>
       </div>
 
-      <div id="settings-tabs-scroll" class="relative shrink-0 flex flex-nowrap gap-2 mb-6 bg-white p-1 rounded-2xl border border-[#efe3c4] max-w-full overflow-x-auto hide-scroll scroll-fade at-start" style="--fade-color:#ffffff">
+      <!-- มือถือ: ปุ่มกดเปิดเมนูตั้งค่าแบบ bottom sheet แทนแถบแท็บเลื่อนแนวนอน 13 ปุ่ม (เดิมเลื่อนหาแท็บยากบนจอแคบ) -->
+      <button id="settings-mobile-tab-trigger" onclick="Controller.openSettingsTabMenu()" class="lg:hidden shrink-0 mb-4 w-full flex items-center justify-between gap-2 bg-white px-4 min-h-[3rem] rounded-2xl border border-[#efe3c4] shadow-sm font-bold text-secondary active:scale-[0.99] transition-all">
+        <span id="settings-mobile-tab-trigger-content" class="flex items-center gap-2"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.1em;height:1.1em" class="text-slate-400 shrink-0"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div id="modal-settings-tab-menu" class="hidden lg:hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-50 flex items-end" onclick="if(event.target===this) Controller.closeModal('modal-settings-tab-menu')">
+        <div class="relative bg-white rounded-t-3xl shadow-xl w-full max-h-[75vh] flex flex-col overflow-hidden">
+          <div class="absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1.5 rounded-full bg-slate-300" aria-hidden="true"></div>
+          <div class="p-5 pt-6 font-bold text-lg text-secondary border-b border-slate-100 text-center shrink-0">เมนูตั้งค่า</div>
+          <div id="settings-tab-menu-list" class="overflow-y-auto p-2" style="padding-bottom: max(0.5rem, env(safe-area-inset-bottom))"></div>
+        </div>
+      </div>
+
+      <div id="settings-tabs-scroll" class="hidden lg:flex relative shrink-0 flex-nowrap gap-2 mb-6 bg-white p-1 rounded-2xl border border-[#efe3c4] max-w-full overflow-x-auto hide-scroll scroll-fade at-start" style="--fade-color:#ffffff">
         <!-- แถบสีลอยที่ไหลลื่นไปหาแท็บที่เลือก (liquid navigation) แทนการสลับสีทีละปุ่มแบบเดิม -->
         <div id="settings-tab-indicator" class="absolute top-1 bottom-1 left-1 rounded-xl bg-primary shadow-md shadow-primary/30 transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] pointer-events-none" style="width:0"></div>
         <button id="settings-tab-stock" onclick="Controller.switchSettingsTab('stock')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> AVAILABLE</button>
@@ -218,7 +231,7 @@
         <button id="settings-tab-log" onclick="Controller.switchSettingsTab('log')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/></svg> Log</button>
         <button id="settings-tab-addons" onclick="Controller.switchSettingsTab('addons')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg> Add-ons</button>
         <button id="settings-tab-sweetness" onclick="Controller.switchSettingsTab('sweetness')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M12 2s7 8 7 13a7 7 0 0 1-14 0c0-5 7-13 7-13z"/></svg> ความหวาน</button>
-        <button id="settings-tab-notifications" onclick="Controller.switchSettingsTab('notifications')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> แจ้งเตือน<span id="notification-badge" class="hidden ml-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full align-middle">0</span></button>
+        <button id="settings-tab-notifications" onclick="Controller.switchSettingsTab('notifications')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> แจ้งเตือน<span class="notification-badge hidden ml-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full align-middle">0</span></button>
         <button id="settings-tab-payment" onclick="Controller.switchSettingsTab('payment')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> Payment</button>
         <button id="settings-tab-backup" onclick="Controller.switchSettingsTab('backup')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 13h8v6H8z"/></svg> Backup</button>
       </div>
@@ -598,27 +611,27 @@
         <div class="bg-white rounded-3xl border border-[#efe3c4] shadow-sm p-4 lg:p-5 mb-4">
           <p class="text-sm font-bold text-slate-500 mb-3">เลือกช่วงเวลา</p>
           <div class="flex flex-wrap gap-2 mb-4">
-            <button onclick="Controller.setReportPreset('today')" class="report-preset-btn px-4 py-2 rounded-xl font-bold text-sm bg-accent text-secondary transition">วันนี้</button>
-            <button onclick="Controller.setReportPreset('7d')" class="report-preset-btn px-4 py-2 rounded-xl font-bold text-sm bg-accent text-secondary transition">7 วัน</button>
-            <button onclick="Controller.setReportPreset('30d')" class="report-preset-btn px-4 py-2 rounded-xl font-bold text-sm bg-accent text-secondary transition">30 วัน</button>
-            <button onclick="Controller.setReportPreset('month')" class="report-preset-btn px-4 py-2 rounded-xl font-bold text-sm bg-accent text-secondary transition">เดือนนี้</button>
+            <button onclick="Controller.setReportPreset('today')" class="report-preset-btn px-4 min-h-[2.75rem] rounded-xl font-bold text-sm bg-accent text-secondary transition active:scale-95">วันนี้</button>
+            <button onclick="Controller.setReportPreset('7d')" class="report-preset-btn px-4 min-h-[2.75rem] rounded-xl font-bold text-sm bg-accent text-secondary transition active:scale-95">7 วัน</button>
+            <button onclick="Controller.setReportPreset('30d')" class="report-preset-btn px-4 min-h-[2.75rem] rounded-xl font-bold text-sm bg-accent text-secondary transition active:scale-95">30 วัน</button>
+            <button onclick="Controller.setReportPreset('month')" class="report-preset-btn px-4 min-h-[2.75rem] rounded-xl font-bold text-sm bg-accent text-secondary transition active:scale-95">เดือนนี้</button>
           </div>
           <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
             <div class="flex-1">
               <label class="text-xs font-bold text-slate-400 mb-1 block">ตั้งแต่วันที่</label>
-              <input type="date" id="report-start" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5] text-sm">
+              <input type="date" id="report-start" class="w-full min-h-[2.75rem] border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5] text-sm">
             </div>
             <div class="flex-1">
               <label class="text-xs font-bold text-slate-400 mb-1 block">ถึงวันที่</label>
-              <input type="date" id="report-end" class="w-full border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5] text-sm">
+              <input type="date" id="report-end" class="w-full min-h-[2.75rem] border border-[#efe3c4] rounded-xl p-2.5 focus:outline-none focus:border-primary bg-[#fffdf5] text-sm">
             </div>
-            <button onclick="Controller.fetchReport(this)" class="bg-primary text-white px-6 py-2.5 rounded-xl font-bold hover:brightness-95 transition shadow-md shadow-primary/30 whitespace-nowrap">ดูรายงาน</button>
+            <button onclick="Controller.fetchReport(this)" class="bg-primary text-white px-6 min-h-[2.75rem] rounded-xl font-bold hover:brightness-95 transition shadow-md shadow-primary/30 whitespace-nowrap active:scale-95">ดูรายงาน</button>
           </div>
         </div>
 
         <div id="report-result" class="hidden">
           <div class="flex justify-end mb-3">
-            <button onclick="Controller.exportReportPDF()" class="bg-secondary text-white px-4 py-2 rounded-xl font-bold text-sm hover:brightness-110 transition">Export PDF</button>
+            <button onclick="Controller.exportReportPDF()" class="bg-secondary text-white px-4 min-h-[2.75rem] rounded-xl font-bold text-sm hover:brightness-110 transition active:scale-95">Export PDF</button>
           </div>
           <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
             <div class="bg-white p-4 rounded-2xl border border-[#efe3c4] shadow-sm">

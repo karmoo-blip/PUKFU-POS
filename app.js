@@ -1431,12 +1431,11 @@
         const expired = expiredList.map(n => n.item_name);
         const soon = soonList.map(n => n.item_name);
 
-        const badge = document.getElementById('notification-badge');
         const count = expired.length + soon.length;
-        if (badge) {
+        document.querySelectorAll('.notification-badge').forEach(badge => {
           badge.innerText = count;
           badge.classList.toggle('hidden', count === 0);
-        }
+        });
 
         const alertBox = document.getElementById('notification-alert');
         const alertText = document.getElementById('notification-alert-text');
@@ -1631,8 +1630,29 @@
         this.initScrollFade('settings-tabs-scroll');
       },
 
+      // เปิดเมนูตั้งค่าแบบ bottom sheet บนมือถือ (โคลนปุ่มแท็บจริงที่ไม่ถูกซ่อนไว้ ทำให้เคารพสิทธิ์การเข้าถึงตาม role อัตโนมัติ)
+      openSettingsTabMenu() {
+        const list = document.getElementById('settings-tab-menu-list');
+        if (!list) return;
+        const buttons = Array.from(document.querySelectorAll('#settings-tabs-scroll button[id^="settings-tab-"]'))
+          .filter(btn => !btn.classList.contains('hidden'));
+        list.innerHTML = buttons.map(btn => {
+          const tab = btn.id.replace('settings-tab-', '');
+          const active = tab === this.currentSettingsTab;
+          return `<button onclick="Controller.selectSettingsTabFromMenu('${tab}')" class="w-full flex items-center gap-3 px-4 min-h-[3rem] rounded-xl font-bold text-sm text-left active:scale-[0.98] transition-all ${active ? 'bg-primary text-white' : 'text-slate-600 hover:bg-accent'}">${btn.innerHTML}</button>`;
+        }).join('');
+        this.openModal('modal-settings-tab-menu');
+      },
+
+      selectSettingsTabFromMenu(tab) {
+        this.closeModal('modal-settings-tab-menu');
+        this.switchSettingsTab(tab);
+      },
+
       switchSettingsTab(tab) {
         if (this.currentSettingsUser && !this.getAllowedTabs(this.currentSettingsUser).includes(tab)) return;
+
+        this.currentSettingsTab = tab;
 
         document.querySelectorAll('.settings-panel').forEach(p => p.classList.add('hidden'));
         document.getElementById(`settings-panel-${tab}`).classList.remove('hidden');
@@ -1652,6 +1672,9 @@
         }
         // แถบแท็บมี ~12 ปุ่มเลื่อนแนวนอน มือถือกดแท็บที่โผล่แค่ครึ่งเดียวแล้วจะงงว่าอยู่ตรงไหน เลยเลื่อนให้เข้ากลางจอเสมอ
         activeTabBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+        // ซิงก์ปุ่มเปิดเมนูบนมือถือให้โชว์ไอคอน+ชื่อแท็บปัจจุบัน (โคลนจากปุ่มแท็บจริงเพื่อไม่ต้องเก็บไอคอนซ้ำสองที่)
+        const triggerContent = document.getElementById('settings-mobile-tab-trigger-content');
+        if (triggerContent) triggerContent.innerHTML = activeTabBtn.innerHTML;
 
         if (tab === 'printer') {
           document.getElementById('printer-header').value = this.receiptSettings.header || '';
@@ -1740,19 +1763,21 @@
           <div class="p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
             <div class="flex items-center gap-3 min-w-0">
               ${emp.photo ? `<img src="${escHtml(emp.photo)}" class="w-10 h-10 rounded-full object-cover shrink-0">` : ''}
-              <div class="min-w-0">
+              <div class="min-w-0 flex-1">
                 <p class="font-bold text-secondary truncate">${escHtml(emp.name)} ${!emp.active ? '<span class="text-xs text-red-400 font-bold">(ปิดใช้งาน)</span>' : ''}</p>
-                <p class="text-xs text-slate-400">
+                <p class="text-xs text-slate-400 break-words">
                   ${escHtml(emp.role)} • PIN: <span id="pin-display-${emp.id}">${maskedPin}</span>
                   ${canManage ? `<button onclick="Controller.togglePinVisibility('${emp.id}', '${emp.pin}')" class="text-primary font-bold hover:underline ml-1">ดู</button>` : ''}
-                  ${(emp.role === 'Owner' || emp.role === 'Admin') ? '•  เข้าถึงทุกอย่าง' : `• เข้าถึง: ${emp.permissions || 'ยังไม่กำหนด'}`}
+                </p>
+                <p class="text-xs text-slate-400 break-words mt-0.5">
+                  ${(emp.role === 'Owner' || emp.role === 'Admin') ? 'เข้าถึงทุกอย่าง' : `เข้าถึง: ${escHtml((emp.permissions || 'ยังไม่กำหนด').split(',').join(', '))}`}
                 </p>
               </div>
             </div>
-            <div class="flex gap-3 shrink-0">
+            <div class="flex gap-2 shrink-0">
               ${canManage ? `
-                <button onclick="Controller.openEmployeeForm('${emp.id}')" class="text-sm font-bold text-primary hover:underline">แก้ไข</button>
-                <button onclick="Controller.deleteEmployeeConfirm('${emp.id}', '${escAttr(emp.name)}')" class="text-sm font-bold text-red-400 hover:underline">ลบ</button>
+                <button onclick="Controller.openEmployeeForm('${emp.id}')" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-primary bg-primary/10 rounded-full active:scale-95 transition-all whitespace-nowrap">แก้ไข</button>
+                <button onclick="Controller.deleteEmployeeConfirm('${emp.id}', '${escAttr(emp.name)}')" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-red-500 bg-red-50 rounded-full active:scale-95 transition-all whitespace-nowrap">ลบ</button>
               ` : `<span class="text-xs text-slate-300 font-bold"> ดูได้อย่างเดียว</span>`}
             </div>
           </div>
@@ -3228,9 +3253,34 @@ renderReport(r) {
               <p class="font-bold text-secondary text-sm truncate">${escHtml(f.label || ('Backup #' + f.id))}</p>
               <p class="text-xs text-slate-400 mt-0.5">${new Date(f.created_at).toLocaleString()}</p>
             </div>
-            <button onclick="Controller.exportBackupToExcel(${f.id})" class="shrink-0 text-sm font-bold text-primary hover:underline">Export Excel</button>
+            <div class="shrink-0 flex items-center gap-2">
+              <button onclick="Controller.exportBackupToExcel(${f.id})" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-primary bg-primary/10 rounded-full active:scale-95 transition-all whitespace-nowrap">Export Excel</button>
+              <button onclick="Controller.deleteBackupConfirm(${f.id})" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-red-500 bg-red-50 rounded-full active:scale-95 transition-all whitespace-nowrap">ลบ</button>
+            </div>
           </div>
         `).join('');
+      },
+
+      async deleteBackupConfirm(id) {
+        const ok = await this.showConfirm('ต้องการลบไฟล์ backup นี้ใช่หรือไม่? กู้คืนไม่ได้หลังจากลบแล้ว', '');
+        if (!ok) return;
+
+        this.setIndicator('syncing');
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res && res.success) {
+              this.setIndicator('synced');
+              this.fetchBackupList();
+            } else {
+              this.setIndicator('error');
+              this.showAlert((res && res.error) || 'ลบไม่สำเร็จ', '');
+            }
+          })
+          .withFailureHandler(() => {
+            this.setIndicator('error');
+            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
+          })
+          .deleteBackup(id);
       },
 
       // แปลง array ของ object เป็นข้อความ CSV หนึ่งตาราง (เปิดใน Excel ได้โดยตรง)

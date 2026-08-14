@@ -813,6 +813,15 @@ handlers.getBackupData = async (env, args) => {
   return { success: true, data: JSON.parse(r.data) };
 };
 
+handlers.deleteBackup = async (env, args) => {
+  await ensureExtraTables(env);
+  const a0 = args && args[0];
+  const id = a0 && typeof a0 === "object" ? a0.id : a0;
+  if (!id) return { success: false, error: "missing id" };
+  await env.DB.prepare("DELETE FROM backups WHERE id = ?").bind(id).run();
+  return { success: true };
+};
+
 handlers.cleanupOldBackups = async (env) => {
   await ensureExtraTables(env);
   const cutoff = new Date(Date.now() - 180 * 24 * 3600 * 1000).toISOString();
