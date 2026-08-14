@@ -1245,7 +1245,7 @@
           const b = document.createElement('button');
           b.innerText = btn.label;
           b.className = btn.style === 'primary'
-            ? 'flex-1 py-2.5 bg-primary text-white rounded-xl font-bold hover:brightness-95 transition'
+            ? 'flex-1 py-2.5 bg-gradient-to-b from-primary to-secondary text-white rounded-xl font-bold hover:brightness-110 transition'
             : 'flex-1 py-2.5 border border-sand bg-white text-slate-500 rounded-xl font-bold hover:bg-accent transition';
           b.onclick = () => {
             const result = btn.value === '__INPUT__' ? inputEl.value : btn.value;
@@ -1639,7 +1639,7 @@
         list.innerHTML = buttons.map(btn => {
           const tab = btn.id.replace('settings-tab-', '');
           const active = tab === this.currentSettingsTab;
-          return `<button onclick="Controller.selectSettingsTabFromMenu('${tab}')" class="w-full flex items-center gap-3 px-4 min-h-[3rem] rounded-xl font-bold text-sm text-left active:scale-[0.98] transition-all ${active ? 'bg-primary text-white' : 'text-slate-600 hover:bg-accent'}">${btn.innerHTML}</button>`;
+          return `<button onclick="Controller.selectSettingsTabFromMenu('${tab}')" class="w-full flex items-center gap-3 px-4 min-h-[3rem] rounded-xl font-bold text-sm text-left active:scale-[0.98] transition-all ${active ? 'bg-gradient-to-b from-primary to-secondary text-white' : 'text-slate-600 hover:bg-accent'}">${btn.innerHTML}</button>`;
         }).join('');
         this.openModal('modal-settings-tab-menu');
       },
@@ -1752,7 +1752,7 @@
         const visibleEmployees = this.employeeList.filter(emp => this.canSeeEmployee(emp));
 
         if (visibleEmployees.length === 0) {
-          list.innerHTML = '<div class="p-6 text-center text-slate-400 font-bold">ยังไม่มีข้อมูลพนักงานที่คุณสามารถดูได้</div>';
+          list.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>ยังไม่มีข้อมูลพนักงานที่คุณสามารถดูได้</div>';
           return;
         }
         
@@ -1990,7 +1990,7 @@
           : '';
 
         if (data.length === 0) {
-          list.innerHTML = pendingHtml + '<div class="p-6 text-center text-slate-400 font-bold">ยังไม่มีประวัติการใส่ PIN</div>';
+          list.innerHTML = pendingHtml + '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/></svg>ยังไม่มีประวัติการใส่ PIN</div>';
           return;
         }
 
@@ -2010,10 +2010,10 @@
           const btn = document.getElementById(`bs-period-${p}`);
           if (!btn) return;
           if (p === period) {
-            btn.classList.add('bg-primary', 'text-white');
+            btn.classList.add('bg-gradient-to-b', 'from-primary', 'to-secondary', 'text-white');
             btn.classList.remove('text-slate-500');
           } else {
-            btn.classList.remove('bg-primary', 'text-white');
+            btn.classList.remove('bg-gradient-to-b', 'from-primary', 'to-secondary', 'text-white');
             btn.classList.add('text-slate-500');
           }
         });
@@ -2083,7 +2083,7 @@
         if (!container) return;
         
         if (this.addons.length === 0) {
-          container.innerHTML = '<div class="p-8 text-center text-slate-400">ยังไม่มีข้อมูล Add-on</div>';
+          container.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>ยังไม่มีข้อมูล Add-on</div>';
           return;
         }
 
@@ -2208,7 +2208,7 @@
         if (!container) return;
 
         if (this.sweetnessLevels.length === 0) {
-          container.innerHTML = '<div class="p-8 text-center text-slate-400">ยังไม่มีข้อมูลระดับความหวาน</div>';
+          container.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><path d="M12 2s7 8 7 13a7 7 0 0 1-14 0c0-5 7-13 7-13z"/></svg>ยังไม่มีข้อมูลระดับความหวาน</div>';
           return;
         }
 
@@ -2488,7 +2488,7 @@
             + '<button onclick="Controller.removeInventoryImage()" class="text-xs font-bold text-red-400 hover:underline mb-5">ลบรูป</button>'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeInventoryItemForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
-            + '<button onclick="Controller.saveInventoryItemForm()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึก</button>'
+            + '<button onclick="Controller.saveInventoryItemForm()" class="flex-1 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl py-2.5 font-bold hover:brightness-110 transition">บันทึก</button>'
             + '</div></div>';
           this.editingInventoryId = it.id || '';
           this.editingInventoryImage = it.photo || '';
@@ -2681,7 +2681,7 @@
             + '<button onclick="Controller.removeProductImage()" class="text-xs font-bold text-red-400 hover:underline mb-5">ลบรูป</button>'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeProductForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
-            + '<button onclick="Controller.saveProductForm()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึก</button>'
+            + '<button onclick="Controller.saveProductForm()" class="flex-1 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl py-2.5 font-bold hover:brightness-110 transition">บันทึก</button>'
             + '</div></div>';
           this.editingProductIsNew = !item;
           this.editingProductImage = it.image || '';
@@ -2790,7 +2790,7 @@
             + '<button onclick="Controller.addRecipeRow()" class="text-sm font-bold text-primary hover:underline mb-4">+ เพิ่มวัตถุดิบ</button>'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeRecipeForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
-            + '<button onclick="Controller.saveRecipeForm()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึกสูตร</button>'
+            + '<button onclick="Controller.saveRecipeForm()" class="flex-1 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl py-2.5 font-bold hover:brightness-110 transition">บันทึกสูตร</button>'
             + '</div></div>';
           document.body.appendChild(wrap);
         },
@@ -2853,7 +2853,7 @@
           if (!container) return;
 
           if (this.notifications.length === 0) {
-            container.innerHTML = '<div class="p-8 text-center text-slate-400">ยังไม่มีการแจ้งเตือน</div>';
+            container.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>ยังไม่มีการแจ้งเตือน</div>';
             return;
           }
 
@@ -2902,7 +2902,7 @@
             + '<input id="notif-expires-at" type="datetime-local" class="w-full border border-sand rounded-xl p-2.5 mb-5">'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeNotificationForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
-            + '<button onclick="Controller.saveNotificationForm()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึก</button>'
+            + '<button onclick="Controller.saveNotificationForm()" class="flex-1 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl py-2.5 font-bold hover:brightness-110 transition">บันทึก</button>'
             + '</div></div>';
           document.body.appendChild(wrap);
         },
@@ -2992,7 +2992,7 @@
             + '<input id="eb-note" class="w-full border border-sand rounded-xl p-2.5 mb-5" value="' + q(order.note) + '">'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeEditBill()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
-            + '<button onclick="Controller.saveEditBill()" class="flex-1 bg-primary text-white rounded-2xl py-2.5 font-bold">บันทึกการแก้ไข</button>'
+            + '<button onclick="Controller.saveEditBill()" class="flex-1 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl py-2.5 font-bold hover:brightness-110 transition">บันทึกการแก้ไข</button>'
             + '</div>'
             + '<p class="text-[10px] text-slate-400 mt-3">ใส่จำนวนเป็น 0 เพื่อลบรายการนั้นออกจากบิล ระบบจะคำนวณยอดรวมใหม่ให้อัตโนมัติ</p>'
             + '</div>';
@@ -3106,7 +3106,7 @@ renderReport(r) {
         if (!container) return;
 
         if (this.paymentMethods.length === 0) {
-          container.innerHTML = '<div class="p-8 text-center text-slate-400">ยังไม่มีวิธีชำระเงิน</div>';
+          container.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>ยังไม่มีวิธีชำระเงิน</div>';
           return;
         }
 
@@ -3243,7 +3243,7 @@ renderReport(r) {
         if (!list) return;
 
         if (!data || data.length === 0) {
-          list.innerHTML = '<div class="p-6 text-center text-slate-400 font-bold">ยังไม่มีไฟล์ backup กดปุ่ม "สำรองข้อมูลเดี๋ยวนี้" เพื่อสร้างไฟล์แรก</div>';
+          list.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 13h8v6H8z"/></svg>ยังไม่มีไฟล์ backup กดปุ่ม "สำรองข้อมูลเดี๋ยวนี้" เพื่อสร้างไฟล์แรก</div>';
           return;
         }
 
@@ -3377,7 +3377,7 @@ renderReport(r) {
         if (!list) return;
 
         if (!data || data.length === 0) {
-          list.innerHTML = '<div class="p-6 text-center text-slate-400 font-bold">ยังไม่มีข้อมูลปีเก่าที่ต้อง archive</div>';
+          list.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg>ยังไม่มีข้อมูลปีเก่าที่ต้อง archive</div>';
           return;
         }
 
@@ -3519,7 +3519,7 @@ renderReport(r) {
         this.updateSweetnessButtons();
 
         document.querySelectorAll('.mod-btn').forEach(btn => {
-          btn.classList.remove('bg-primary', 'text-white', 'border-primary');
+          btn.classList.remove('bg-gradient-to-b', 'from-primary', 'to-secondary', 'text-white', 'border-primary');
           btn.classList.add('text-slate-500', 'border-slate-200');
           btn.removeAttribute('data-selected');
         });
@@ -3716,7 +3716,7 @@ renderReport(r) {
 
         let matchBtn = null;
         document.querySelectorAll('.mod-btn').forEach(btn => {
-          btn.classList.remove('bg-primary', 'text-white', 'border-primary');
+          btn.classList.remove('bg-gradient-to-b', 'from-primary', 'to-secondary', 'text-white', 'border-primary');
           btn.classList.add('text-slate-500', 'border-slate-200');
           btn.removeAttribute('data-selected');
           if (info.sweetness && btn.innerText.trim() === info.sweetness) matchBtn = btn;

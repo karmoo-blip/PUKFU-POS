@@ -318,7 +318,7 @@
           <p class="text-slate-400 font-bold text-sm mb-3">แยกตามวิธีชำระเงิน</p>
           <div id="sum-breakdown-list" class="space-y-2"></div>
         </div>
-        <button onclick="Controller.fetchSummary(this)" class="mt-6 w-full sm:w-auto justify-center items-center flex bg-primary text-white px-6 py-3 rounded-2xl shadow shadow-primary/30 font-bold hover:brightness-95 transition">Refresh Stats</button>
+        <button onclick="Controller.fetchSummary(this)" class="mt-6 w-full sm:w-auto justify-center items-center flex bg-gradient-to-b from-primary to-secondary text-white px-6 py-3 rounded-2xl shadow shadow-primary/30 font-bold hover:brightness-110 transition">Refresh Stats</button>
 
         <div class="bg-white p-4 lg:p-6 rounded-3xl border border-sand shadow-sm mt-4">
           <h3 class="font-bold text-secondary mb-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> ปิดยอดประจำวัน</h3>
@@ -356,7 +356,7 @@
         </div>
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
           <p class="text-sm text-slate-400">ตั้งแจ้งเตือนวันเปิดใช้/หมดอายุของวัตถุดิบ (เลือกจากรายการในสต๊อก)</p>
-          <button onclick="Controller.openNotificationForm()" class="w-full sm:w-auto justify-center items-center flex bg-primary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-95 transition">+ เพิ่มแจ้งเตือน</button>
+          <button onclick="Controller.openNotificationForm()" class="w-full sm:w-auto justify-center items-center flex bg-gradient-to-b from-primary to-secondary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-110 transition">+ เพิ่มแจ้งเตือน</button>
         </div>
         <div id="notification-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
       </div>
@@ -366,7 +366,7 @@
           <p class="text-sm text-slate-400 mb-1">สถานะปัจจุบัน</p>
           <p id="stock-status-label" class="text-2xl font-black text-secondary mb-4">ปกติ</p>
           <p class="text-sm text-slate-400 mb-4">เปิดโหมดนี้เพื่อคลิกที่สินค้าในหน้า POS แล้วสลับสถานะ Sold Out ได้ทันที</p>
-          <button id="btn-toggle-stock" onclick="Controller.toggleStockMode()" class="w-full bg-primary text-white py-3 rounded-2xl font-bold hover:brightness-95 transition">เปิดโหมดจัดการสต๊อก</button>
+          <button id="btn-toggle-stock" onclick="Controller.toggleStockMode()" class="w-full bg-gradient-to-b from-primary to-secondary text-white py-3 rounded-2xl font-bold hover:brightness-110 transition">เปิดโหมดจัดการสต๊อก</button>
         </div>
 
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
@@ -553,7 +553,7 @@
             </div>
           </div>
 
-          <button onclick="Controller.savePrinterSettings()" class="w-full bg-primary text-white py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md shadow-primary/30 mb-4">บันทึกการตั้งค่า</button>
+          <button onclick="Controller.savePrinterSettings()" class="w-full bg-gradient-to-b from-primary to-secondary text-white py-3 rounded-2xl font-bold hover:brightness-110 transition shadow-md shadow-primary/30 mb-4">บันทึกการตั้งค่า</button>
           
           <div class="border-t border-sand pt-4 mt-2">
             <label class="text-sm font-bold text-slate-500 mb-2 block">ตั้งค่าเพิ่มเติม</label>
@@ -574,7 +574,7 @@
             <input type="number" id="auto-lock-minutes" min="0" max="240" class="w-24 border border-sand rounded-xl p-2 text-center font-bold focus:outline-none focus:border-primary bg-white" placeholder="20">
             <span class="text-sm font-bold text-slate-400">นาที</span>
           </div>
-          <button onclick="Controller.saveAutoLockSetting()" class="w-full bg-primary text-white py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md shadow-primary/30">บันทึกความปลอดภัย</button>
+          <button onclick="Controller.saveAutoLockSetting()" class="w-full bg-gradient-to-b from-primary to-secondary text-white py-3 rounded-2xl font-bold hover:brightness-110 transition shadow-md shadow-primary/30">บันทึกความปลอดภัย</button>
         </div>
 
       </div>
@@ -582,7 +582,7 @@
       <div id="settings-panel-employees" class="settings-panel hidden">
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
           <p class="text-sm text-slate-400">จัดการพนักงานและสิทธิ์การเข้าถึง</p>
-          <button onclick="Controller.openEmployeeForm()" class="w-full sm:w-auto justify-center items-center flex bg-primary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-95 transition">+ เพิ่มพนักงาน</button>
+          <button onclick="Controller.openEmployeeForm()" class="w-full sm:w-auto justify-center items-center flex bg-gradient-to-b from-primary to-secondary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-110 transition">+ เพิ่มพนักงาน</button>
         </div>
         <div id="employee-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand"></div>
       </div>
@@ -597,7 +597,7 @@
       <div id="settings-panel-addons" class="settings-panel hidden">
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
           <p class="text-sm text-slate-400">จัดการส่วนเสริม (เช่น เพิ่มช็อต, ไข่มุก)</p>
-          <button onclick="Controller.openAddonForm()" class="w-full sm:w-auto justify-center items-center flex bg-primary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-95 transition">+ เพิ่ม Add-on</button>
+          <button onclick="Controller.openAddonForm()" class="w-full sm:w-auto justify-center items-center flex bg-gradient-to-b from-primary to-secondary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-110 transition">+ เพิ่ม Add-on</button>
         </div>
         <div id="addon-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
       </div>
@@ -605,7 +605,7 @@
       <div id="settings-panel-sweetness" class="settings-panel hidden">
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
           <p class="text-sm text-slate-400">จัดการระดับความหวานที่ให้ลูกค้าเลือกตอนสั่ง เพิ่ม/แก้ไข/ลบได้เอง</p>
-          <button onclick="Controller.openSweetnessForm()" class="w-full sm:w-auto justify-center items-center flex bg-primary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-95 transition">+ เพิ่มระดับความหวาน</button>
+          <button onclick="Controller.openSweetnessForm()" class="w-full sm:w-auto justify-center items-center flex bg-gradient-to-b from-primary to-secondary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-110 transition">+ เพิ่มระดับความหวาน</button>
         </div>
         <div id="sweetness-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
       </div>
@@ -628,7 +628,7 @@
               <label class="text-xs font-bold text-slate-400 mb-1 block">ถึงวันที่</label>
               <input type="date" id="report-end" class="w-full min-h-[2.75rem] border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream text-sm">
             </div>
-            <button onclick="Controller.fetchReport(this)" class="bg-primary text-white px-6 min-h-[2.75rem] rounded-xl font-bold hover:brightness-95 transition shadow-md shadow-primary/30 whitespace-nowrap active:scale-95">ดูรายงาน</button>
+            <button onclick="Controller.fetchReport(this)" class="bg-gradient-to-b from-primary to-secondary text-white px-6 min-h-[2.75rem] rounded-xl font-bold hover:brightness-110 transition shadow-md shadow-primary/30 whitespace-nowrap active:scale-95">ดูรายงาน</button>
           </div>
         </div>
 
@@ -688,7 +688,7 @@
       <div id="settings-panel-payment" class="settings-panel hidden">
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
           <p class="text-sm text-slate-400">จัดการวิธีชำระเงินที่ใช้ในร้าน เปิด/ปิด เพิ่ม/ลบได้เอง เช่น QR, Cash, Thai Plus, ShopeePay</p>
-          <button onclick="Controller.openPaymentMethodForm()" class="w-full sm:w-auto justify-center items-center flex bg-primary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-95 transition">+ เพิ่มวิธีชำระเงิน</button>
+          <button onclick="Controller.openPaymentMethodForm()" class="w-full sm:w-auto justify-center items-center flex bg-gradient-to-b from-primary to-secondary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-110 transition">+ เพิ่มวิธีชำระเงิน</button>
         </div>
         <div id="payment-method-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
       </div>
@@ -697,7 +697,7 @@
         <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 mb-4">
           <h3 class="font-bold text-lg text-secondary mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 13h8v6H8z"/></svg> สำรองข้อมูล</h3>
           <p class="text-sm text-slate-400 mb-4">ระบบสำรองข้อมูลทั้งหมดอัตโนมัติทุก 30 วัน และเก็บไว้ 180 วันย้อนหลัง (เก่ากว่านั้นจะถูกลบทิ้งอัตโนมัติ) แต่ backup พวกนี้เก็บอยู่ในฐานข้อมูลเดียวกับข้อมูลจริง — <b>แนะนำให้กดปุ่มด้านล่างเป็นประจำ</b> (เช่น สัปดาห์ละครั้ง) เพื่อดาวน์โหลดไฟล์เก็บไว้นอกระบบด้วย เช่น ใน Google Drive หรืออีเมลตัวเอง</p>
-          <button id="btn-manual-backup" onclick="Controller.manualBackupNow(this)" class="w-full sm:w-auto bg-primary text-white px-6 py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md shadow-primary/30">สำรองข้อมูล + ดาวน์โหลดทันที</button>
+          <button id="btn-manual-backup" onclick="Controller.manualBackupNow(this)" class="w-full sm:w-auto bg-gradient-to-b from-primary to-secondary text-white px-6 py-3 rounded-2xl font-bold hover:brightness-110 transition shadow-md shadow-primary/30">สำรองข้อมูล + ดาวน์โหลดทันที</button>
         </div>
 
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
@@ -709,7 +709,7 @@
         <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 mb-4">
           <h3 class="font-bold text-lg text-secondary mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> เก็บข้อมูลปีต่อปี (Archive)</h3>
           <p class="text-sm text-slate-400 mb-4">ย้ายข้อมูล Sales, Payments, Log ต่างๆ ของปีเก่ากว่าปัจจุบัน ไปเก็บไว้ในไฟล์แยกตามปี ช่วยให้ Sheet หลักไม่บวมและระบบทำงานเร็วขึ้น เช็คให้ทำงานอัตโนมัติทุกต้นปีมกราคม</p>
-          <button id="btn-manual-archive" onclick="Controller.manualArchiveNow(this)" class="w-full sm:w-auto bg-amber-500 text-white px-6 py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md shadow-amber-500/30">เก็บข้อมูลปีเก่าเดี๋ยวนี้</button>
+          <button id="btn-manual-archive" onclick="Controller.manualArchiveNow(this)" class="w-full sm:w-auto bg-gradient-to-b from-amber-500 to-amber-600 text-white px-6 py-3 rounded-2xl font-bold hover:brightness-110 transition shadow-md shadow-amber-500/30">เก็บข้อมูลปีเก่าเดี๋ยวนี้</button>
         </div>
 
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
@@ -812,7 +812,7 @@
       </div>
       <div class="flex gap-3">
         <button onclick="Controller.closeModal('modal-employee-form')" class="flex-1 py-2.5 border border-sand rounded-xl font-bold text-slate-500 hover:bg-accent">ยกเลิก</button>
-        <button onclick="Controller.saveEmployeeForm()" class="flex-1 py-2.5 bg-primary text-white rounded-xl font-bold hover:brightness-95">บันทึก</button>
+        <button onclick="Controller.saveEmployeeForm()" class="flex-1 py-2.5 bg-gradient-to-b from-primary to-secondary text-white rounded-xl font-bold hover:brightness-110">บันทึก</button>
       </div>
     </div>
   </div>
@@ -836,7 +836,7 @@
       </div>
       <div class="flex gap-3">
         <button onclick="Controller.closeModal('modal-addon-form')" class="flex-1 py-2.5 border border-sand rounded-xl font-bold text-slate-500 hover:bg-accent">ยกเลิก</button>
-        <button onclick="Controller.saveAddonForm()" class="flex-1 py-2.5 bg-primary text-white rounded-xl font-bold hover:brightness-95">บันทึก</button>
+        <button onclick="Controller.saveAddonForm()" class="flex-1 py-2.5 bg-gradient-to-b from-primary to-secondary text-white rounded-xl font-bold hover:brightness-110">บันทึก</button>
       </div>
     </div>
   </div>
@@ -856,7 +856,7 @@
       </div>
       <div class="flex gap-3">
         <button onclick="Controller.closeModal('modal-sweetness-form')" class="flex-1 py-2.5 border border-sand rounded-xl font-bold text-slate-500 hover:bg-accent">ยกเลิก</button>
-        <button onclick="Controller.saveSweetnessForm()" class="flex-1 py-2.5 bg-primary text-white rounded-xl font-bold hover:brightness-95">บันทึก</button>
+        <button onclick="Controller.saveSweetnessForm()" class="flex-1 py-2.5 bg-gradient-to-b from-primary to-secondary text-white rounded-xl font-bold hover:brightness-110">บันทึก</button>
       </div>
     </div>
   </div>
@@ -880,7 +880,7 @@
       </div>
       <div class="flex gap-3">
         <button onclick="Controller.closeModal('modal-payment-method-form')" class="flex-1 py-2.5 border border-sand rounded-xl font-bold text-slate-500 hover:bg-accent">ยกเลิก</button>
-        <button onclick="Controller.savePaymentMethodForm()" class="flex-1 py-2.5 bg-primary text-white rounded-xl font-bold hover:brightness-95">บันทึก</button>
+        <button onclick="Controller.savePaymentMethodForm()" class="flex-1 py-2.5 bg-gradient-to-b from-primary to-secondary text-white rounded-xl font-bold hover:brightness-110">บันทึก</button>
       </div>
     </div>
   </div>
@@ -1029,7 +1029,7 @@
       <!-- Footer -->
       <div class="p-4 bg-cream border-t border-sand flex gap-3">
         <button onclick="Controller.closeModal('modal-float-cash')" class="flex-1 py-3 border border-sand bg-white rounded-2xl text-slate-500 font-bold hover:bg-accent transition">ยกเลิก</button>
-        <button onclick="Controller.saveFloatCashFromModal(this)" class="flex-[1.5] py-3 bg-primary text-white rounded-2xl font-bold shadow-md shadow-primary/30 hover:brightness-95 transition"> บันทึกยอดเงิน </button>
+        <button onclick="Controller.saveFloatCashFromModal(this)" class="flex-[1.5] py-3 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl font-bold shadow-md shadow-primary/30 hover:brightness-110 transition"> บันทึกยอดเงิน </button>
       </div>
     </div>
   </div>
