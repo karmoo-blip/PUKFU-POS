@@ -1309,6 +1309,17 @@
         this.renderInventory();
       },
 
+      // แตะ chevron เพื่อกาง/พับช่องเบิกออก-เติมเข้าของวัตถุดิบแต่ละชิ้นบนมือถือ (ซ่อนไว้ก่อนให้รายการดูโปร่ง)
+      // บนจอคอม (lg+) ช่องพวกนี้กางอยู่ตลอดเป็นคอลัมน์ตาราง ฟังก์ชันนี้เลยไม่ต้องทำอะไร
+      toggleInventoryDetail(chevronBtn) {
+        const row = chevronBtn.closest('.p-4');
+        const detail = row ? row.nextElementSibling : null;
+        if (!detail) return;
+        detail.classList.toggle('hidden');
+        const chevron = chevronBtn.querySelector('.inv-chevron');
+        if (chevron) chevron.classList.toggle('rotate-180');
+      },
+
       renderInventory() {
         const list = document.getElementById('inventory-list');
         
@@ -1333,17 +1344,21 @@
         }
 
         list.innerHTML = entries.map(({ item, idx }) => `
-          <div class="p-4 flex flex-col hover:bg-slate-50 transition-colors border-b border-slate-100">
-           <div class="flex flex-col gap-3 lg:grid lg:items-center" style="grid-template-columns: 1fr 6rem 6rem 6rem 6rem 6rem;">
-              
-              <div class="flex-1 min-w-0 flex items-center justify-between lg:block">
-                ${item.photo ? `<img src="${escHtml(item.photo)}" class="w-8 h-8 rounded-lg object-cover inline-block align-middle mr-2">` : ''}
-                <p class="font-bold text-secondary text-lg truncate inline-block align-middle">${escHtml(item.name)}</p>
-                <button onclick='Controller.showInventoryItemForm(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="ml-2 text-xs font-bold text-primary hover:underline whitespace-nowrap">แก้ไข</button>
-                <button onclick="Controller.deleteInventoryItemConfirm('${item.id}')" class="ml-2 text-xs font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ลบ</button>
-                  <span id="inv-changed-${idx}" class="lg:hidden hidden text-amber-500 font-bold text-xs whitespace-nowrap ml-2">● แก้ไข</span>
+          <div class="border-b border-slate-100 lg:grid lg:items-center lg:gap-3 lg:grid-cols-[1fr_6rem_6rem_6rem_6rem_6rem]">
+            <div class="p-4 flex items-center justify-between gap-2 hover:bg-slate-50 transition-colors">
+              <div class="min-w-0 flex-1 flex items-center flex-wrap gap-x-2 gap-y-1" onclick="event.stopPropagation()">
+                ${item.photo ? `<img src="${escHtml(item.photo)}" class="w-8 h-8 rounded-lg object-cover">` : ''}
+                <p class="font-bold text-secondary text-lg truncate">${escHtml(item.name)}</p>
+                <span id="inv-stock-preview-${idx}" class="lg:hidden text-xs text-slate-400 font-bold">${
+                  item.purchase_unit && Number(item.purchase_factor) > 0
+                    ? this._formatStockForUnit(item.stock, Number(item.purchase_factor)) + ' ' + escHtml(item.purchase_unit) + ' คงเหลือ'
+                    : item.stock + (item.unit ? ' ' + escHtml(item.unit) : '') + ' คงเหลือ'
+                }</span>
+                <button onclick='Controller.showInventoryItemForm(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="px-2.5 min-h-[2rem] inline-flex items-center justify-center text-xs font-bold text-primary bg-primary/10 rounded-full active:scale-95 transition-all whitespace-nowrap">แก้ไข</button>
+                <button onclick="Controller.deleteInventoryItemConfirm('${item.id}')" class="px-2.5 min-h-[2rem] inline-flex items-center justify-center text-xs font-bold text-red-500 bg-red-50 rounded-full active:scale-95 transition-all whitespace-nowrap">ลบ</button>
+                <span id="inv-changed-${idx}" class="lg:hidden hidden text-amber-500 font-bold text-xs whitespace-nowrap">● แก้ไข</span>
                 ${item.purchase_unit && Number(item.purchase_factor) > 0 ? `
-                  <div class="block mt-1">
+                  <div class="basis-full mt-1">
                     <span class="text-xs text-slate-400">หน่วยที่ป้อนเบิก/เติม:</span>
                     <select id="inv-unit-toggle-${idx}" onchange="Controller.updateInvRowStockDisplay(${idx})" class="text-xs border border-slate-200 rounded-lg px-1.5 py-0.5 ml-1">
                       <option value="${Number(item.purchase_factor)}" selected>${escHtml(item.purchase_unit)} (1 = ${Number(item.purchase_factor)} ${escHtml(item.unit)})</option>
@@ -1352,8 +1367,13 @@
                   </div>
                 ` : ''}
               </div>
+              <button onclick="Controller.toggleInventoryDetail(this)" class="lg:hidden shrink-0 w-11 h-11 flex items-center justify-center text-slate-300" aria-label="แสดง/ซ่อนรายละเอียด">
+                <svg class="inv-chevron transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.1em;height:1.1em"><path d="M6 9l6 6 6-6"/></svg>
+              </button>
+            </div>
 
-              <div class="flex items-center justify-between lg:justify-center bg-slate-100 lg:bg-transparent p-2.5 lg:p-0 rounded-xl">
+            <div class="inventory-detail hidden lg:contents">
+              <div class="flex items-center justify-between lg:justify-center bg-slate-100 lg:bg-transparent p-2.5 lg:p-0 rounded-xl mx-4 mb-3 lg:mx-0 lg:mb-0">
                 <span class="text-xs font-bold text-slate-400 lg:hidden">คงเหลือ</span>
                 <span id="inv-stock-display-${idx}" class="font-black text-lg text-secondary">${
                   item.purchase_unit && Number(item.purchase_factor) > 0
@@ -1362,14 +1382,14 @@
                 }</span>
               </div>
 
-              <div class="flex items-center justify-between lg:justify-center bg-red-50 lg:bg-transparent p-3 lg:p-0 rounded-xl">
+              <div class="flex items-center justify-between lg:justify-center bg-red-50 lg:bg-transparent p-3 lg:p-0 rounded-xl mx-4 mb-3 lg:mx-0 lg:mb-0">
                 <span class="text-xs font-bold text-red-400 lg:hidden">เบิกออก (<span id="inv-withdraw-unit-${idx}">${escHtml(item.purchase_unit && Number(item.purchase_factor) > 0 ? item.purchase_unit : item.unit)}</span>)</span>
-                <input type="number" min="0" id="inv-withdraw-${idx}" value="0" oninput="Controller.markInventoryChanged(${idx})" class="w-20 lg:w-16 text-center font-black text-lg border border-slate-200 rounded-lg py-1.5 focus:outline-none focus:border-red-400 bg-white shadow-inner">
+                <input type="number" min="0" id="inv-withdraw-${idx}" value="0" oninput="Controller.markInventoryChanged(${idx})" class="w-20 lg:w-16 min-h-[2.75rem] text-center font-black text-lg border border-slate-200 rounded-lg focus:outline-none focus:border-red-400 bg-white shadow-inner">
               </div>
 
-              <div class="flex items-center justify-between lg:justify-center bg-emerald-50 lg:bg-transparent p-3 lg:p-0 rounded-xl">
+              <div class="flex items-center justify-between lg:justify-center bg-emerald-50 lg:bg-transparent p-3 lg:p-0 rounded-xl mx-4 mb-3 lg:mx-0 lg:mb-0">
                 <span class="text-xs font-bold text-emerald-500 lg:hidden">เติมเข้า (<span id="inv-restock-unit-${idx}">${escHtml(item.purchase_unit && Number(item.purchase_factor) > 0 ? item.purchase_unit : item.unit)}</span>)</span>
-                <input type="number" min="0" id="inv-restock-${idx}" value="0" oninput="Controller.markInventoryChanged(${idx})" class="w-20 lg:w-16 text-center font-black text-lg border border-slate-200 rounded-lg py-1.5 focus:outline-none focus:border-emerald-400 bg-white shadow-inner">
+                <input type="number" min="0" id="inv-restock-${idx}" value="0" oninput="Controller.markInventoryChanged(${idx})" class="w-20 lg:w-16 min-h-[2.75rem] text-center font-black text-lg border border-slate-200 rounded-lg focus:outline-none focus:border-emerald-400 bg-white shadow-inner">
               </div>
 
               <div id="inv-unit-col-${idx}" class="hidden lg:flex text-slate-500 font-bold text-sm items-center justify-center">${escHtml(item.purchase_unit && Number(item.purchase_factor) > 0 ? item.purchase_unit : item.unit)}</div>
@@ -4711,6 +4731,17 @@ renderReport(r) {
           .getPOSDataByDate(dateStr);
       },
 
+      // แตะหัวบิลเพื่อกาง/พับรายละเอียด (รายการสินค้า + ปุ่มจัดการ) บนมือถือ เพื่อให้รายการดูโปร่งไม่แน่นเหมือนย่อมาจากจอคอม
+      // บนจอคอม (lg+) รายละเอียดกางอยู่ตลอดเหมือนเดิม ฟังก์ชันนี้เลยไม่ต้องทำอะไร
+      toggleHistoryDetail(headerEl) {
+        if (window.innerWidth >= 1024) return;
+        const detail = headerEl.nextElementSibling;
+        if (!detail) return;
+        detail.classList.toggle('hidden');
+        const chevron = headerEl.querySelector('.history-chevron');
+        if (chevron) chevron.classList.toggle('rotate-180');
+      },
+
       renderHistoryReadOnly(rows) {
         const list = document.getElementById('history-list');
         if (!list) return;
@@ -4723,13 +4754,14 @@ renderReport(r) {
         for (const h of sorted) {
           const off = h.status === 'cancelled' || h.status === 'waste';
           html += '<div class="py-4' + (off ? ' opacity-60' : '') + '">';
-          html += '<div class="flex justify-between items-center"><div>';
-          html += '<p class="font-bold text-secondary' + (off ? ' line-through' : '') + '">' + h.invoice + '</p>';
+          html += '<div class="flex justify-between items-center gap-2 cursor-pointer lg:cursor-default" onclick="Controller.toggleHistoryDetail(this)">';
+          html += '<div class="min-w-0"><p class="font-bold text-secondary' + (off ? ' line-through' : '') + '">' + h.invoice + '</p>';
           html += '<p class="text-xs text-slate-400 mt-0.5">' + new Date(h.timestamp).toLocaleString() + '</p>';
-          html += '</div><div class="text-right">';
+          html += '</div><div class="flex items-center gap-2 shrink-0"><div class="text-right">';
           html += '<p class="font-black text-lg ' + (off ? 'text-slate-400 line-through' : 'text-primary') + '">฿' + h.total + '</p>';
           html += '<span class="inline-block px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[10px] font-bold mt-1">' + (h.paymentType || 'ไม่ระบุ') + '</span>';
-          html += '</div></div>';
+          html += '</div><svg class="history-chevron lg:hidden text-slate-300 transition-transform shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.1em;height:1.1em"><path d="M6 9l6 6 6-6"/></svg></div></div>';
+          html += '<div class="history-detail hidden lg:block mt-2">';
           if (h.items && h.items.length > 0) {
             html += '<div class="mt-2 pl-2 border-l-2 border-slate-200 space-y-1">';
             for (const it of h.items) {
@@ -4738,7 +4770,7 @@ renderReport(r) {
               html += '<span>' + it.qty + 'x ' + it.name + (it.note ? ' <span class="text-xs text-slate-400">(' + it.note + ')</span>' : '') + '</span>';
               html += '<span class="flex items-center gap-2 shrink-0">฿' + (it.price * it.qty);
               if (canCancelItem) {
-                html += '<button data-invoice="' + escAttr(h.invoice) + '" data-sku="' + escAttr(it.sku) + '" data-note="' + escAttr(it.note || '') + '" onclick="Controller.cancelOrderItemFromButton(this)" class="text-[10px] font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ยกเลิก</button>';
+                html += '<button data-invoice="' + escAttr(h.invoice) + '" data-sku="' + escAttr(it.sku) + '" data-note="' + escAttr(it.note || '') + '" onclick="Controller.cancelOrderItemFromButton(this)" class="px-2 min-h-[2rem] inline-flex items-center justify-center text-[10px] font-bold text-red-500 bg-red-50 rounded-full active:scale-95 transition-all whitespace-nowrap">ยกเลิก</button>';
               }
               if (it.cancelled) {
                 html += '<span class="text-[10px] font-bold text-orange-400 whitespace-nowrap">ยกเลิกแล้ว</span>';
@@ -4748,13 +4780,13 @@ renderReport(r) {
             html += '</div>';
           }
           if (!off) {
-              html += '<div class="mt-2 flex flex-wrap justify-end gap-x-3 gap-y-1">';
-              html += '<button onclick="Controller.openEditBill(\'' + h.invoice + '\')" class="text-xs font-bold text-primary hover:underline whitespace-nowrap">แก้ไขบิล</button>';
+              html += '<div class="mt-2 flex flex-wrap justify-end gap-2">';
+              html += '<button onclick="Controller.openEditBill(\'' + h.invoice + '\')" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-primary bg-primary/10 rounded-full active:scale-95 transition-all whitespace-nowrap">แก้ไขบิล</button>';
               if ((Number(h.total || 0) - Number(h.refundedTotal || 0)) > 0) {
-                html += '<button data-invoice="' + escAttr(h.invoice) + '" onclick="Controller.refundOrder(this.dataset.invoice)" class="text-xs font-bold text-sky-500 hover:text-sky-700 hover:underline whitespace-nowrap">คืนเงิน</button>';
+                html += '<button data-invoice="' + escAttr(h.invoice) + '" onclick="Controller.refundOrder(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-sky-600 bg-sky-50 rounded-full active:scale-95 transition-all whitespace-nowrap">คืนเงิน</button>';
               }
-              html += '<button data-invoice="' + escAttr(h.invoice) + '" onclick="Controller.markAsWaste(this.dataset.invoice)" class="text-xs font-bold text-orange-400 hover:text-orange-600 hover:underline whitespace-nowrap">บันทึกของเสีย</button>';
-              html += '<button data-invoice="' + escAttr(h.invoice) + '" onclick="Controller.cancelOrder(this.dataset.invoice)" class="text-xs font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ยกเลิกบิล</button>';
+              html += '<button data-invoice="' + escAttr(h.invoice) + '" onclick="Controller.markAsWaste(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-orange-500 bg-orange-50 rounded-full active:scale-95 transition-all whitespace-nowrap">บันทึกของเสีย</button>';
+              html += '<button data-invoice="' + escAttr(h.invoice) + '" onclick="Controller.cancelOrder(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-red-500 bg-red-50 rounded-full active:scale-95 transition-all whitespace-nowrap">ยกเลิกบิล</button>';
               html += '</div>';
             }
             if (h.refundedTotal > 0) {
@@ -4763,7 +4795,8 @@ renderReport(r) {
             if (h.cancelReason) {
             html += '<div class="mt-2 bg-red-50 text-red-500 text-xs font-bold px-3 py-2 rounded-lg">ยกเลิกแล้ว: ' + h.cancelReason + '</div>';
           }
-          html += '</div>';
+          html += '</div>'; // .history-detail
+          html += '</div>'; // .py-4
         }
         list.innerHTML = html;
       },
@@ -4790,16 +4823,20 @@ renderReport(r) {
           
           return `
           <div class="py-4 ${isCancelled || isWaste ? 'opacity-60' : ''}">
-            <div class="flex justify-between items-center">
-              <div>
+            <div class="flex justify-between items-center gap-2 cursor-pointer lg:cursor-default" onclick="Controller.toggleHistoryDetail(this)">
+              <div class="min-w-0">
                 <p class="font-bold text-secondary ${isCancelled || isWaste ? 'line-through' : ''}">${h.invoice}</p>
                 <p class="text-xs text-slate-400 mt-0.5">${new Date(h.timestamp).toLocaleString()}</p>
               </div>
-              <div class="text-right">
-                <p class="font-black text-lg ${isCancelled || isWaste ? 'text-slate-400 line-through' : 'text-primary'}">฿${h.total}</p>
-                <span class="inline-block px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[10px] font-bold mt-1">${h.paymentType}</span>
+              <div class="flex items-center gap-2 shrink-0">
+                <div class="text-right">
+                  <p class="font-black text-lg ${isCancelled || isWaste ? 'text-slate-400 line-through' : 'text-primary'}">฿${h.total}</p>
+                  <span class="inline-block px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[10px] font-bold mt-1">${h.paymentType}</span>
+                </div>
+                <svg class="history-chevron lg:hidden text-slate-300 transition-transform shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.1em;height:1.1em"><path d="M6 9l6 6 6-6"/></svg>
               </div>
             </div>
+            <div class="history-detail hidden lg:block mt-2">
             ${h.items && h.items.length > 0 ? `
               <div class="mt-2 pl-2 border-l-2 border-slate-200 space-y-1">
                 ${h.items.map(item => {
@@ -4810,7 +4847,7 @@ renderReport(r) {
                     <span>${item.qty}x ${escHtml(item.name)} ${item.note ? `<span class="text-xs text-slate-400">(${escHtml(item.note)})</span>` : ''}</span>
                     <span class="flex items-center gap-2 shrink-0">
                       ฿${item.price * item.qty}
-                      ${canCancelItem ? `<button data-invoice="${escAttr(h.invoice)}" data-sku="${escAttr(item.sku)}" data-note="${escAttr(item.note || '')}" onclick="Controller.cancelOrderItemFromButton(this)" class="text-[10px] font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ยกเลิก</button>` : ''}
+                      ${canCancelItem ? `<button data-invoice="${escAttr(h.invoice)}" data-sku="${escAttr(item.sku)}" data-note="${escAttr(item.note || '')}" onclick="Controller.cancelOrderItemFromButton(this)" class="px-2 min-h-[2rem] inline-flex items-center justify-center text-[10px] font-bold text-red-500 bg-red-50 rounded-full active:scale-95 transition-all whitespace-nowrap">ยกเลิก</button>` : ''}
                       ${itemCancelled ? `<span class="text-[10px] font-bold text-orange-400 whitespace-nowrap">ยกเลิกแล้ว</span>` : ''}
                     </span>
                   </div>
@@ -4822,14 +4859,15 @@ renderReport(r) {
               ? `<div class="mt-2 bg-red-50 text-red-500 text-xs font-bold px-3 py-2 rounded-lg"> ยกเลิกแล้ว: ${escHtml(h.cancelReason)}</div>`
               : isWaste
               ? `<div class="mt-2 bg-orange-50 text-orange-500 text-xs font-bold px-3 py-2 rounded-lg"> ของเสีย: ${escHtml(h.cancelReason)}</div>`
-              : `<div class="mt-2 flex flex-wrap justify-end gap-x-3 gap-y-1">
-                   <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.openEditBill(this.dataset.invoice)" class="text-xs font-bold text-primary hover:text-primary hover:underline whitespace-nowrap">แก้ไขบิล</button>
-                            <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.printReceiptByInvoice(this.dataset.invoice)" class="text-xs font-bold text-slate-400 hover:text-slate-600 hover:underline whitespace-nowrap"> พิมพ์</button>
-                   ${(Number(h.total || 0) - Number(h.refundedTotal || 0)) > 0 ? `<button data-invoice="${escAttr(h.invoice)}" onclick="Controller.refundOrder(this.dataset.invoice)" class="text-xs font-bold text-sky-500 hover:text-sky-700 hover:underline whitespace-nowrap">คืนเงิน</button>` : ''}
-                   <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.markAsWaste(this.dataset.invoice)" class="text-xs font-bold text-orange-400 hover:text-orange-600 hover:underline whitespace-nowrap">บันทึกของเสีย</button>
-                   <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.cancelOrder(this.dataset.invoice)" class="text-xs font-bold text-red-400 hover:text-red-600 hover:underline whitespace-nowrap">ยกเลิกบิล</button>
+              : `<div class="mt-2 flex flex-wrap justify-end gap-2">
+                   <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.openEditBill(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-primary bg-primary/10 rounded-full active:scale-95 transition-all whitespace-nowrap">แก้ไขบิล</button>
+                   <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.printReceiptByInvoice(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-slate-500 bg-slate-100 rounded-full active:scale-95 transition-all whitespace-nowrap">พิมพ์</button>
+                   ${(Number(h.total || 0) - Number(h.refundedTotal || 0)) > 0 ? `<button data-invoice="${escAttr(h.invoice)}" onclick="Controller.refundOrder(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-sky-600 bg-sky-50 rounded-full active:scale-95 transition-all whitespace-nowrap">คืนเงิน</button>` : ''}
+                   <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.markAsWaste(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-orange-500 bg-orange-50 rounded-full active:scale-95 transition-all whitespace-nowrap">บันทึกของเสีย</button>
+                   <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.cancelOrder(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-red-500 bg-red-50 rounded-full active:scale-95 transition-all whitespace-nowrap">ยกเลิกบิล</button>
                  </div>`
             }
+            </div>
           </div>
         `}).join('');
       },

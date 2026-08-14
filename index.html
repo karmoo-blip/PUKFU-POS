@@ -233,8 +233,8 @@
         </div>
         <div class="flex flex-wrap items-center gap-2 mb-3">
           <label class="text-xs font-bold text-slate-400">ดูย้อนหลัง</label>
-          <input type="date" id="history-date" onchange="Controller.loadHistoryDate(this.value)" class="px-3 py-2 rounded-xl border border-[#efe3c4] text-sm font-bold text-secondary">
-          <button onclick="Controller.loadHistoryDate('')" class="px-3 py-2 rounded-xl bg-accent text-secondary text-sm font-bold">วันนี้</button>
+          <input type="date" id="history-date" onchange="Controller.loadHistoryDate(this.value)" class="px-3 min-h-[2.75rem] rounded-xl border border-[#efe3c4] text-sm font-bold text-secondary">
+          <button onclick="Controller.loadHistoryDate('')" class="px-3 min-h-[2.75rem] rounded-xl bg-accent text-secondary text-sm font-bold active:scale-95 transition-all">วันนี้</button>
           <span id="history-date-note" class="text-xs text-slate-400"></span>
         </div>
         <div id="history-list" class="flex-1 overflow-y-auto bg-white rounded-3xl border border-[#efe3c4] shadow-sm p-4 divide-y divide-[#efe3c4] max-h-[65vh]"></div>
@@ -314,13 +314,13 @@
       <div id="settings-panel-inventory" class="settings-panel hidden flex flex-col">
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
           <p class="text-sm text-slate-400">เช็คสต๊อกวัตถุดิบและรับของเข้า</p>
-          <div class="flex gap-2 w-full sm:w-auto">
-            <button onclick="Controller.showInventoryItemForm(null)" class="flex-1 sm:flex-none justify-center items-center flex bg-emerald-500 text-white hover:brightness-95 px-4 py-2 rounded-2xl font-bold transition">+ เพิ่มวัตถุดิบ</button>
-              <button onclick="Controller.fetchInventory(this)" class="flex-1 sm:flex-none justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
-            <button onclick="Controller.saveAllInventory()" class="flex-1 sm:flex-none justify-center items-center flex bg-primary text-white hover:brightness-95 px-4 py-2 rounded-2xl font-bold transition shadow-md shadow-primary/30">Save All</button>
+          <div class="flex flex-wrap gap-2 w-full sm:w-auto">
+            <button onclick="Controller.showInventoryItemForm(null)" class="justify-center items-center flex bg-emerald-500 text-white hover:brightness-95 px-3 py-2 text-sm rounded-xl font-bold transition active:scale-95">+ เพิ่มวัตถุดิบ</button>
+              <button onclick="Controller.fetchInventory(this)" class="justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-3 py-2 text-sm rounded-xl font-bold transition active:scale-95">Refresh</button>
+            <button onclick="Controller.saveAllInventory()" class="justify-center items-center flex bg-primary text-white hover:brightness-95 px-3 py-2 text-sm rounded-xl font-bold transition shadow-md shadow-primary/30 active:scale-95">Save All</button>
           </div>
         </div>
-        <input id="inventory-search" type="text" placeholder="ค้นหาวัตถุดิบ..." oninput="Controller.filterInventoryList(this.value)" class="w-full border border-[#efe3c4] rounded-xl p-2.5 mb-3 focus:outline-none focus:border-primary bg-[#fffdf5]">
+        <input id="inventory-search" type="text" placeholder="ค้นหาวัตถุดิบ..." oninput="Controller.filterInventoryList(this.value)" class="w-full min-h-[2.75rem] border border-[#efe3c4] rounded-xl p-2.5 mb-3 focus:outline-none focus:border-primary bg-[#fffdf5]">
         <div class="hidden lg:grid bg-white rounded-t-3xl border border-[#efe3c4] shadow-sm p-4 font-bold text-slate-500 text-sm gap-3" style="grid-template-columns: 1fr 6rem 6rem 6rem 6rem 6rem;">
           <div>วัตถุดิบ</div>
           <div class="text-center">คงเหลือ</div>
