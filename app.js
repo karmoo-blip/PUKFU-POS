@@ -5796,7 +5796,7 @@ renderReport(r) {
 
                     // เช็คออเดอร์ออนไลน์ใหม่เป็นระยะ (ต้องยิงไปเซิร์ฟเวอร์จริงเพราะลูกค้าสั่งจากเครื่องอื่น)
                     this.checkPendingOrders();
-                    setInterval(() => this.checkPendingOrders(), 20000);
+                    setInterval(() => this.checkPendingOrders(), 8000);
 
                     // มือถือมักหยุด/หน่วง setInterval ตอนแอปถูกสลับไปพัก (background tab/PWA)
                     // พอสลับกลับมาเปิดอีกครั้ง (visibilitychange) ให้ดึงข้อมูลใหม่ + ลอง sync คิวที่ค้างทันที
