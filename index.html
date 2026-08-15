@@ -114,6 +114,10 @@
           <span id="user-menu-chevron" class="text-[9px] transition-transform duration-200">▾</span>
         </button>
       </div>
+      <button onclick="Controller.openPendingOrdersModal()" class="relative flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 hover:bg-slate-100 transition">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1.1em;height:1.1em" class="text-slate-400"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 14v3M14 19h3M19 19h2"/></svg>
+        <span id="pending-order-badge" class="hidden bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">0</span>
+      </button>
       <div onclick="Controller.showSyncQueueInfo()" class="flex items-center gap-3 bg-slate-50 px-3 py-1.5 rounded-full border border-slate-100 cursor-pointer hover:bg-slate-100 transition">
         <span class="text-xs font-bold text-slate-400">STATUS</span>
         <span id="sync-queue-badge" class="hidden bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">0</span>
@@ -237,6 +241,7 @@
         <button id="settings-tab-notifications" onclick="Controller.switchSettingsTab('notifications')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg> แจ้งเตือน<span class="notification-badge hidden ml-1 bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full align-middle">0</span></button>
         <button id="settings-tab-payment" onclick="Controller.switchSettingsTab('payment')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> Payment</button>
         <button id="settings-tab-backup" onclick="Controller.switchSettingsTab('backup')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 13h8v6H8z"/></svg> Backup</button>
+        <button id="settings-tab-onlineorder" onclick="Controller.switchSettingsTab('onlineorder')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 14v3M14 19h3M19 19h2"/></svg> สั่งอาหารออนไลน์</button>
       </div>
 
       <div id="settings-panel-history" class="settings-panel hidden flex flex-col">
@@ -718,6 +723,37 @@
         </div>
         <div id="archive-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[50vh] overflow-y-auto"></div>
       </div>
+
+      <div id="settings-panel-onlineorder" class="settings-panel hidden">
+        <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 mb-4">
+          <h3 class="font-bold text-lg text-secondary mb-2">QR ชำระเงิน</h3>
+          <p class="text-sm text-slate-400 mb-4">อัพโหลดรูป QR พร้อมเพย์/บัญชีร้านครั้งเดียว ระบบจะแสดงรูปนี้ให้ลูกค้าทุกคนที่สั่งอาหารออนไลน์เห็นตอนชำระเงิน</p>
+          <img id="payment-qr-preview" src="" class="hidden w-40 h-40 object-contain border border-sand rounded-2xl bg-white mb-3 p-2">
+          <input type="file" accept="image/*" onchange="Controller.handlePaymentQrUpload(event)" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-bold mb-1">
+          <button onclick="Controller.removePaymentQr()" class="text-xs font-bold text-red-400 hover:underline">ลบรูป QR</button>
+        </div>
+
+        <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 mb-4">
+          <h3 class="font-bold text-lg text-secondary mb-2">สร้าง QR โต๊ะ/จุดรับสินค้า</h3>
+          <p class="text-sm text-slate-400 mb-4">ระบุชื่อโต๊ะหรือจุดรับสินค้า แล้วกดสร้าง QR ให้ลูกค้าสแกนเพื่อสั่งอาหารออนไลน์ — พิมพ์หรือแคปหน้าจอไปแปะที่โต๊ะได้เลย ทำทีละโต๊ะ</p>
+          <div class="flex gap-2 mb-4">
+            <input type="text" id="qr-location-input" placeholder="เช่น โต๊ะ 5" class="flex-1 border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream">
+            <button onclick="Controller.generateTableQr()" class="bg-gradient-to-b from-primary to-secondary text-white px-5 rounded-2xl font-bold shadow-md shadow-primary/30 active:scale-95 transition-all">สร้าง QR</button>
+          </div>
+          <div id="table-qr-result" class="hidden text-center bg-cream rounded-2xl p-5 border border-sand">
+            <img id="table-qr-image" src="" class="mx-auto rounded-xl border border-sand bg-white p-2 mb-2" style="width:220px;height:220px">
+            <p id="table-qr-url" class="text-xs text-slate-400 break-all"></p>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-3xl border border-sand shadow-sm p-4">
+          <div class="flex justify-between items-center mb-3">
+            <p class="text-sm font-bold text-slate-500">ประวัติออเดอร์ออนไลน์ (50 รายการล่าสุด)</p>
+            <button onclick="Controller.loadOnlineOrderHistory()" class="text-xs font-bold text-primary hover:underline">รีเฟรช</button>
+          </div>
+          <div id="online-order-history-list" class="divide-y divide-sand max-h-[50vh] overflow-y-auto"></div>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -895,6 +931,16 @@
     </div>
   </div>
 
+  <div id="modal-pending-orders" class="hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[65] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]">
+      <div class="p-5 border-b border-slate-100 font-bold text-xl text-secondary flex justify-between items-center">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 14v3M14 19h3M19 19h2"/></svg> ออเดอร์ออนไลน์รอยืนยัน</span>
+        <button onclick="Controller.closeModal('modal-pending-orders')" class="text-slate-400 hover:text-red-500 text-2xl leading-none">&times;</button>
+      </div>
+      <div id="pending-orders-list" class="p-3 flex-1 overflow-y-auto divide-y divide-slate-100"></div>
+    </div>
+  </div>
+
   <div id="loading-overlay" class="hidden fixed inset-0 bg-white/60 backdrop-blur-sm z-[60] flex flex-col items-center justify-center gap-3">
     <div class="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full spin-icon"></div>
     <p class="text-secondary font-bold text-sm">กำลังโหลดข้อมูล...</p>
@@ -1046,6 +1092,7 @@
        - URL + กุญแจเก็บใน localStorage ของเครื่อง ไม่ฝังในไฟล์ ไม่ขึ้น git
        - ตั้งค่าใหม่ได้ด้วยการพิมพ์ posApiSetup() ใน console
        ============================================================ -->
+  <script src="qrcode-lib.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

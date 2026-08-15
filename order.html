@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>สั่งอาหารออนไลน์</title>
+  <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: 'var(--color-primary)',
+            secondary: 'var(--color-secondary)',
+            accent: 'var(--color-accent)',
+            mustard: 'var(--color-mustard)',
+            sand: 'var(--color-sand)',
+            cream: 'var(--color-cream)',
+            ink: 'var(--color-ink)',
+          },
+          fontFamily: { sarabun: ['Sarabun', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="font-sarabun bg-cream min-h-[100dvh] flex flex-col text-ink">
+
+  <!-- หัวเพจ: ชื่อร้าน + โต๊ะ/จุดรับของ -->
+  <nav class="bg-white border-b border-sand px-4 py-3 shrink-0" style="padding-top: max(0.75rem, env(safe-area-inset-top))">
+    <div class="max-w-lg mx-auto flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <h1 id="shop-name" class="font-bold text-lg text-secondary truncate">สั่งอาหารออนไลน์</h1>
+        <p id="order-location-badge" class="hidden text-xs font-bold text-primary bg-primary/10 inline-block px-2 py-0.5 rounded-full mt-0.5"></p>
+      </div>
+    </div>
+  </nav>
+
+  <main class="flex-1 overflow-y-auto max-w-lg w-full mx-auto p-4 pb-28">
+
+    <!-- ชื่อผู้สั่ง -->
+    <div class="bg-white rounded-2xl border border-sand shadow-sm p-4 mb-4">
+      <label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อผู้สั่ง <span class="text-red-500">*</span></label>
+      <input id="customer-name-input" type="text" placeholder="เช่น คุณเอ" class="w-full min-h-[2.75rem] border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream">
+    </div>
+
+    <!-- หมวดหมู่สินค้า -->
+    <div id="order-categories" class="flex gap-2 mb-4 overflow-x-auto pb-2 hide-scroll scroll-fade at-start hidden" style="--fade-color:#fffdf5"></div>
+
+    <!-- เมนู -->
+    <div id="order-menu-grid" class="grid grid-cols-2 gap-4"></div>
+    <p id="order-menu-empty" class="hidden text-center text-slate-400 font-bold py-10">ยังไม่มีเมนูให้สั่งตอนนี้</p>
+
+  </main>
+
+  <!-- แถบตะกร้าล่าง -->
+  <div id="order-cart-bar" class="hidden shrink-0 bg-white border-t border-sand shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] p-4" style="padding-bottom: max(1rem, env(safe-area-inset-bottom))">
+    <div class="max-w-lg mx-auto flex items-center justify-between gap-3">
+      <div>
+        <p class="text-xs text-slate-400 font-bold" id="order-cart-count">0 รายการ</p>
+        <p class="text-primary text-xl font-black" id="order-cart-total">฿0.00</p>
+      </div>
+      <button onclick="OrderPage.openCartReview()" class="bg-gradient-to-b from-primary to-secondary text-white px-6 min-h-[2.75rem] rounded-2xl font-bold shadow-md shadow-primary/30 active:scale-95 transition-all">ดูตะกร้า</button>
+    </div>
+  </div>
+
+  <!-- Modal: ปรับแต่งสินค้า (ความหวาน/ส่วนเสริม/หมายเหตุ) -->
+  <div id="modal-product" class="hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-50 flex items-end justify-center">
+    <div class="bg-white rounded-t-3xl shadow-xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+      <div class="flex justify-center pt-2.5 pb-1 shrink-0" aria-hidden="true"><div class="w-10 h-1.5 rounded-full bg-slate-300"></div></div>
+      <div class="p-5 border-b border-slate-100 font-bold text-xl text-secondary" id="modal-product-name">Product Name</div>
+      <div class="p-5 flex-1 overflow-y-auto">
+        <div class="mb-5">
+          <p class="font-bold text-sm text-secondary mb-3">ความหวาน <span class="text-red-500">*</span></p>
+          <div id="modal-sweetness-container" class="flex flex-wrap gap-2"></div>
+        </div>
+        <hr class="border-slate-100 mb-5">
+        <div class="mb-5">
+          <p class="font-bold text-sm text-secondary mb-3">ส่วนเสริม <span class="text-slate-400 font-normal">(เลือกกี่อย่างก็ได้)</span></p>
+          <div id="modal-addons-container" class="flex flex-wrap gap-2"></div>
+        </div>
+        <hr class="border-slate-100 mb-5">
+        <div>
+          <p class="font-bold text-sm text-secondary mb-3">หมายเหตุ <span class="text-slate-400 font-normal">(ถ้ามี)</span></p>
+          <textarea id="modal-note" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:border-primary bg-slate-50" rows="2" placeholder="เช่น แยกน้ำแข็ง, เพิ่มมุก..."></textarea>
+        </div>
+      </div>
+      <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0" style="padding-bottom: max(1rem, env(safe-area-inset-bottom))">
+        <button onclick="OrderPage.closeModal('modal-product')" class="px-5 min-h-[2.75rem] border border-sand bg-white text-slate-500 rounded-2xl font-bold active:scale-95 transition-all">ยกเลิก</button>
+        <button onclick="OrderPage.addToCartFromModal()" class="px-5 min-h-[2.75rem] bg-gradient-to-b from-primary to-secondary text-white rounded-2xl font-bold shadow-md shadow-primary/30 active:scale-95 transition-all">เพิ่มลงตะกร้า</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: ตะกร้า/ยืนยันออเดอร์ -->
+  <div id="modal-cart" class="hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-50 flex items-end justify-center">
+    <div class="bg-white rounded-t-3xl shadow-xl w-full max-h-[85vh] overflow-hidden flex flex-col">
+      <div class="flex justify-center pt-2.5 pb-1 shrink-0" aria-hidden="true"><div class="w-10 h-1.5 rounded-full bg-slate-300"></div></div>
+      <div class="p-5 border-b border-slate-100 font-bold text-xl text-secondary flex justify-between items-center">
+        <span>ตะกร้าของคุณ</span>
+        <button onclick="OrderPage.closeModal('modal-cart')" class="text-slate-400 text-2xl leading-none">&times;</button>
+      </div>
+      <div id="order-cart-items" class="p-5 flex-1 overflow-y-auto flex flex-col gap-3"></div>
+      <div class="p-4 bg-slate-50 border-t border-slate-100 shrink-0" style="padding-bottom: max(1rem, env(safe-area-inset-bottom))">
+        <div class="flex justify-between font-bold text-lg mb-3 px-1">
+          <span class="text-slate-500">รวม</span>
+          <span id="order-cart-modal-total" class="text-primary text-xl">฿0.00</span>
+        </div>
+        <button id="btn-place-order" onclick="OrderPage.submitOrder()" class="w-full bg-gradient-to-b from-primary to-secondary text-white py-3.5 rounded-2xl font-bold text-lg shadow-md shadow-primary/30 active:scale-95 transition-all">สั่งอาหาร</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- หน้าหลังส่งออเดอร์: สรุป + QR ชำระเงิน + สถานะ -->
+  <div id="view-submitted" class="hidden fixed inset-0 z-40 bg-cream overflow-y-auto">
+    <div class="max-w-lg mx-auto p-4" style="padding-top: max(1rem, env(safe-area-inset-top)); padding-bottom: max(2rem, env(safe-area-inset-bottom))">
+      <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 text-center mb-4">
+        <div id="submitted-status-icon" class="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-amber-100 text-amber-500">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:2rem;height:2rem"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        </div>
+        <p id="submitted-status-text" class="font-bold text-lg text-secondary">ส่งออเดอร์แล้ว รอร้านยืนยัน</p>
+        <p id="submitted-status-sub" class="text-sm text-slate-400 mt-1"></p>
+      </div>
+
+      <div id="submitted-order-summary" class="bg-white rounded-3xl border border-sand shadow-sm p-5 mb-4"></div>
+
+      <div id="submitted-payment-box" class="hidden bg-white rounded-3xl border border-sand shadow-sm p-5 mb-4 text-center">
+        <p class="font-bold text-secondary mb-3">สแกนเพื่อชำระเงิน</p>
+        <img id="submitted-payment-qr" class="mx-auto rounded-xl border border-sand max-w-[240px]" alt="QR ชำระเงิน">
+        <p class="text-xs text-slate-400 mt-3">โอนเงินแล้วอัพโหลดสลิปด้านล่างเพื่อแจ้งร้าน</p>
+      </div>
+
+      <div id="submitted-actions" class="flex flex-col gap-3">
+        <div>
+          <input type="file" id="slip-upload-input" accept="image/*" capture="environment" class="hidden" onchange="OrderPage.handleSlipUpload(event)">
+          <button id="btn-upload-slip" onclick="document.getElementById('slip-upload-input').click()" class="w-full bg-gradient-to-b from-emerald-500 to-emerald-600 text-white py-3 rounded-2xl font-bold shadow-md active:scale-95 transition-all">อัพโหลดสลิปโอนเงิน</button>
+        </div>
+        <button id="btn-cancel-order" onclick="OrderPage.cancelOrder()" class="w-full border border-red-200 bg-red-50 text-red-500 py-3 rounded-2xl font-bold active:scale-95 transition-all">ยกเลิกออเดอร์</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Generic alert/confirm -->
+  <div id="modal-alert" class="hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[95] flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+      <div class="p-6">
+        <div id="alert-icon" class="w-14 h-14 mx-auto mb-3 rounded-full flex items-center justify-center"></div>
+        <p id="alert-message" class="text-secondary font-bold text-center whitespace-pre-line"></p>
+      </div>
+      <div id="alert-buttons" class="p-4 bg-cream border-t border-sand flex gap-3"></div>
+    </div>
+  </div>
+
+  <div id="loading-overlay" class="hidden fixed inset-0 bg-white/70 z-[100] flex items-center justify-center">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon text-primary" style="width:2.5rem;height:2.5rem"><path d="M21 12a9 9 0 1 1-9-9"/></svg>
+  </div>
+
+  <script src="order.js"></script>
+</body>
+</html>
