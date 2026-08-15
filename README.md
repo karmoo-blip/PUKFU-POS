@@ -14,9 +14,6 @@ worker/worker.js คือโค้ด Cloudflare Worker ที่ deploy จร
 
 หมายเหตุ: เดิมระบบเคยใช้ Google Apps Script และ Google Sheets เป็น backend แต่ได้ย้ายมาใช้ Cloudflare Workers และ D1 แล้วทั้งหมด ไม่ได้ใช้งาน Apps Script ต่อ
 
-การติดตั้ง
-
-ที่ Cloudflare ให้สร้าง Worker ชื่อ pukfu-pos-api ผูก D1 database โดยตั้งชื่อ binding ว่า DB และตั้งค่า secret ชื่อ API_TOKEN จากนั้น deploy Worker แล้วเก็บ URL ที่ได้ไว้ (รูปแบบ https://ชื่อ-worker.subdomain.workers.dev/)
 
 เปิดหน้า GitHub Pages ครั้งแรก ระบบจะถาม URL และ token ให้กรอก ค่าทั้งสองจะเก็บไว้ใน localStorage ของเครื่องนั้นเท่านั้น ไม่อยู่ใน repo
 
