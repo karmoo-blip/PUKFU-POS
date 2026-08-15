@@ -155,6 +155,24 @@ function normPermission(v) {
   return s;
 }
 
+// ตรวจสิทธิ์จริงที่ฝั่งเซิร์ฟเวอร์ก่อนทำรายการที่มีความเสี่ยงสูง (คืนเงิน/ยกเลิกบิล/ลบพนักงาน/ลบข้อมูล)
+// เดิม API_TOKEN ตัวเดียวเรียกฟังก์ชันไหนก็ได้ และฟิลด์ "user" เป็นแค่ข้อความที่ client ส่งมาเอง ไม่มีการตรวจสอบเลย
+// ฟังก์ชันนี้เช็ค employeeId + pin กับตาราง employees จริง แล้วดูสิทธิ์ (role หรือ permission) ก่อนอนุญาต
+async function authorizeEmployee(env, employeeId, pin, opts) {
+  opts = opts || {};
+  if (!employeeId || !pin) return { ok: false, error: "กรุณายืนยันตัวตนก่อนทำรายการนี้" };
+  const emp = await env.DB.prepare("SELECT * FROM employees WHERE id = ?").bind(employeeId).first();
+  if (!emp || !emp.active) return { ok: false, error: "ไม่พบพนักงานหรือถูกปิดใช้งาน" };
+  if (String(emp.pin).trim() !== String(pin).trim()) return { ok: false, error: "PIN ไม่ถูกต้อง" };
+  const isTop = emp.role === "Owner" || emp.role === "Admin";
+  if (opts.ownerOnly && !isTop) return { ok: false, error: "ต้องเป็นเจ้าของ/ผู้ดูแลระบบเท่านั้น" };
+  if (opts.tabs && !isTop) {
+    const perm = normPermission(emp.permission).split(",");
+    if (!opts.tabs.some((t) => perm.includes(t))) return { ok: false, error: "ไม่มีสิทธิ์ทำรายการนี้" };
+  }
+  return { ok: true, employee: emp };
+}
+
 function mapEmployeeRow(row) {
   const perm = normPermission(row.permission);
   return Object.assign({}, row, {
@@ -200,6 +218,8 @@ handlers.deleteEmployee = async (env, args) => {
   const isObj = a0 && typeof a0 === "object" && !Array.isArray(a0);
   const id = isObj ? a0.id : a0;
   const name = isObj ? a0.name : args[1];
+  const auth = await authorizeEmployee(env, isObj ? a0.employeeId : null, isObj ? a0.pin : null, { tabs: ["employees"] });
+  if (!auth.ok) return { success: false, error: auth.error };
   const blank = id === null || id === undefined || id === "" || id === "null" || id === "undefined";
   let r;
   if (blank) {
@@ -424,7 +444,9 @@ async function updateOrderStatus(env, args) {
   const invoice = isObj ? a0.invoice : a0;
   const status = (isObj ? a0.status : args[1]) || "";
   const reason = (isObj ? a0.reason : args[2]) || "";
-  const user = (isObj ? a0.user : args[3]) || "";
+  const auth = await authorizeEmployee(env, isObj ? a0.employeeId : null, isObj ? a0.pin : null, { tabs: ["history"] });
+  if (!auth.ok) return { success: false, error: auth.error };
+  const user = auth.employee.name;
   const now = nowIso();
   await env.DB.prepare(
     "UPDATE payments SET status = ?, cancel_reason = ?, cancelled_by = ?, cancelled_at = ? WHERE invoice = ?"
@@ -445,7 +467,9 @@ async function cancelSalesItems(env, args) {
   const isObj = a0 && typeof a0 === "object" && !Array.isArray(a0);
   const invoice = isObj ? a0.invoice : a0;
   const reason = (isObj ? a0.reason : args[1]) || "";
-  const cancelledBy = (isObj ? a0.user : args[2]) || "";
+  const auth = await authorizeEmployee(env, isObj ? a0.employeeId : null, isObj ? a0.pin : null, { tabs: ["history"] });
+  if (!auth.ok) return { success: false, error: auth.error };
+  const cancelledBy = auth.employee.name;
   const items = isObj && Array.isArray(a0.items) ? a0.items : [];
   const now = nowIso();
 
@@ -497,7 +521,9 @@ async function refundOrder(env, args) {
   const invoice = isObj ? a0.invoice : a0;
   const amount = Number(isObj ? a0.amount : args[1]) || 0;
   const reason = (isObj ? a0.reason : args[2]) || "";
-  const user = (isObj ? a0.user : args[3]) || "";
+  const auth = await authorizeEmployee(env, isObj ? a0.employeeId : null, isObj ? a0.pin : null, { tabs: ["history"] });
+  if (!auth.ok) return { success: false, error: auth.error };
+  const user = auth.employee.name;
   if (!invoice) return { success: false, error: "missing invoice" };
   if (amount <= 0) return { success: false, error: "จำนวนเงินคืนต้องมากกว่า 0" };
 
@@ -939,7 +965,12 @@ handlers.getBackupList = async (env) => {
 handlers.createBackup = async (env, args) => {
   await ensureExtraTables(env);
   const label = (args && args[0]) || nowIso();
-  const tables = ["menu", "employees", "addons", "payment_methods", "shop_info", "inventory"];
+  // ตั้งใจไม่รวม access_log/inventory_log/float_log (log ไม่มีวันจบ กู้คืนแล้วไม่มีประโยชน์มาก แค่ทำให้ backup ใหญ่)
+  // และไม่รวม archives/archive_sales/archive_payments (เป็น backup ของข้อมูลเก่าอยู่แล้วจากฟีเจอร์ archive)
+  const tables = [
+    "menu", "employees", "addons", "payment_methods", "shop_info", "inventory",
+    "sales", "payments", "refunds", "pending_orders", "sweetness_levels", "recipes",
+  ];
   const data = {};
   for (const t of tables) {
     const r = await env.DB.prepare("SELECT * FROM " + t).all();
@@ -961,7 +992,10 @@ handlers.getBackupData = async (env, args) => {
 handlers.deleteBackup = async (env, args) => {
   await ensureExtraTables(env);
   const a0 = args && args[0];
-  const id = a0 && typeof a0 === "object" ? a0.id : a0;
+  const isObj = a0 && typeof a0 === "object";
+  const id = isObj ? a0.id : a0;
+  const auth = await authorizeEmployee(env, isObj ? a0.employeeId : null, isObj ? a0.pin : null, { ownerOnly: true });
+  if (!auth.ok) return { success: false, error: auth.error };
   if (!id) return { success: false, error: "missing id" };
   await env.DB.prepare("DELETE FROM backups WHERE id = ?").bind(id).run();
   return { success: true };
@@ -997,6 +1031,8 @@ handlers.getArchiveList = async (env) => {
 handlers.archiveOldData = async (env, args) => {
   await ensureExtraTables(env);
   const a = args[0] || {};
+  const auth = await authorizeEmployee(env, a.employeeId, a.pin, { ownerOnly: true });
+  if (!auth.ok) return { success: false, error: auth.error };
   const { start, end, note } = a;
   const archiveRes = await env.DB.prepare(
     "INSERT INTO archives (created_at, range_start, range_end, note) VALUES (?,?,?,?)"

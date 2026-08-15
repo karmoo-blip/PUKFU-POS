@@ -1725,6 +1725,19 @@
         return this.employees.find(e => String(e.pin).trim() === String(pin).trim() && e.active) || null;
       },
 
+      // ใช้ก่อนทำรายการที่มีความเสี่ยงสูง (คืนเงิน/ยกเลิกบิล/ลบพนักงาน/ลบข้อมูล) ให้พนักงานใส่ PIN ยืนยันตัวตนอีกครั้ง
+      // ส่ง employeeId+pin ไปให้เซิร์ฟเวอร์ตรวจสอบสิทธิ์จริงอีกที (ไม่ใช่แค่เช็คในเครื่อง) ก่อนอนุญาตให้ทำรายการ
+      async requireActionPin(message) {
+        const pin = await this.showPrompt(message, { type: 'password', icon: '' });
+        if (pin === null) return null;
+        const user = this.checkSettingsAccess(pin);
+        if (!user) {
+          this.showAlert('รหัส PIN ไม่ถูกต้อง', '');
+          return null;
+        }
+        return { employeeId: user.id, pin: pin.trim(), employee: user };
+      },
+
       getAllowedTabs(user) {
         const allTabs = ['printer', 'history', 'summary', 'report', 'inventory', 'stock', 'employees', 'log', 'addons', 'sweetness', 'payment', 'notifications', 'backup', 'onlineorder'];
         if (user.role === 'Owner' || user.role === 'Admin') return allTabs;
@@ -2179,18 +2192,25 @@
         const ok = await this.showConfirm('ต้องการลบพนักงานคนนี้ใช่หรือไม่?', '');
         if (!ok) return;
 
+        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการลบพนักงาน:');
+        if (!auth) return;
+
         this.showLoading();
         google.script.run
-          .withSuccessHandler(() => {
+          .withSuccessHandler(res => {
             this.hideLoading();
-            this.logPinAttempt(`ลบพนักงาน: ${emp ? emp.name : name || id}`, true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
-            this.fetchEmployeeList();
+            if (res && res.success) {
+              this.logPinAttempt(`ลบพนักงาน: ${emp ? emp.name : name || id}`, true, auth.employee.name);
+              this.fetchEmployeeList();
+            } else {
+              this.showAlert((res && res.error) || 'ลบไม่สำเร็จ', '');
+            }
           })
           .withFailureHandler(() => {
             this.hideLoading();
             this.showAlert('ลบไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
           })
-          .deleteEmployee({ id: emp ? emp.id : id, name: emp ? emp.name : name });
+          .deleteEmployee({ id: emp ? emp.id : id, name: emp ? emp.name : name, employeeId: auth.employeeId, pin: auth.pin });
       },
 
        fetchAccessLog(btn) {
@@ -3467,6 +3487,8 @@ renderReport(r) {
         const list = document.getElementById('backup-list');
         if (!list) return;
 
+        this.renderBackupStaleWarning(data);
+
         if (!data || data.length === 0) {
           list.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 13h8v6H8z"/></svg>ยังไม่มีไฟล์ backup กดปุ่ม "สำรองข้อมูลเดี๋ยวนี้" เพื่อสร้างไฟล์แรก</div>';
           return;
@@ -3486,9 +3508,29 @@ renderReport(r) {
         `).join('');
       },
 
+      // เตือนถ้ายังไม่มี backup เลย หรือ backup ล่าสุดเก่ากว่ารอบ auto-backup (30 วัน) เผื่อ Cron ที่ Cloudflare หยุดทำงานไปเงียบๆ
+      renderBackupStaleWarning(data) {
+        const el = document.getElementById('backup-stale-warning');
+        if (!el) return;
+        const newest = data && data.length > 0 ? data[0] : null;
+        const staleDays = 35;
+        const isStale = !newest || (Date.now() - new Date(newest.created_at).getTime()) > staleDays * 24 * 3600 * 1000;
+        if (isStale) {
+          el.textContent = newest
+            ? `ไม่มีการสำรองข้อมูลใหม่ในช่วง ${staleDays} วันที่ผ่านมา (ล่าสุด: ${new Date(newest.created_at).toLocaleDateString()}) ลองตรวจสอบ Cron Trigger ที่ Cloudflare หรือกด "สำรองข้อมูล + ดาวน์โหลดทันที" ด้านบน`
+            : 'ยังไม่มีการสำรองข้อมูลในระบบเลย กด "สำรองข้อมูล + ดาวน์โหลดทันที" ด้านบนเพื่อสร้างไฟล์แรก';
+          el.classList.remove('hidden');
+        } else {
+          el.classList.add('hidden');
+        }
+      },
+
       async deleteBackupConfirm(id) {
         const ok = await this.showConfirm('ต้องการลบไฟล์ backup นี้ใช่หรือไม่? กู้คืนไม่ได้หลังจากลบแล้ว', '');
         if (!ok) return;
+
+        const auth = await this.requireActionPin('ใส่รหัส PIN ของเจ้าของ/ผู้ดูแลระบบเพื่อยืนยันการลบ backup:');
+        if (!auth) return;
 
         this.setIndicator('syncing');
         google.script.run
@@ -3505,7 +3547,7 @@ renderReport(r) {
             this.setIndicator('error');
             this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
           })
-          .deleteBackup(id);
+          .deleteBackup({ id, employeeId: auth.employeeId, pin: auth.pin });
       },
 
       // แปลง array ของ object เป็นข้อความ CSV หนึ่งตาราง (เปิดใน Excel ได้โดยตรง)
@@ -3624,25 +3666,28 @@ renderReport(r) {
         );
         if (!ok) return;
 
+        const auth = await this.requireActionPin('ใส่รหัส PIN ของเจ้าของ/ผู้ดูแลระบบเพื่อยืนยันการ archive ข้อมูล:');
+        if (!auth) return;
+
         this.setBtnLoading(btn, true);
         google.script.run
           .withSuccessHandler(res => {
             this.setBtnLoading(btn, false);
             if (res.success) {
-              const yearsText = res.archivedYears.length > 0 ? res.archivedYears.join(', ') : 'ไม่มี';
-              this.logPinAttempt(`Archive ข้อมูลปี: ${yearsText}`, true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
-              this.showAlert(`เก็บข้อมูลเรียบร้อยแล้ว\nปีที่ archive: ${yearsText}\nจำนวนแถวที่ย้าย: ${res.totalArchivedRows}`, '');
+              const yearsText = res.archivedYears && res.archivedYears.length > 0 ? res.archivedYears.join(', ') : 'ไม่มี';
+              this.logPinAttempt(`Archive ข้อมูลปี: ${yearsText}`, true, auth.employee.name);
+              this.showAlert(`เก็บข้อมูลเรียบร้อยแล้ว\nปีที่ archive: ${yearsText}\nจำนวนแถวที่ย้าย: ${res.totalArchivedRows || 0}`, '');
               this.fetchArchiveList();
               this.fetchServerData();
             } else {
-              this.showAlert(res.message || 'เก็บข้อมูลไม่สำเร็จ', '');
+              this.showAlert(res.message || res.error || 'เก็บข้อมูลไม่สำเร็จ', '');
             }
           })
           .withFailureHandler(() => {
             this.setBtnLoading(btn, false);
             this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
           })
-          .archiveOldData();
+          .archiveOldData({ employeeId: auth.employeeId, pin: auth.pin });
       },
 
       renderMenu() {
@@ -5185,7 +5230,9 @@ renderReport(r) {
         if (reason === null) return;
         if (reason.trim() === '') return this.showAlert('กรุณาระบุเหตุผลก่อนคืนเงิน', '');
 
-        const userName = this.currentSettingsUser ? this.currentSettingsUser.name : 'พนักงาน';
+        const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยันการคืนเงิน ฿${amount.toFixed(2)}:`);
+        if (!auth) return;
+        const userName = auth.employee.name;
         this.showLoading();
         google.script.run
           .withSuccessHandler(res => {
@@ -5200,7 +5247,7 @@ renderReport(r) {
             }
           })
           .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
-          .refundOrder({ invoice: order.invoice, amount: amount, reason: reason.trim(), user: userName });
+          .refundOrder({ invoice: order.invoice, amount: amount, reason: reason.trim(), employeeId: auth.employeeId, pin: auth.pin });
       },
 
       async updateOrderStatus(invoiceId, status) {
@@ -5215,7 +5262,9 @@ renderReport(r) {
         if (reason === null) return;
         if (reason.trim() === '') return this.showAlert(`กรุณาระบุเหตุผลก่อน${actionText}`, '');
 
-        const userName = this.currentSettingsUser ? this.currentSettingsUser.name : 'พนักงาน';
+        const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยัน${actionText} ${order.invoice}:`);
+        if (!auth) return;
+        const userName = auth.employee.name;
 
         // ถ้าเป็นบิลออฟไลน์ที่ยังไม่ซิงก์ ให้เปลี่ยนค่าแล้วเซฟได้เลย
         const queueEntry = this.syncQueue.find(o => o.invoice === order.invoice);
@@ -5263,7 +5312,7 @@ renderReport(r) {
             this.showAlert(`เชื่อมต่อไม่สำเร็จ (ไม่มีอินเทอร์เน็ต) บิลยังไม่ถูก${actionText} กรุณาลองใหม่เมื่อมีอินเทอร์เน็ต`, '');
             this.setIndicator('error');
           })
-          .updateOrderStatus({ invoice: order.invoice, status: status, reason: reason.trim(), user: userName });
+          .updateOrderStatus({ invoice: order.invoice, status: status, reason: reason.trim(), employeeId: auth.employeeId, pin: auth.pin });
       },
 
       cancelOrderItemFromButton(btnEl) {
@@ -5296,7 +5345,9 @@ renderReport(r) {
         if (reason === null) return;
         if (reason.trim() === '') return this.showAlert('กรุณาระบุเหตุผลก่อนยกเลิกรายการ', '');
 
-        const userName = this.currentSettingsUser ? this.currentSettingsUser.name : 'พนักงาน';
+        const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยันการยกเลิกรายการ "${item.name}":`);
+        if (!auth) return;
+        const userName = auth.employee.name;
 
         this.setIndicator('syncing');
         google.script.run
@@ -5338,7 +5389,7 @@ renderReport(r) {
             this.showAlert('เชื่อมต่อไม่สำเร็จ (ไม่มีอินเทอร์เน็ต) รายการยังไม่ถูกยกเลิก กรุณาลองใหม่เมื่อมีอินเทอร์เน็ต', '');
             this.setIndicator('error');
           })
-          .cancelSalesItems({ invoice: invoice, items: [{ sku: sku, note: note }], reason: reason.trim(), user: userName });
+          .cancelSalesItems({ invoice: invoice, items: [{ sku: sku, note: note }], reason: reason.trim(), employeeId: auth.employeeId, pin: auth.pin });
       },
 
       async clearHistory() {
@@ -5686,14 +5737,14 @@ renderReport(r) {
 
                     if (job.type === 'updateOrderStatus') {
                                 google.script.run
-                                  .withSuccessHandler(() => finish(true))
+                                  .withSuccessHandler(res => finish(!!(res && res.success)))
                                   .withFailureHandler(() => finish(false))
-                                  .updateOrderStatus({ invoice: job.invoice, status: job.status, reason: job.reason, user: job.user });
+                                  .updateOrderStatus({ invoice: job.invoice, status: job.status, reason: job.reason, employeeId: job.employeeId, pin: job.pin });
                     } else if (job.type === 'cancelSalesItems') {
                                 google.script.run
-                                  .withSuccessHandler(() => finish(true))
+                                  .withSuccessHandler(res => finish(!!(res && res.success)))
                                   .withFailureHandler(() => finish(false))
-                                  .cancelSalesItems({ invoice: job.invoice, items: job.items, reason: job.reason, user: job.user });
+                                  .cancelSalesItems({ invoice: job.invoice, items: job.items, reason: job.reason, employeeId: job.employeeId, pin: job.pin });
                     } else {
                                 finish(true);
                     }
@@ -5713,7 +5764,9 @@ renderReport(r) {
                     if (reason === null) return;
                     if (reason.trim() === '') return this.showAlert(`กรุณาระบุเหตุผลก่อน${actionText}`, '');
 
-                    const userName = this.currentSettingsUser ? this.currentSettingsUser.name : 'พนักงาน';
+                    const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยัน${actionText} ${order.invoice}:`);
+                    if (!auth) return;
+                    const userName = auth.employee.name;
 
                     const queueEntry = this.syncQueue.find(o => o.invoice === order.invoice);
                     if (queueEntry) {
@@ -5742,7 +5795,7 @@ renderReport(r) {
                     this.renderHistory();
                     this.setIndicator('syncing');
 
-                    this.statusQueue.push({ type: 'updateOrderStatus', invoice: order.invoice, status: status, reason: reason.trim(), user: userName, ts: Date.now() });
+                    this.statusQueue.push({ type: 'updateOrderStatus', invoice: order.invoice, status: status, reason: reason.trim(), employeeId: auth.employeeId, pin: auth.pin, ts: Date.now() });
                     localStorage.setItem('pos_statusQueue', JSON.stringify(this.statusQueue));
                     this.updateSyncQueueBadge();
                     this.processStatusQueue();
@@ -5760,7 +5813,9 @@ renderReport(r) {
                     if (reason === null) return;
                     if (reason.trim() === '') return this.showAlert('กรุณาระบุเหตุผลก่อนยกเลิกรายการ', '');
 
-                    const userName = this.currentSettingsUser ? this.currentSettingsUser.name : 'พนักงาน';
+                    const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยันการยกเลิกรายการ "${item.name}":`);
+                    if (!auth) return;
+                    const userName = auth.employee.name;
 
                     item.cancelled = true;
                     item.cancelReason = reason.trim();
@@ -5779,7 +5834,8 @@ renderReport(r) {
                                 invoice: invoice,
                                 items: [{ sku: sku, note: note }],
                                 reason: reason.trim(),
-                                user: userName,
+                                employeeId: auth.employeeId,
+                                pin: auth.pin,
                                 ts: Date.now()
                     });
                     localStorage.setItem('pos_statusQueue', JSON.stringify(this.statusQueue));
