@@ -1296,6 +1296,9 @@
       dismissedNotificationIds: new Set(), // id แจ้งเตือนที่กดปิดไว้ชั่วคราว (เคลียร์เองเมื่อแก้ไขรายการนั้นใหม่)
       _alertedNotificationIds: new Set(), // id ที่เด้ง popup แจ้งไปแล้วในเซสชันนี้ (ทั้งหมดอายุแล้ว/ใกล้หมดอายุ) กันไม่ให้เด้งซ้ำทุกรอบเช็ค (60 วิ/ครั้ง)
 
+      pendingOrders: [], // ออเดอร์ออนไลน์ (สแกน QR) ที่รอพนักงานยืนยัน
+      _alertedPendingOrderIds: new Set(), // id ออเดอร์ออนไลน์ที่เด้ง popup แจ้งไปแล้วในเซสชันนี้ กันไม่ให้เด้งซ้ำทุกรอบเช็ค
+
       fetchInventory(btn) {
         this.setIndicator('syncing');
         this.setBtnLoading(btn, true);
@@ -1459,6 +1462,113 @@
         }
       },
 
+      checkPendingOrders() {
+        google.script.run
+          .withSuccessHandler(rows => {
+            this.pendingOrders = rows || [];
+            const count = this.pendingOrders.length;
+            const badge = document.getElementById('pending-order-badge');
+            if (badge) {
+              badge.innerText = count;
+              badge.classList.toggle('hidden', count === 0);
+            }
+            const newlyArrived = this.pendingOrders.filter(o => !this._alertedPendingOrderIds.has(o.id));
+            if (newlyArrived.length > 0) {
+              newlyArrived.forEach(o => this._alertedPendingOrderIds.add(o.id));
+              this.showAlert(`มีออเดอร์ออนไลน์ใหม่: ${newlyArrived.map(o => o.customerName).join(', ')}`, '', 'warning');
+            }
+            if (!document.getElementById('modal-pending-orders').classList.contains('hidden')) {
+              this.renderPendingOrdersList();
+            }
+          })
+          .withFailureHandler(() => console.warn("เช็คออเดอร์ออนไลน์ไม่สำเร็จ"))
+          .getPendingOrders();
+      },
+
+      openPendingOrdersModal() {
+        this.renderPendingOrdersList();
+        this.openModal('modal-pending-orders');
+      },
+
+      renderPendingOrdersList() {
+        const list = document.getElementById('pending-orders-list');
+        if (!list) return;
+        if (this.pendingOrders.length === 0) {
+          list.innerHTML = '<div class="text-center text-slate-400 font-bold py-8">ไม่มีออเดอร์ออนไลน์รอยืนยัน</div>';
+          return;
+        }
+        list.innerHTML = this.pendingOrders.map((o, idx) => {
+          const time = o.createdAt ? new Date(o.createdAt).toLocaleString('th-TH') : '';
+          const itemsSummary = (o.items || []).map(i => `${i.qty}x ${i.name}`).join(', ');
+          const slipHtml = o.paymentSlipImage
+            ? `<img src="${o.paymentSlipImage}" onclick="Controller.viewPendingOrderSlip(${idx})" class="w-16 h-16 object-cover rounded-lg border border-sand cursor-pointer mb-2" alt="สลิปโอนเงิน">`
+            : `<p class="text-xs text-amber-500 font-bold mb-2">ยังไม่ได้แนบสลิปโอนเงิน</p>`;
+          return `
+            <div class="py-4">
+              <div class="flex justify-between items-start gap-3 mb-2">
+                <div class="min-w-0">
+                  <p class="font-bold text-secondary truncate">${escHtml(o.customerName)}${o.location ? ' · ' + escHtml(o.location) : ''}</p>
+                  <p class="text-xs text-slate-400">${escHtml(time)}</p>
+                </div>
+                <p class="font-black text-primary shrink-0">฿${Number(o.total).toFixed(2)}</p>
+              </div>
+              <p class="text-sm text-slate-500 mb-2">${escHtml(itemsSummary)}</p>
+              ${slipHtml}
+              <div class="flex gap-2">
+                <button onclick="Controller.rejectPendingOrderAction(${idx})" class="flex-1 bg-red-50 text-red-400 px-3 py-2 rounded-lg font-bold text-sm hover:bg-red-400 hover:text-white transition-all">ปฏิเสธ</button>
+                <button onclick="Controller.confirmPendingOrderAction(${idx})" class="flex-1 bg-gradient-to-b from-primary to-secondary text-white px-3 py-2 rounded-lg font-bold text-sm active:scale-95 transition-all">ยืนยันออเดอร์</button>
+              </div>
+            </div>
+          `;
+        }).join('');
+      },
+
+      viewPendingOrderSlip(idx) {
+        const o = this.pendingOrders[idx];
+        if (o && o.paymentSlipImage) window.open(o.paymentSlipImage, '_blank');
+      },
+
+      async confirmPendingOrderAction(idx) {
+        const o = this.pendingOrders[idx];
+        if (!o) return;
+        const ok = await this.showConfirm(`ยืนยันออเดอร์ของ ${o.customerName}${o.location ? ' (' + o.location + ')' : ''} ยอด ฿${Number(o.total).toFixed(2)} ใช่หรือไม่?`, '');
+        if (!ok) return;
+        const userName = this.loggedInEmployee ? this.loggedInEmployee.name : 'พนักงาน';
+        this.showLoading();
+        google.script.run
+          .withSuccessHandler(res => {
+            this.hideLoading();
+            if (!res.success) return this.showAlert(res.error || 'ยืนยันออเดอร์ไม่สำเร็จ', '');
+            this.pendingOrders = this.pendingOrders.filter(p => p.id !== o.id);
+            this.renderPendingOrdersList();
+            this.checkPendingOrders();
+            this.refreshFromServer();
+            this.showAlert('ยืนยันออเดอร์เรียบร้อยแล้ว บันทึกเข้าระบบขายแล้ว', '');
+          })
+          .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่', ''); })
+          .confirmPendingOrder({ id: o.id, user: userName });
+      },
+
+      async rejectPendingOrderAction(idx) {
+        const o = this.pendingOrders[idx];
+        if (!o) return;
+        const reason = await this.showPrompt(`ระบุเหตุผลที่ปฏิเสธออเดอร์ของ ${o.customerName}:`, {});
+        if (reason === null) return;
+        if (reason.trim() === '') return this.showAlert('กรุณาระบุเหตุผลก่อนปฏิเสธ', '');
+        this.showLoading();
+        google.script.run
+          .withSuccessHandler(res => {
+            this.hideLoading();
+            if (!res.success) return this.showAlert(res.error || 'ปฏิเสธออเดอร์ไม่สำเร็จ', '');
+            this.pendingOrders = this.pendingOrders.filter(p => p.id !== o.id);
+            this.renderPendingOrdersList();
+            this.checkPendingOrders();
+            this.showAlert('ปฏิเสธออเดอร์แล้ว', '');
+          })
+          .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่', ''); })
+          .rejectPendingOrder({ id: o.id, reason: reason.trim() });
+      },
+
       // แปลงจำนวนคงเหลือ (เก็บเป็นหน่วยหลักเสมอ) ให้โชว์เป็นหน่วยที่เลือกดู ปัดทศนิยมไม่เกิน 2 ตำแหน่งแล้วตัด 0 ท้ายทิ้ง
       _formatStockForUnit(baseStock, factor) {
         const val = Number(baseStock) / (factor || 1);
@@ -1595,7 +1705,7 @@
       },
 
       getAllowedTabs(user) {
-        const allTabs = ['printer', 'history', 'summary', 'report', 'inventory', 'stock', 'employees', 'log', 'addons', 'sweetness', 'payment', 'notifications', 'backup'];
+        const allTabs = ['printer', 'history', 'summary', 'report', 'inventory', 'stock', 'employees', 'log', 'addons', 'sweetness', 'payment', 'notifications', 'backup', 'onlineorder'];
         if (user.role === 'Owner' || user.role === 'Admin') return allTabs;
         return user.permissions ? user.permissions.split(',').filter(t => allTabs.includes(t)) : [];
       },
@@ -1712,6 +1822,101 @@
         if (tab === 'payment') this.fetchPaymentMethods();
         if (tab === 'report') this.initReportTab();
         if (tab === 'backup') { this.fetchBackupList(); this.fetchArchiveList(); }
+        if (tab === 'onlineorder') { this.renderPaymentQrPreview(); this.loadOnlineOrderHistory(); }
+      },
+
+      renderPaymentQrPreview() {
+        const img = document.getElementById('payment-qr-preview');
+        if (!img) return;
+        if (this.shopInfo.paymentQrImage) {
+          img.src = this.shopInfo.paymentQrImage;
+          img.classList.remove('hidden');
+        } else {
+          img.classList.add('hidden');
+        }
+      },
+
+      async handlePaymentQrUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        this.showLoading();
+        try {
+          const base64 = await resizeImageBase64(file, 600, 'image/jpeg', 0.85);
+          this.shopInfo.paymentQrImage = base64;
+          this.renderPaymentQrPreview();
+          localStorage.setItem('pos_shopInfo', JSON.stringify(this.shopInfo));
+          google.script.run
+            .withSuccessHandler(() => {})
+            .withFailureHandler(() => this.showAlert('บันทึกรูป QR ไม่สำเร็จ กรุณาลองใหม่', ''))
+            .saveShopInfo({ paymentQrImage: base64 });
+          this.hideLoading();
+          this.showAlert('อัพโหลดรูป QR ชำระเงินเรียบร้อยแล้ว', '');
+        } catch (e) {
+          this.hideLoading();
+          this.showAlert('อัพโหลดรูปไม่สำเร็จ: ' + e.message, '');
+        }
+      },
+
+      removePaymentQr() {
+        this.shopInfo.paymentQrImage = '';
+        this.renderPaymentQrPreview();
+        localStorage.setItem('pos_shopInfo', JSON.stringify(this.shopInfo));
+        google.script.run
+          .withSuccessHandler(() => {})
+          .withFailureHandler(() => {})
+          .saveShopInfo({ paymentQrImage: '' });
+      },
+
+      generateTableQr() {
+        const loc = document.getElementById('qr-location-input').value.trim();
+        if (!loc) return this.showAlert('กรุณาระบุชื่อโต๊ะหรือจุดรับสินค้าก่อน', '');
+        const url = location.origin + '/order.html?loc=' + encodeURIComponent(loc);
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        document.getElementById('table-qr-image').src = qr.createDataURL(6, 4);
+        document.getElementById('table-qr-url').innerText = url;
+        document.getElementById('table-qr-result').classList.remove('hidden');
+      },
+
+      loadOnlineOrderHistory() {
+        google.script.run
+          .withSuccessHandler(rows => this.renderOnlineOrderHistory(rows))
+          .withFailureHandler(() => {})
+          .getOnlineOrderHistory();
+      },
+
+      renderOnlineOrderHistory(rows) {
+        const container = document.getElementById('online-order-history-list');
+        if (!container) return;
+        if (!rows || rows.length === 0) {
+          container.innerHTML = '<p class="text-center text-slate-400 py-6 text-sm">ยังไม่มีประวัติ</p>';
+          return;
+        }
+        const statusMap = {
+          confirmed: { label: 'ยืนยันแล้ว', cls: 'bg-emerald-100 text-emerald-600' },
+          rejected: { label: 'ปฏิเสธ', cls: 'bg-red-100 text-red-500' },
+          cancelled: { label: 'ยกเลิกโดยลูกค้า', cls: 'bg-slate-100 text-slate-500' },
+        };
+        container.innerHTML = rows.map(o => {
+          const st = statusMap[o.status] || { label: o.status, cls: 'bg-slate-100 text-slate-500' };
+          const itemsSummary = (o.items || []).map(i => `${i.qty}x ${i.name}`).join(', ');
+          const time = o.createdAt ? new Date(o.createdAt).toLocaleString('th-TH') : '';
+          return `
+            <div class="py-3">
+              <div class="flex justify-between items-start gap-2 mb-1">
+                <div class="min-w-0">
+                  <p class="font-bold text-sm text-secondary truncate">${escHtml(o.customerName)}${o.location ? ' · ' + escHtml(o.location) : ''}</p>
+                  <p class="text-xs text-slate-400">${escHtml(time)}</p>
+                </div>
+                <span class="shrink-0 text-[10px] font-bold px-2 py-1 rounded-full ${st.cls}">${st.label}</span>
+              </div>
+              <p class="text-xs text-slate-500 truncate">${escHtml(itemsSummary)}</p>
+              ${o.status === 'rejected' && o.rejectReason ? `<p class="text-xs text-red-400 mt-0.5">เหตุผล: ${escHtml(o.rejectReason)}</p>` : ''}
+              <p class="text-sm font-black text-primary mt-1">฿${Number(o.total).toFixed(2)}</p>
+            </div>
+          `;
+        }).join('');
       },
 
       renderStockPanel() {
@@ -5589,6 +5794,10 @@ renderReport(r) {
                     // เช็คแจ้งเตือนหมดอายุเป็นระยะ (ไม่ต้องรอเน็ต เทียบเวลาจากข้อมูลที่โหลดไว้ในเครื่องอยู่แล้ว)
                     setInterval(() => this.checkNotifications(), 60000);
 
+                    // เช็คออเดอร์ออนไลน์ใหม่เป็นระยะ (ต้องยิงไปเซิร์ฟเวอร์จริงเพราะลูกค้าสั่งจากเครื่องอื่น)
+                    this.checkPendingOrders();
+                    setInterval(() => this.checkPendingOrders(), 20000);
+
                     // มือถือมักหยุด/หน่วง setInterval ตอนแอปถูกสลับไปพัก (background tab/PWA)
                     // พอสลับกลับมาเปิดอีกครั้ง (visibilitychange) ให้ดึงข้อมูลใหม่ + ลอง sync คิวที่ค้างทันที
                     // ไม่ต้องรอรอบ setInterval ถัดไปหรือให้ผู้ใช้กด refresh เอง
@@ -5597,6 +5806,7 @@ renderReport(r) {
                                 if (document.visibilityState !== 'visible') return;
                                 trySyncAll();
                                 this.checkNotifications();
+                                this.checkPendingOrders();
                                 if (Date.now() - this.lastServerRefreshAt < 15000) return;
                                 this.lastServerRefreshAt = Date.now();
                                 this.setIndicator('syncing');

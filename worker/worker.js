@@ -13,6 +13,13 @@ function json(obj, status) {
   });
 }
 
+// ฟังก์ชันที่หน้าเว็บสั่งอาหารสาธารณะ (order.html) เรียกได้ ผ่าน PUBLIC_API_TOKEN เท่านั้น
+// ต่างจาก API_TOKEN ปกติที่เรียกได้ทุกฟังก์ชัน (แอปพนักงาน) — ป้องกันไม่ให้ลูกค้าที่ scan QR เข้าถึงข้อมูล/ฟังก์ชันอื่นได้
+const PUBLIC_HANDLERS = new Set([
+  "getMenuData", "getShopInfo", "getAddons", "getSweetnessLevels",
+  "submitPendingOrder", "getPendingOrderStatus", "uploadPaymentSlip", "cancelPendingOrder",
+]);
+
 async function ensureExtraTables(env) {
   const stmts = [
     "CREATE TABLE IF NOT EXISTS backups (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, label TEXT, data TEXT)",
@@ -23,6 +30,7 @@ async function ensureExtraTables(env) {
     "CREATE TABLE IF NOT EXISTS notifications (id TEXT PRIMARY KEY, inventory_item_id TEXT, item_name TEXT, opened_at TEXT, expires_at TEXT, created_at TEXT)",
     "CREATE TABLE IF NOT EXISTS recipes (id TEXT PRIMARY KEY, menu_sku TEXT, inventory_item_id TEXT, qty REAL)",
     "CREATE TABLE IF NOT EXISTS refunds (id TEXT PRIMARY KEY, invoice TEXT, amount REAL, reason TEXT, refunded_by TEXT, created_at TEXT)",
+    "CREATE TABLE IF NOT EXISTS pending_orders (id TEXT PRIMARY KEY, created_at TEXT, location TEXT, customer_name TEXT, items_json TEXT, subtotal REAL, total REAL, status TEXT, payment_slip_image TEXT, slip_uploaded_at TEXT, confirmed_by TEXT, confirmed_at TEXT, reject_reason TEXT)",
   ];
   for (const s of stmts) {
     await env.DB.prepare(s).run();
@@ -510,6 +518,143 @@ async function refundOrder(env, args) {
   return { success: true, id, refundedTotal: alreadyRefunded + amount };
 }
 
+// ===== สั่งอาหารออนไลน์ผ่าน QR (order.html) =====
+// ลูกค้าสั่งแล้วเก็บใน pending_orders ก่อน ยังไม่กระทบยอดขาย/สต๊อกจนกว่าพนักงานจะกด "ยืนยัน" (confirmPendingOrder)
+// ถ้าปฏิเสธ/ลูกค้ายกเลิกเอง ก็ไม่มีการสร้างบิลจริงเลย
+
+async function submitPendingOrder(env, args) {
+  await ensureExtraTables(env);
+  const a = args && args[0] || {};
+  const items = Array.isArray(a.items) ? a.items : [];
+  if (items.length === 0) return { success: false, error: "ไม่มีรายการสินค้า" };
+  const customerName = String(a.customerName || "").trim();
+  if (!customerName) return { success: false, error: "กรุณาระบุชื่อผู้สั่ง" };
+
+  const subtotal = items.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.qty) || 0), 0);
+  const id = "PEND-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
+  await env.DB.prepare(
+    "INSERT INTO pending_orders (id, created_at, location, customer_name, items_json, subtotal, total, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  ).bind(id, nowIso(), String(a.location || ""), customerName, JSON.stringify(items), subtotal, subtotal, "pending").run();
+
+  return { success: true, id };
+}
+
+async function uploadPaymentSlip(env, args) {
+  await ensureExtraTables(env);
+  const a = args && args[0] || {};
+  const id = a.id;
+  if (!id) return { success: false, error: "missing id" };
+  const row = await env.DB.prepare("SELECT status FROM pending_orders WHERE id = ?").bind(id).first();
+  if (!row) return { success: false, error: "ไม่พบออเดอร์นี้" };
+  if (row.status !== "pending") return { success: false, error: "ออเดอร์นี้ไม่ได้อยู่ในสถานะรอดำเนินการแล้ว" };
+
+  await env.DB.prepare("UPDATE pending_orders SET payment_slip_image = ?, slip_uploaded_at = ? WHERE id = ?")
+    .bind(String(a.image || ""), nowIso(), id).run();
+  return { success: true };
+}
+
+async function cancelPendingOrder(env, args) {
+  await ensureExtraTables(env);
+  const a0 = args && args[0];
+  const id = a0 && typeof a0 === "object" ? a0.id : a0;
+  if (!id) return { success: false, error: "missing id" };
+  const row = await env.DB.prepare("SELECT status FROM pending_orders WHERE id = ?").bind(id).first();
+  if (!row) return { success: false, error: "ไม่พบออเดอร์นี้" };
+  if (row.status !== "pending") return { success: false, error: "ออเดอร์นี้ไม่ได้อยู่ในสถานะรอดำเนินการแล้ว" };
+
+  await env.DB.prepare("UPDATE pending_orders SET status = 'cancelled' WHERE id = ?").bind(id).run();
+  return { success: true };
+}
+
+async function getPendingOrderStatus(env, args) {
+  await ensureExtraTables(env);
+  const a0 = args && args[0];
+  const id = a0 && typeof a0 === "object" ? a0.id : a0;
+  const row = await env.DB.prepare(
+    "SELECT status, reject_reason, slip_uploaded_at FROM pending_orders WHERE id = ?"
+  ).bind(id).first();
+  if (!row) return { success: false, error: "ไม่พบออเดอร์นี้" };
+  return { success: true, status: row.status, rejectReason: row.reject_reason || "", hasSlip: !!row.slip_uploaded_at };
+}
+
+async function getPendingOrders(env) {
+  await ensureExtraTables(env);
+  const r = await env.DB.prepare(
+    "SELECT * FROM pending_orders WHERE status = 'pending' ORDER BY created_at ASC"
+  ).all();
+  return r.results.map((row) => ({
+    id: row.id,
+    createdAt: row.created_at,
+    location: row.location,
+    customerName: row.customer_name,
+    items: JSON.parse(row.items_json || "[]"),
+    subtotal: row.subtotal,
+    total: row.total,
+    paymentSlipImage: row.payment_slip_image || "",
+    slipUploadedAt: row.slip_uploaded_at || "",
+  }));
+}
+
+async function getOnlineOrderHistory(env) {
+  await ensureExtraTables(env);
+  const r = await env.DB.prepare(
+    "SELECT * FROM pending_orders WHERE status != 'pending' ORDER BY created_at DESC LIMIT 50"
+  ).all();
+  return r.results.map((row) => ({
+    id: row.id,
+    createdAt: row.created_at,
+    location: row.location,
+    customerName: row.customer_name,
+    items: JSON.parse(row.items_json || "[]"),
+    total: row.total,
+    status: row.status,
+    rejectReason: row.reject_reason || "",
+    confirmedBy: row.confirmed_by || "",
+    confirmedAt: row.confirmed_at || "",
+  }));
+}
+
+async function confirmPendingOrder(env, args) {
+  await ensureExtraTables(env);
+  const a = args && args[0] || {};
+  const id = a.id;
+  const user = a.user || "";
+  if (!id) return { success: false, error: "missing id" };
+  const row = await env.DB.prepare("SELECT * FROM pending_orders WHERE id = ?").bind(id).first();
+  if (!row) return { success: false, error: "ไม่พบออเดอร์นี้" };
+  if (row.status !== "pending") return { success: false, error: "ออเดอร์นี้ถูกดำเนินการไปแล้ว" };
+
+  const items = JSON.parse(row.items_json || "[]");
+  const invoice = "ONL-" + row.id;
+  const now = nowIso();
+  await syncOfflineOrders(env, [{
+    invoice, timestamp: now, total: row.total, paymentType: "QR", status: "completed",
+    note: `Online: ${row.location || ""} / ${row.customer_name || ""}`.trim(),
+    items,
+  }]);
+
+  await env.DB.prepare(
+    "UPDATE pending_orders SET status = 'confirmed', confirmed_by = ?, confirmed_at = ? WHERE id = ?"
+  ).bind(user, now, id).run();
+
+  return { success: true, invoice };
+}
+
+async function rejectPendingOrder(env, args) {
+  await ensureExtraTables(env);
+  const a = args && args[0] || {};
+  const id = a.id;
+  const reason = a.reason || "";
+  if (!id) return { success: false, error: "missing id" };
+  const row = await env.DB.prepare("SELECT status FROM pending_orders WHERE id = ?").bind(id).first();
+  if (!row) return { success: false, error: "ไม่พบออเดอร์นี้" };
+  if (row.status !== "pending") return { success: false, error: "ออเดอร์นี้ถูกดำเนินการไปแล้ว" };
+
+  await env.DB.prepare("UPDATE pending_orders SET status = 'rejected', reject_reason = ? WHERE id = ?")
+    .bind(reason, id).run();
+  return { success: true };
+}
+
 async function posDataForDay(env, day) {
   const today = day || bkkToday();
   const payR = await env.DB.prepare(
@@ -882,6 +1027,14 @@ handlers.updateOrderStatus = updateOrderStatus;
 handlers.cancelSalesItems = cancelSalesItems;
 handlers.refundOrder = refundOrder;
 handlers.syncFloatCashLogs = syncFloatCashLogs;
+handlers.submitPendingOrder = submitPendingOrder;
+handlers.uploadPaymentSlip = uploadPaymentSlip;
+handlers.cancelPendingOrder = cancelPendingOrder;
+handlers.getPendingOrderStatus = getPendingOrderStatus;
+handlers.getPendingOrders = getPendingOrders;
+handlers.getOnlineOrderHistory = getOnlineOrderHistory;
+handlers.confirmPendingOrder = confirmPendingOrder;
+handlers.rejectPendingOrder = rejectPendingOrder;
 
 
 handlers.saveInventoryItem = async (env, args) => {
@@ -963,7 +1116,13 @@ export default {
       try {
         const body = await request.json();
         const { token, fn, args } = body;
-        if (!env.API_TOKEN || token !== env.API_TOKEN) {
+        const isPublicToken = env.PUBLIC_API_TOKEN && token === env.PUBLIC_API_TOKEN;
+        const isStaffToken = env.API_TOKEN && token === env.API_TOKEN;
+        if (isPublicToken) {
+          if (!PUBLIC_HANDLERS.has(fn)) {
+            return json({ ok: false, error: "Unauthorized" }, 401);
+          }
+        } else if (!isStaffToken) {
           return json({ ok: false, error: "Unauthorized" }, 401);
         }
         const handler = handlers[fn];
