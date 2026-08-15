@@ -312,6 +312,19 @@ const OrderPage = {
 
   showSubmittedView() {
     document.getElementById('view-submitted').classList.remove('hidden');
+    // รีเซ็ตสถานะ UI กลับเป็นค่าเริ่มต้น เผื่อเป็นการสั่งออเดอร์รอบใหม่ต่อจากออเดอร์ก่อนหน้าที่ยืนยัน/ปฏิเสธ/ยกเลิกไปแล้ว
+    const icon = document.getElementById('submitted-status-icon');
+    icon.className = 'w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-amber-100 text-amber-500';
+    icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:2rem;height:2rem"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>';
+    document.getElementById('submitted-status-text').innerText = 'ส่งออเดอร์แล้ว รอร้านยืนยัน';
+    document.getElementById('submitted-status-sub').innerText = '';
+    document.getElementById('btn-cancel-order').classList.remove('hidden');
+    const uploadBtn = document.getElementById('btn-upload-slip');
+    uploadBtn.classList.remove('hidden');
+    uploadBtn.disabled = false;
+    uploadBtn.innerText = 'อัพโหลดสลิปโอนเงิน';
+    document.getElementById('submitted-payment-box').classList.add('hidden');
+
     const total = this.cart.reduce((s, i) => s + i.qty * i.price, 0);
     document.getElementById('submitted-order-summary').innerHTML = `
       <p class="font-bold text-secondary mb-3">สรุปออเดอร์</p>
@@ -329,6 +342,14 @@ const OrderPage = {
       document.getElementById('submitted-payment-qr').src = this.shopInfo.paymentQrImage;
       document.getElementById('submitted-payment-box').classList.remove('hidden');
     }
+  },
+
+  backToMenu() {
+    if (this.pollTimer) clearInterval(this.pollTimer);
+    this.currentOrderId = null;
+    this.cart = [];
+    this.renderCartBar();
+    document.getElementById('view-submitted').classList.add('hidden');
   },
 
   startPolling() {
