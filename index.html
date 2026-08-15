@@ -66,6 +66,13 @@
 </head>
 <body class="font-sarabun bg-cream h-[100dvh] flex flex-col overflow-hidden text-ink">
 
+  <!--  แถบแนะนำ "เพิ่มไปยังหน้าจอโฮม" สำหรับ iOS Safari เท่านั้น (iOS ไม่มี install prompt อัตโนมัติแบบ Android) -->
+  <div id="ios-install-banner" class="hidden fixed left-0 right-0 bottom-0 z-[110] bg-secondary text-white px-4 py-3 flex items-center gap-3 shadow-[0_-4px_12px_rgba(0,0,0,0.15)]" style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom))">
+    <img src="icons/apple-touch-icon.png" class="w-9 h-9 rounded-xl shrink-0" alt="">
+    <p class="text-sm flex-1">ติดตั้งแอปนี้ที่หน้าจอโฮม: แตะปุ่ม <b>แชร์</b> แล้วเลือก <b>"เพิ่มไปยังหน้าจอโฮม"</b></p>
+    <button onclick="Controller.dismissIosInstallBanner()" class="shrink-0 text-white/70 hover:text-white text-xl leading-none px-1">&times;</button>
+  </div>
+
   <!--  หน้าจอล็อก PIN (แสดงทับทุกอย่างจนกว่าจะใส่ PIN ถูก) -->
   <div id="pin-lock-screen" class="fixed inset-0 bg-cream z-[100] flex flex-col items-center justify-center p-6">
     <div class="w-full max-w-xs text-center">

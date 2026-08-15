@@ -899,6 +899,7 @@
         this.initPinLock();
         this.startAutoLockWatcher();
         this.initCartDrag();
+        this.checkIosInstallBanner();
 
         this.switchView('pos'); // ตั้งต้นให้แสดงหน้า POS
         this.checkAndClearDailyCache();
@@ -949,6 +950,26 @@
 
         // สั่งดึงข้อมูลล่าสุดจากเซิร์ฟเวอร์ทันที
         this.refreshFromServer();
+      },
+
+      // แสดงแถบแนะนำ "เพิ่มไปยังหน้าจอโฮม" เฉพาะ iOS Safari ที่ยังไม่ได้ติดตั้งเป็นแอป
+      // (iOS ไม่รองรับ install prompt อัตโนมัติแบบ Android/Chrome ต้องแนะนำให้ผู้ใช้กดเองผ่านปุ่มแชร์)
+      checkIosInstallBanner() {
+        if (localStorage.getItem('pos_iosInstallBannerDismissed') === '1') return;
+        const ua = navigator.userAgent;
+        const isIOS = /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isSafari = /Safari/.test(ua) && !/CriOS|FxiOS|EdgiOS|OPiOS/.test(ua);
+        const isStandalone = window.navigator.standalone === true;
+        if (isIOS && isSafari && !isStandalone) {
+          const banner = document.getElementById('ios-install-banner');
+          if (banner) banner.classList.remove('hidden');
+        }
+      },
+
+      dismissIosInstallBanner() {
+        localStorage.setItem('pos_iosInstallBannerDismissed', '1');
+        const banner = document.getElementById('ios-install-banner');
+        if (banner) banner.classList.add('hidden');
       },
 
       // ดึงข้อมูลทั้งหมดจากเซิร์ฟเวอร์ใหม่ (เมนู/พนักงาน/add-ons/วิธีชำระเงิน/ข้อมูลร้าน/ประวัติออเดอร์)

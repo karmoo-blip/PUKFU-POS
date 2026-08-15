@@ -45,6 +45,12 @@
 
     /* <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg> iOS: เผื่อพื้นที่ปลอดภัย กันเนื้อหามุดใต้ status bar และ home indicator ตอนเปิดเป็นแอปเต็มจอ */
     html { background: #ffffff; }
+    /* iOS standalone (เพิ่มไปยังหน้าจอโฮม): 100dvh คำนวณผิด เหลือช่องว่างว่างๆ ล่างสุดของจอ
+       -webkit-fill-available คือค่าที่ WebKit ให้ความสูงที่มองเห็นจริงตอนเปิดเป็นแอปเต็มจอ
+       ใช้ feature query แบบนี้เพราะ -webkit-touch-callout มีแค่บน iOS Safari/WebKit เท่านั้น */
+    @supports (-webkit-touch-callout: none) {
+      body { height: -webkit-fill-available; }
+    }
     body > nav {
       padding-top: env(safe-area-inset-top) !important;
       height: calc(4rem + env(safe-area-inset-top)) !important;
