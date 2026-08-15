@@ -2,8 +2,6 @@ PUKFU-POS
 
 ระบบ POS หน้าร้าน — frontend โฮสต์บน GitHub Pages, backend เป็น Cloudflare Workers + D1 (SQLite)
 
-สิทธิ์เข้าใช้งาน: https://karmoo-blip.github.io/PUKFU-POS/
-
 สถาปัตยกรรม
 
 index.html คือหน้าเว็บ POS ทั้งหมดในไฟล์เดียว (HTML + Tailwind CDN + JS) รองรับการทำงานออฟไลน์บางส่วนผ่าน Service Worker (sw.js) และคิวซิงค์อัตโนมัติ ครอบคลุมออเดอร์ เงินสดหน้าร้าน access log และสถานะ/ยกเลิกบิล
