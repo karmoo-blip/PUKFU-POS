@@ -1904,7 +1904,8 @@
       generateTableQr() {
         const loc = document.getElementById('qr-location-input').value.trim();
         if (!loc) return this.showAlert('กรุณาระบุชื่อโต๊ะหรือจุดรับสินค้าก่อน', '');
-        const url = location.origin + '/order.html?loc=' + encodeURIComponent(loc);
+        const basePath = location.pathname.replace(/[^/]*$/, ''); // เช่น "/PUKFU-POS/" กัน path พังตอน deploy ใน subpath ของ GitHub Pages
+        const url = location.origin + basePath + 'order.html?loc=' + encodeURIComponent(loc);
         const qr = qrcode(0, 'M');
         qr.addData(url);
         qr.make();
