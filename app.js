@@ -1856,7 +1856,7 @@
         if (tab === 'inventory') this.fetchInventory();
         if (tab === 'employees') this.fetchEmployeeList();
         if (tab === 'stock') { this.renderStockPanel(); this.renderProductList(); }
-        if (tab === 'log') this.fetchAccessLog();
+        if (tab === 'log') { this.fetchAccessLog(); this.fetchErrorLogs(); }
         if (tab === 'addons') { this.renderAddonList(); this.fetchAddons(); }
         if (tab === 'sweetness') { this.renderSweetnessList(); this.fetchSweetnessLevels(); }
         if (tab === 'notifications') { this.renderNotificationList(); this.fetchNotifications(); }
@@ -2269,6 +2269,36 @@
               <p class="text-xs text-slate-400 mt-1">${new Date(log.timestamp).toLocaleString()}</p>
             </div>
             <span class="text-xs font-bold px-3 py-1 rounded-full ${log.result === 'สำเร็จ' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'}">${log.result === 'สำเร็จ' ? ' สำเร็จ' : ' ล้มเหลว'}</span>
+          </div>
+        `).join('');
+      },
+
+      fetchErrorLogs(btn) {
+        this.setBtnLoading(btn, true);
+        google.script.run
+          .withSuccessHandler(data => {
+            this.setBtnLoading(btn, false);
+            this.renderErrorLogs(data);
+          })
+          .withFailureHandler(() => {
+            this.setBtnLoading(btn, false);
+            this.showAlert('โหลดข้อผิดพลาดไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+          })
+          .getErrorLogs();
+      },
+
+      renderErrorLogs(data) {
+        const list = document.getElementById('error-log-list');
+        if (!list) return;
+        if (!data || data.length === 0) {
+          list.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold">ไม่มีข้อผิดพลาดที่บันทึกไว้</div>';
+          return;
+        }
+        list.innerHTML = data.map(log => `
+          <div class="p-4">
+            <p class="font-bold text-red-500 text-sm">${escHtml(log.fn || 'ไม่ทราบฟังก์ชัน')}</p>
+            <p class="text-xs text-slate-500 mt-1 break-words">${escHtml(log.message || '')}</p>
+            <p class="text-xs text-slate-400 mt-1">${new Date(log.created_at).toLocaleString()}</p>
           </div>
         `).join('');
       },

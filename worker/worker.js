@@ -1,15 +1,17 @@
-function corsHeaders() {
+// จำกัด CORS ให้เรียกได้เฉพาะจากเว็บของร้านจริง แทนที่จะเปิดให้ทุกเว็บ (เดิม "*" ใครก็เรียก API นี้จากเว็บไหนก็ได้)
+const ALLOWED_ORIGINS = new Set(["https://karmoo-blip.github.io"]);
+function corsHeaders(origin) {
   return {
-    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin) ? origin : "https://karmoo-blip.github.io",
     "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type",
   };
 }
 
-function json(obj, status) {
+function json(obj, status, origin) {
   return new Response(JSON.stringify(obj), {
     status: status || 200,
-    headers: Object.assign({ "Content-Type": "application/json" }, corsHeaders()),
+    headers: Object.assign({ "Content-Type": "application/json" }, corsHeaders(origin)),
   });
 }
 
@@ -31,6 +33,7 @@ async function ensureExtraTables(env) {
     "CREATE TABLE IF NOT EXISTS recipes (id TEXT PRIMARY KEY, menu_sku TEXT, inventory_item_id TEXT, qty REAL)",
     "CREATE TABLE IF NOT EXISTS refunds (id TEXT PRIMARY KEY, invoice TEXT, amount REAL, reason TEXT, refunded_by TEXT, created_at TEXT)",
     "CREATE TABLE IF NOT EXISTS pending_orders (id TEXT PRIMARY KEY, created_at TEXT, location TEXT, customer_name TEXT, items_json TEXT, subtotal REAL, total REAL, status TEXT, payment_slip_image TEXT, slip_uploaded_at TEXT, confirmed_by TEXT, confirmed_at TEXT, reject_reason TEXT)",
+    "CREATE TABLE IF NOT EXISTS error_log (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, fn TEXT, message TEXT)",
   ];
   for (const s of stmts) {
     await env.DB.prepare(s).run();
@@ -994,6 +997,12 @@ handlers.getAccessLogs = async (env) => {
   return r.results;
 };
 
+handlers.getErrorLogs = async (env) => {
+  await ensureExtraTables(env);
+  const r = await env.DB.prepare("SELECT * FROM error_log ORDER BY id DESC LIMIT 100").all();
+  return r.results;
+};
+
 handlers.syncAccessLogs = async (env, args) => {
   const snapshot = args[0] || [];
   for (const log of snapshot) {
@@ -1076,33 +1085,56 @@ handlers.getArchiveList = async (env) => {
   return r.results;
 };
 
+// เดิมรับ start/end ตรงๆ แต่หน้าเว็บ (manualArchiveNow) ไม่เคยส่ง start/end มาเลย ปุ่มจึงพังมาตลอด
+// เปลี่ยนเป็น auto-detect ปีเก่าที่มีข้อมูลอยู่ (เก่ากว่าปีปัจจุบันตามเวลาไทย) แล้ว archive ทีละปีให้เอง ตรงกับข้อความบนปุ่มที่สัญญาไว้
 handlers.archiveOldData = async (env, args) => {
   await ensureExtraTables(env);
-  const a = args[0] || {};
+  const a = (args && args[0]) || {};
   const auth = await authorizeEmployee(env, a.employeeId, a.pin, { ownerOnly: true });
   if (!auth.ok) return { success: false, error: auth.error };
-  const { start, end, note } = a;
-  const archiveRes = await env.DB.prepare(
-    "INSERT INTO archives (created_at, range_start, range_end, note) VALUES (?,?,?,?)"
-  ).bind(nowIso(), start, end, note || "").run();
-  const archiveId = archiveRes.meta.last_row_id;
-  const sales = await env.DB.prepare("SELECT * FROM sales WHERE timestamp >= ? AND timestamp <= ?").bind(start, end).all();
-  for (const s of sales.results) {
-    await env.DB.prepare(
-      `INSERT INTO archive_sales (archive_id, timestamp, invoice, sku, name, qty, price, note, payment_type, cancelled, cancel_reason)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?)`
-    ).bind(archiveId, s.timestamp, s.invoice, s.sku, s.name, s.qty, s.price, s.note, s.payment_type, s.cancelled, s.cancel_reason).run();
+
+  const currentYear = Number(bkkToday().slice(0, 4));
+  const yearsR = await env.DB.prepare(`
+    SELECT yr FROM (
+      SELECT strftime('%Y', timestamp, '+7 hours') AS yr FROM payments
+      UNION
+      SELECT strftime('%Y', timestamp, '+7 hours') AS yr FROM sales
+    ) WHERE yr IS NOT NULL AND CAST(yr AS INTEGER) < ? ORDER BY yr
+  `).bind(currentYear).all();
+
+  const archivedYears = [];
+  let totalArchivedRows = 0;
+  for (const row of yearsR.results) {
+    const yr = row.yr;
+    const archiveRes = await env.DB.prepare(
+      "INSERT INTO archives (created_at, range_start, range_end, note) VALUES (?,?,?,?)"
+    ).bind(nowIso(), `${yr}-01-01`, `${yr}-12-31`, `auto: ${yr}`).run();
+    const archiveId = archiveRes.meta.last_row_id;
+
+    const sales = await env.DB.prepare("SELECT * FROM sales WHERE strftime('%Y', timestamp, '+7 hours') = ?").bind(yr).all();
+    for (const s of sales.results) {
+      await env.DB.prepare(
+        `INSERT INTO archive_sales (archive_id, timestamp, invoice, sku, name, qty, price, note, payment_type, cancelled, cancel_reason)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+      ).bind(archiveId, s.timestamp, s.invoice, s.sku, s.name, s.qty, s.price, s.note, s.payment_type, s.cancelled, s.cancel_reason).run();
+    }
+
+    const payments = await env.DB.prepare("SELECT * FROM payments WHERE strftime('%Y', timestamp, '+7 hours') = ?").bind(yr).all();
+    for (const p of payments.results) {
+      await env.DB.prepare(
+        `INSERT INTO archive_payments (archive_id, timestamp, invoice, total, payment_type, order_note, status, cancel_reason, cancelled_by, cancelled_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?)`
+      ).bind(archiveId, p.timestamp, p.invoice, p.total, p.payment_type, p.order_note, p.status, p.cancel_reason, p.cancelled_by, p.cancelled_at).run();
+    }
+
+    await env.DB.prepare("DELETE FROM sales WHERE strftime('%Y', timestamp, '+7 hours') = ?").bind(yr).run();
+    await env.DB.prepare("DELETE FROM payments WHERE strftime('%Y', timestamp, '+7 hours') = ?").bind(yr).run();
+
+    archivedYears.push(yr);
+    totalArchivedRows += sales.results.length + payments.results.length;
   }
-  const payments = await env.DB.prepare("SELECT * FROM payments WHERE timestamp >= ? AND timestamp <= ?").bind(start, end).all();
-  for (const p of payments.results) {
-    await env.DB.prepare(
-      `INSERT INTO archive_payments (archive_id, timestamp, invoice, total, payment_type, order_note, status, cancel_reason, cancelled_by, cancelled_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?)`
-    ).bind(archiveId, p.timestamp, p.invoice, p.total, p.payment_type, p.order_note, p.status, p.cancel_reason, p.cancelled_by, p.cancelled_at).run();
-  }
-  await env.DB.prepare("DELETE FROM sales WHERE timestamp >= ? AND timestamp <= ?").bind(start, end).run();
-  await env.DB.prepare("DELETE FROM payments WHERE timestamp >= ? AND timestamp <= ?").bind(start, end).run();
-  return { success: true, archiveId };
+
+  return { success: true, archivedYears, totalArchivedRows };
 };
 
 handlers.updateInventoryStock = updateInventoryStock;
@@ -1190,36 +1222,49 @@ handlers.updateOrderDetails = async (env, args) => {
 
 export default {
   async fetch(request, env) {
+    const origin = request.headers.get("Origin");
     if (request.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders() });
+      return new Response(null, { headers: corsHeaders(origin) });
     }
     if (request.method === "GET") {
-      return json({ ok: true, message: "Pukfu POS API" });
+      return json({ ok: true, message: "Pukfu POS API" }, 200, origin);
     }
     if (request.method === "POST") {
+      let fn;
       try {
         const body = await request.json();
-        const { token, fn, args } = body;
+        ({ fn } = body);
+        const { token, args } = body;
         const isPublicToken = env.PUBLIC_API_TOKEN && token === env.PUBLIC_API_TOKEN;
         const isStaffToken = env.API_TOKEN && token === env.API_TOKEN;
         if (isPublicToken) {
           if (!PUBLIC_HANDLERS.has(fn)) {
-            return json({ ok: false, error: "Unauthorized" }, 401);
+            return json({ ok: false, error: "Unauthorized" }, 401, origin);
           }
         } else if (!isStaffToken) {
-          return json({ ok: false, error: "Unauthorized" }, 401);
+          return json({ ok: false, error: "Unauthorized" }, 401, origin);
         }
         const handler = handlers[fn];
         if (!handler) {
-          return json({ ok: false, error: "Unknown function: " + fn }, 400);
+          return json({ ok: false, error: "Unknown function: " + fn }, 400, origin);
         }
         const result = await handler(env, args || []);
-        return json({ ok: true, result });
+        return json({ ok: true, result }, 200, origin);
       } catch (err) {
-        return json({ ok: false, error: err.message }, 500);
+        // บันทึกข้อผิดพลาดไว้ดูย้อนหลังใน Settings > Log ไม่ให้ตกหล่นเงียบๆ เหมือนเดิม
+        try {
+          await ensureExtraTables(env);
+          await env.DB.prepare("INSERT INTO error_log (created_at, fn, message) VALUES (?, ?, ?)")
+            .bind(nowIso(), fn || "", String((err && err.message) || err)).run();
+          if (Math.random() < 0.05) {
+            await env.DB.prepare("DELETE FROM error_log WHERE created_at < ?")
+              .bind(new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString()).run();
+          }
+        } catch (logErr) { /* ไม่ให้การบันทึก log ล้มเหลว มาบัง error response จริง */ }
+        return json({ ok: false, error: err.message }, 500, origin);
       }
     }
-    return json({ ok: false, error: "Method not allowed" }, 405);
+    return json({ ok: false, error: "Method not allowed" }, 405, origin);
   },
 
   // ต้องเพิ่ม Cron Trigger เองที่ Cloudflare dashboard (Workers & Pages > pukfu-pos-api > Triggers)
