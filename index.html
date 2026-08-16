@@ -957,6 +957,11 @@
     </div>
   </div>
 
+  <div id="modal-slip-view" class="hidden fixed inset-0 bg-black/80 z-[90] flex items-center justify-center p-4" onclick="if(event.target===this) Controller.closeModal('modal-slip-view')">
+    <img id="slip-view-image" src="" class="max-w-full max-h-full rounded-xl" alt="สลิปโอนเงิน">
+    <button onclick="Controller.closeModal('modal-slip-view')" class="absolute top-4 right-4 text-white text-3xl leading-none">&times;</button>
+  </div>
+
   <div id="loading-overlay" class="hidden fixed inset-0 bg-white/60 backdrop-blur-sm z-[60] flex flex-col items-center justify-center gap-3">
     <div class="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full spin-icon"></div>
     <p class="text-secondary font-bold text-sm">กำลังโหลดข้อมูล...</p>

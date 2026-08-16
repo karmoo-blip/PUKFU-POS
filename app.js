@@ -1522,7 +1522,10 @@
           const time = o.createdAt ? new Date(o.createdAt).toLocaleString('th-TH') : '';
           const itemsSummary = (o.items || []).map(i => `${i.qty}x ${i.name}`).join(', ');
           const slipHtml = o.paymentSlipImage
-            ? `<img src="${o.paymentSlipImage}" onclick="Controller.viewPendingOrderSlip(${idx})" class="w-16 h-16 object-cover rounded-lg border border-sand cursor-pointer mb-2" alt="สลิปโอนเงิน">`
+            ? `<button onclick="Controller.viewPendingOrderSlip(${idx})" class="flex items-center gap-2 mb-2 active:scale-95 transition-all">
+                <img src="${o.paymentSlipImage}" class="w-20 h-20 object-cover rounded-lg border border-sand" alt="สลิปโอนเงิน">
+                <span class="text-xs text-primary font-bold underline">แตะเพื่อดูสลิปเต็มจอ</span>
+              </button>`
             : `<p class="text-xs text-amber-500 font-bold mb-2">ยังไม่ได้แนบสลิปโอนเงิน</p>`;
           return `
             <div class="py-4">
@@ -1544,9 +1547,13 @@
         }).join('');
       },
 
+      // เดิมใช้ window.open() เปิดแท็บใหม่ แต่ใช้งานไม่ได้แน่นอนตอนแอปติดตั้งเป็น PWA แบบ standalone (ไม่มีแท็บให้เปิด)
+      // เปลี่ยนมาแสดงรูปเต็มจอในหน้าเดิมแทน ใช้ได้ทุกโหมดรวมถึง standalone
       viewPendingOrderSlip(idx) {
         const o = this.pendingOrders[idx];
-        if (o && o.paymentSlipImage) window.open(o.paymentSlipImage, '_blank');
+        if (!o || !o.paymentSlipImage) return;
+        document.getElementById('slip-view-image').src = o.paymentSlipImage;
+        this.openModal('modal-slip-view');
       },
 
       async confirmPendingOrderAction(idx) {
