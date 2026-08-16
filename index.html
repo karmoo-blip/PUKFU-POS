@@ -647,6 +647,17 @@
           </div>
         </div>
 
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+          <div class="bg-gradient-to-br from-amber-50 to-white p-4 rounded-2xl border border-amber-200">
+            <p class="text-xs text-amber-600 font-bold mb-1">🏆 วันขายดีที่สุด (ตลอดกาล)</p>
+            <p id="rp-best-day" class="text-lg font-black text-secondary">-</p>
+          </div>
+          <div class="bg-gradient-to-br from-amber-50 to-white p-4 rounded-2xl border border-amber-200">
+            <p class="text-xs text-amber-600 font-bold mb-1">🏆 เดือนขายดีที่สุด (ตลอดกาล)</p>
+            <p id="rp-best-month" class="text-lg font-black text-secondary">-</p>
+          </div>
+        </div>
+
         <div id="report-result" class="hidden">
           <div class="flex justify-end mb-3">
             <button onclick="Controller.exportReportPDF()" class="bg-secondary text-white px-4 min-h-[2.75rem] rounded-xl font-bold text-sm hover:brightness-110 transition active:scale-95">Export PDF</button>

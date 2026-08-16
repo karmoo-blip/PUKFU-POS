@@ -884,6 +884,33 @@ handlers.getSummaryByRange = async (env, args) => {
   return summaryByRange(env, start, end);
 };
 
+// สถิติวัน/เดือนขายดีที่สุดตลอดกาล รวมข้อมูลจาก archive_payments ด้วย (ไม่งั้นพอ archive ข้อมูลเก่าไป สถิติจะหายไปเงียบๆ)
+handlers.getSalesRecords = async (env) => {
+  await ensureExtraTables(env);
+  const activeFilter = "(status IS NULL OR LOWER(status) NOT IN ('cancelled', 'waste'))";
+  const dayR = await env.DB.prepare(`
+    SELECT day, SUM(total) AS total FROM (
+      SELECT date(timestamp, '+7 hours') AS day, total, status FROM payments
+      UNION ALL
+      SELECT date(timestamp, '+7 hours') AS day, total, status FROM archive_payments
+    ) WHERE ${activeFilter}
+    GROUP BY day ORDER BY total DESC LIMIT 1
+  `).first();
+  const monthR = await env.DB.prepare(`
+    SELECT month, SUM(total) AS total FROM (
+      SELECT strftime('%Y-%m', timestamp, '+7 hours') AS month, total, status FROM payments
+      UNION ALL
+      SELECT strftime('%Y-%m', timestamp, '+7 hours') AS month, total, status FROM archive_payments
+    ) WHERE ${activeFilter}
+    GROUP BY month ORDER BY total DESC LIMIT 1
+  `).first();
+  return {
+    success: true,
+    bestDay: dayR ? { date: dayR.day, total: Number(dayR.total || 0) } : null,
+    bestMonth: monthR ? { month: monthR.month, total: Number(monthR.total || 0) } : null,
+  };
+};
+
 handlers.getTodaySummary = async (env) => {
   const today = bkkToday();
   return summaryByRange(env, today, today);

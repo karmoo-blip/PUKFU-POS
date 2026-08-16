@@ -2576,6 +2576,27 @@
         if (!startEl.value || !endEl.value) {
           this.setReportPreset('7d');
         }
+        this.fetchSalesRecords();
+      },
+
+      // สถิติวัน/เดือนขายดีที่สุดตลอดกาล ไม่ขึ้นกับช่วงวันที่ที่เลือกในตัวกรองด้านบน
+      fetchSalesRecords() {
+        google.script.run
+          .withSuccessHandler(res => { if (res && res.success) this.renderSalesRecords(res); })
+          .withFailureHandler(() => {})
+          .getSalesRecords();
+      },
+
+      renderSalesRecords(res) {
+        const fmt = n => `฿${(n || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        const dayEl = document.getElementById('rp-best-day');
+        const monthEl = document.getElementById('rp-best-month');
+        if (dayEl) dayEl.innerText = res.bestDay
+          ? `${new Date(res.bestDay.date + 'T00:00:00').toLocaleDateString('th-TH', {day: 'numeric', month: 'short', year: '2-digit'})} · ${fmt(res.bestDay.total)}`
+          : 'ยังไม่มีข้อมูล';
+        if (monthEl) monthEl.innerText = res.bestMonth
+          ? `${new Date(res.bestMonth.month + '-01T00:00:00').toLocaleDateString('th-TH', {month: 'long', year: 'numeric'})} · ${fmt(res.bestMonth.total)}`
+          : 'ยังไม่มีข้อมูล';
       },
 
       toLocalDateStr(d) {
