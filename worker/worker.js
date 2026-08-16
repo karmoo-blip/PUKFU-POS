@@ -825,18 +825,39 @@ async function summaryByRange(env, start, end) {
   const topMap = {};
   for (const s of sales.results) {
     const qty = Number(s.qty || 0);
+    const itemCost = costMap[s.sku] || 0;
     cupCount += qty;
-    totalCost += (costMap[s.sku] || 0) * qty;
+    totalCost += itemCost * qty;
     const d = (daily[s.bkk_date] = daily[s.bkk_date] || { date: s.bkk_date, total: 0, bills: 0, cups: 0 });
     d.cups += qty;
     const key = s.name || s.sku || "-";
-    const t = (topMap[key] = topMap[key] || { sku: s.sku, name: key, qty: 0, amount: 0 });
+    const t = (topMap[key] = topMap[key] || { sku: s.sku, name: key, qty: 0, amount: 0, cost: 0, hasCost: false });
     t.qty += qty;
     t.amount += Number(s.price || 0) * qty;
+    t.cost += itemCost * qty;
+    if (itemCost > 0) t.hasCost = true;
   }
 
-  const topSellers = Object.values(topMap).sort((a, b) => b.qty - a.qty).slice(0, 10);
+  // เพิ่มกำไร/มาร์จิ้นต่อรายการ ไว้ข้าง qty/amount เดิม เรียงลำดับตาม qty เหมือนเดิม (ยังคงเป็น "ขายดี" ไม่ใช่ re-rank ตามกำไร)
+  const topSellers = Object.values(topMap)
+    .map((t) => ({ ...t, profit: t.amount - t.cost, marginPct: t.amount > 0 ? ((t.amount - t.cost) / t.amount) * 100 : 0 }))
+    .sort((a, b) => b.qty - a.qty)
+    .slice(0, 10);
   const dailyList = Object.values(daily).sort((a, b) => (a.date < b.date ? 1 : -1));
+
+  // สรุปยอดขายเฉลี่ยตามวันในสัปดาห์ ใช้ dailyList ที่มีอยู่แล้ว ไม่ query เพิ่ม (แปลงวันที่แบบ UTC เหมือน addDays กันปัญหา timezone)
+  const weekdayLabels = ["อาทิตย์", "จันทร์", "อังคาร", "พุธ", "พฤหัสบดี", "ศุกร์", "เสาร์"];
+  const weekdayMap = {};
+  for (const d of dailyList) {
+    const wd = new Date(d.date + "T00:00:00Z").getUTCDay();
+    const w = (weekdayMap[wd] = weekdayMap[wd] || { weekday: wd, label: weekdayLabels[wd], total: 0, cups: 0, days: 0 });
+    w.total += d.total;
+    w.cups += d.cups;
+    w.days += 1;
+  }
+  const byWeekday = Object.values(weekdayMap)
+    .map((w) => ({ ...w, avgPerDay: w.days ? w.total / w.days : 0 }))
+    .sort((a, b) => a.weekday - b.weekday);
 
   let wasteCost = 0;
   for (const s of wasteSales.results) {
@@ -854,7 +875,7 @@ async function summaryByRange(env, start, end) {
   const avgPerBill = billCount ? total / billCount : 0;
   return {
     success: true, total, totalProfit, billCount, cupCount, totalCost, wasteCost, refundedTotal,
-    avgPerBill, cash, other, qr: other, byType, topSellers, daily: dailyList, floatCash,
+    avgPerBill, cash, other, qr: other, byType, topSellers, daily: dailyList, byWeekday, floatCash,
   };
 }
 

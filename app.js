@@ -3314,7 +3314,26 @@ renderReport(r) {
           : r.topSellers.map((item, i) => `
               <div class="flex justify-between items-center text-sm">
                 <span class="text-slate-600 font-bold truncate mr-2">${i + 1}. ${escHtml(item.name)}</span>
-                <span class="text-secondary font-black whitespace-nowrap">${item.qty} แก้ว · ${fmt(item.amount)}</span>
+                <span class="text-secondary font-black whitespace-nowrap">
+                  ${item.qty} แก้ว · ${fmt(item.amount)}
+                  ${item.hasCost
+                    ? `<span class="text-xs font-bold ${item.marginPct >= 50 ? 'text-emerald-500' : 'text-amber-500'} ml-1">(กำไร ${item.marginPct.toFixed(0)}%)</span>`
+                    : `<span class="text-xs font-bold text-slate-300 ml-1">(ยังไม่ระบุต้นทุน)</span>`}
+                </span>
+              </div>
+            `).join('');
+
+        const wdEl = document.getElementById('rp-weekday');
+        const maxAvg = Math.max(1, ...(r.byWeekday || []).map(w => w.avgPerDay));
+        wdEl.innerHTML = (!r.byWeekday || r.byWeekday.length === 0)
+          ? '<p class="text-xs text-slate-300">ไม่มีข้อมูล</p>'
+          : r.byWeekday.map(w => `
+              <div class="flex items-center gap-3 text-sm">
+                <span class="w-16 shrink-0 text-slate-500 font-bold">${w.label}</span>
+                <div class="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
+                  <div class="bg-primary h-full rounded-full" style="width:${(w.avgPerDay / maxAvg * 100).toFixed(0)}%"></div>
+                </div>
+                <span class="w-20 shrink-0 text-right text-secondary font-black">${fmt(w.avgPerDay)}</span>
               </div>
             `).join('');
 
