@@ -1863,7 +1863,7 @@
         if (tab === 'payment') this.fetchPaymentMethods();
         if (tab === 'report') this.initReportTab();
         if (tab === 'backup') { this.fetchBackupList(); this.fetchArchiveList(); }
-        if (tab === 'onlineorder') { this.renderPaymentQrPreview(); this.loadOnlineOrderHistory(); }
+        if (tab === 'onlineorder') { this.renderPaymentQrPreview(); this.loadOnlineOrderHistory(); this.restoreTableQr(); }
       },
 
       renderPaymentQrPreview() {
@@ -1919,6 +1919,21 @@
         document.getElementById('table-qr-image').src = qr.createDataURL(6, 4);
         document.getElementById('table-qr-url').innerText = url;
         document.getElementById('table-qr-result').classList.remove('hidden');
+        localStorage.setItem('pos_lastTableQrLoc', loc);
+      },
+
+      // เรียกตอนเปิดแท็บ Online Order ทุกครั้ง เพื่อโชว์ QR ล่าสุดที่เคยสร้างไว้ ไม่ต้องพิมพ์ชื่อโต๊ะ+กดสร้างใหม่ทุกครั้งที่รีเฟรชหน้า
+      restoreTableQr() {
+        const loc = localStorage.getItem('pos_lastTableQrLoc');
+        if (!loc) return;
+        document.getElementById('qr-location-input').value = loc;
+        this.generateTableQr();
+      },
+
+      cancelTableQr() {
+        localStorage.removeItem('pos_lastTableQrLoc');
+        document.getElementById('qr-location-input').value = '';
+        document.getElementById('table-qr-result').classList.add('hidden');
       },
 
       loadOnlineOrderHistory() {
