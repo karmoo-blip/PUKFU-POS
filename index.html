@@ -75,6 +75,13 @@
     <button onclick="Controller.dismissIosInstallBanner()" class="shrink-0 text-white/70 hover:text-white text-xl leading-none px-1">&times;</button>
   </div>
 
+  <!--  แถบแจ้งมีอัปเดตใหม่ กดเพื่อรีเฟรชเอง (ไม่ auto-reload กันเผลอตัดตอนตะกร้าที่ยังไม่ได้เช็คเอาท์) -->
+  <div id="app-update-banner" class="hidden fixed left-0 right-0 top-0 z-[110] bg-emerald-600 text-white px-4 py-3 flex items-center gap-3 shadow-[0_4px_12px_rgba(0,0,0,0.15)]" style="padding-top: max(0.75rem, env(safe-area-inset-top))">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 shrink-0"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
+    <p class="text-sm flex-1">มีอัปเดตใหม่พร้อมใช้งาน</p>
+    <button onclick="Controller.applyAppUpdate()" class="shrink-0 bg-white text-emerald-700 text-sm font-bold px-3 py-1.5 rounded-xl hover:bg-emerald-50 transition">รีเฟรชตอนนี้</button>
+  </div>
+
   <!--  หน้าจอล็อก PIN (แสดงทับทุกอย่างจนกว่าจะใส่ PIN ถูก) -->
   <div id="pin-lock-screen" class="fixed inset-0 bg-cream z-[100] flex flex-col items-center justify-center p-6">
     <div class="w-full max-w-xs text-center">

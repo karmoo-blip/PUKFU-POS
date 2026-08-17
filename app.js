@@ -987,6 +987,37 @@
         if (banner) banner.classList.add('hidden');
       },
 
+      // เช็คว่ามีเวอร์ชันใหม่ deploy ขึ้นมาหรือยัง โดยดู ETag ของ app.js เทียบกับตอนเปิดแอปครั้งนี้
+      // ใส่ query string กันไทม์ให้ fetch นี้ไม่โดน service worker คืนค่าที่ cache ไว้ (ต้องยิงเน็ตจริงถึงจะรู้ค่าล่าสุด)
+      // ไม่ auto-reload เอง เพราะตะกร้าปัจจุบันยังไม่ได้ persist ไว้ที่ไหน เผลอ reload กลางคันจะเสียรายการที่พิมพ์ค้างอยู่
+      async checkForAppUpdate() {
+        if (this._updateAvailable) return; // แจ้งไปแล้วรอบหนึ่งพอ ไม่ต้องเช็คซ้ำ
+        try {
+          const res = await fetch('app.js?_=' + Date.now(), { cache: 'no-store' });
+          const tag = res.headers.get('etag') || res.headers.get('last-modified');
+          if (!tag) return;
+          if (this._appVersionTag === undefined || this._appVersionTag === null) {
+            this._appVersionTag = tag; // ครั้งแรกที่เช็ค ใช้เป็นค่าฐานไว้เทียบ ไม่ถือว่าเป็นอัปเดต
+            return;
+          }
+          if (tag !== this._appVersionTag) {
+            this._updateAvailable = true;
+            const banner = document.getElementById('app-update-banner');
+            if (banner) banner.classList.remove('hidden');
+          }
+        } catch (e) {
+          // ออฟไลน์หรือเน็ตมีปัญหา ข้ามไปเช็ครอบหน้า
+        }
+      },
+
+      async applyAppUpdate() {
+        try {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        } catch (e) { /* ล้าง cache ไม่สำเร็จก็ยัง reload ต่อได้ แค่ช้ากว่าปกติ */ }
+        location.reload();
+      },
+
       // ดึงข้อมูลทั้งหมดจากเซิร์ฟเวอร์ใหม่ (เมนู/พนักงาน/add-ons/วิธีชำระเงิน/ข้อมูลร้าน/ประวัติออเดอร์)
       // เรียกครั้งแรกตอนเปิดแอปใน init(), และเรียกซ้ำตอนกลับมาเปิดแอป/แท็บอีกครั้ง (ดู startOfflineSyncWatcher)
       refreshFromServer() {
@@ -5976,6 +6007,10 @@ renderReport(r) {
                                 this.updateSyncQueueBadge();
                     }, 20000);
 
+                    // เช็คว่ามีเวอร์ชันใหม่ deploy ขึ้นมาหรือยังเป็นระยะ (ไม่ auto-reload เอง แค่ขึ้นแถบแจ้งให้กดรีเฟรชเอง)
+                    this.checkForAppUpdate();
+                    setInterval(() => this.checkForAppUpdate(), 5 * 60 * 1000);
+
                     // เช็คแจ้งเตือนหมดอายุเป็นระยะ (ไม่ต้องรอเน็ต เทียบเวลาจากข้อมูลที่โหลดไว้ในเครื่องอยู่แล้ว)
                     setInterval(() => this.checkNotifications(), 60000);
 
@@ -5992,6 +6027,7 @@ renderReport(r) {
                                 trySyncAll();
                                 this.checkNotifications();
                                 this.checkPendingOrders();
+                                this.checkForAppUpdate();
                                 if (Date.now() - this.lastServerRefreshAt < 15000) return;
                                 this.lastServerRefreshAt = Date.now();
                                 this.setIndicator('syncing');
