@@ -34,6 +34,7 @@ async function ensureExtraTables(env) {
     "CREATE TABLE IF NOT EXISTS refunds (id TEXT PRIMARY KEY, invoice TEXT, amount REAL, reason TEXT, refunded_by TEXT, created_at TEXT)",
     "CREATE TABLE IF NOT EXISTS pending_orders (id TEXT PRIMARY KEY, created_at TEXT, location TEXT, customer_name TEXT, items_json TEXT, subtotal REAL, total REAL, status TEXT, payment_slip_image TEXT, slip_uploaded_at TEXT, confirmed_by TEXT, confirmed_at TEXT, reject_reason TEXT)",
     "CREATE TABLE IF NOT EXISTS error_log (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, fn TEXT, message TEXT)",
+    "CREATE TABLE IF NOT EXISTS change_log (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, actor TEXT, area TEXT, action TEXT, target TEXT, details TEXT)",
   ];
   for (const s of stmts) {
     await env.DB.prepare(s).run();
@@ -82,6 +83,7 @@ handlers.toggleSoldOut = async (env, args) => {
 };
 
 handlers.saveMenuItem = async (env, args) => {
+  await ensureExtraTables(env);
   const m = args[0] || {};
   const sku = String(m.sku || "").trim();
   const name = String(m.name || "").trim();
@@ -92,7 +94,7 @@ handlers.saveMenuItem = async (env, args) => {
   const category = String(m.category || "").trim();
   const lang2 = String(m.lang2 || "").trim();
   const image = String(m.image || "").trim();
-  const existing = await env.DB.prepare("SELECT sku FROM menu WHERE sku = ?").bind(sku).first();
+  const existing = await env.DB.prepare("SELECT * FROM menu WHERE sku = ?").bind(sku).first();
   if (m.isNew && existing) return { success: false, error: "มีรหัสสินค้านี้อยู่แล้ว" };
   if (existing) {
     await env.DB.prepare("UPDATE menu SET name=?, price=?, image=?, lang2=?, category=?, cost=? WHERE sku=?")
@@ -101,14 +103,25 @@ handlers.saveMenuItem = async (env, args) => {
     await env.DB.prepare("INSERT INTO menu (sku, name, price, image, lang2, category, cost, is_sold_out) VALUES (?,?,?,?,?,?,?,0)")
       .bind(sku, name, price, image, lang2, category, cost).run();
   }
+  const actor = m.actorName || "";
+  const details = existing
+    ? diffFields(existing, { name, price, cost, category, lang2 }, ["name", "price", "cost", "category", "lang2"])
+    : `เพิ่มสินค้าใหม่ ราคา ${price} ต้นทุน ${cost}`;
+  await logChange(env, actor, "menu", existing ? "update" : "create", name || sku, details);
   return { success: true, sku };
 };
 
 handlers.deleteMenuItem = async (env, args) => {
+  await ensureExtraTables(env);
   const a0 = args[0];
-  const sku = a0 && typeof a0 === "object" ? a0.sku : a0;
+  const isObj = a0 && typeof a0 === "object";
+  const sku = isObj ? a0.sku : a0;
   if (!sku) return { success: false, error: "missing sku" };
+  const auth = await authorizeEmployee(env, isObj ? a0.employeeId : null, isObj ? a0.pin : null, { tabs: ["stock"] });
+  if (!auth.ok) return { success: false, error: auth.error };
+  const row = await env.DB.prepare("SELECT name FROM menu WHERE sku = ?").bind(sku).first();
   await env.DB.prepare("DELETE FROM menu WHERE sku = ?").bind(sku).run();
+  await logChange(env, auth.employee.name, "menu", "delete", (row && row.name) || sku, "");
   return { success: true };
 };
 
@@ -176,6 +189,30 @@ async function authorizeEmployee(env, employeeId, pin, opts) {
   return { ok: true, employee: emp };
 }
 
+// เทียบฟิลด์เก่า/ใหม่ คืนข้อความสรุปเฉพาะฟิลด์ที่เปลี่ยนจริง เช่น "ราคา: 45 -> 50" ใช้กับ change_log
+function diffFields(oldRow, newRow, fields) {
+  const parts = [];
+  for (const f of fields) {
+    const ov = oldRow ? oldRow[f] : undefined;
+    const nv = newRow[f];
+    if (String(ov === undefined || ov === null ? "" : ov) !== String(nv === undefined || nv === null ? "" : nv)) {
+      parts.push(`${f}: ${ov === undefined || ov === null || ov === "" ? "-" : ov} -> ${nv === undefined || nv === null || nv === "" ? "-" : nv}`);
+    }
+  }
+  return parts.join(", ");
+}
+
+// บันทึกประวัติการเปลี่ยนแปลงเมนู/พนักงาน/วิธีชำระเงิน ห่อ try/catch กันไม่ให้การล็อกพังธุรกรรมจริง (เหมือน error_log)
+async function logChange(env, actor, area, action, target, details) {
+  try {
+    await env.DB.prepare(
+      "INSERT INTO change_log (created_at, actor, area, action, target, details) VALUES (?, ?, ?, ?, ?, ?)"
+    ).bind(nowIso(), actor || "", area, action, target || "", details || "").run();
+  } catch (e) {
+    // ไม่ให้การล็อกที่พังไปกระทบรายการจริง
+  }
+}
+
 function mapEmployeeRow(row) {
   const perm = normPermission(row.permission);
   return Object.assign({}, row, {
@@ -196,6 +233,7 @@ handlers.getEmployeesForCache = async (env) => {
 };
 
 handlers.saveEmployee = async (env, args) => {
+  await ensureExtraTables(env);
   await ensureColumn(env, "employees", "photo", "TEXT");
   const emp = args[0] || {};
   const id = emp.id || "EMP-" + Date.now();
@@ -203,7 +241,7 @@ handlers.saveEmployee = async (env, args) => {
   const perm = normPermission(Array.isArray(rawPerm) ? rawPerm.join(",") : rawPerm);
   const createdBy = emp.createdBy || emp.created_by || "";
   const photo = String(emp.photo || "");
-  const existing = await env.DB.prepare("SELECT id FROM employees WHERE id = ?").bind(id).first();
+  const existing = await env.DB.prepare("SELECT * FROM employees WHERE id = ?").bind(id).first();
   if (existing) {
     await env.DB.prepare(
       "UPDATE employees SET name=?, pin=?, role=?, active=?, permission=?, photo=? WHERE id=?"
@@ -213,10 +251,24 @@ handlers.saveEmployee = async (env, args) => {
       "INSERT INTO employees (id, name, pin, role, active, permission, created_by, photo) VALUES (?,?,?,?,?,?,?,?)"
     ).bind(id, emp.name, emp.pin, emp.role, emp.active ? 1 : 0, perm, createdBy, photo).run();
   }
+  const actor = emp.actorName || "";
+  const diffParts = existing
+    ? diffFields(
+        { name: existing.name, role: existing.role, active: existing.active ? "เปิด" : "ปิด", permission: normPermission(existing.permission) },
+        { name: emp.name, role: emp.role, active: emp.active ? "เปิด" : "ปิด", permission: perm },
+        ["name", "role", "active", "permission"]
+      )
+    : "";
+  const pinChanged = existing && String(existing.pin) !== String(emp.pin);
+  const details = existing
+    ? [diffParts, pinChanged ? "เปลี่ยน PIN" : ""].filter(Boolean).join(", ") || "ไม่มีการเปลี่ยนแปลงข้อมูลหลัก"
+    : `สร้างพนักงานใหม่ ตำแหน่ง ${emp.role || "-"}`;
+  await logChange(env, actor, "employee", existing ? "update" : "create", emp.name, details);
   return { success: true, id: id };
 };
 
 handlers.deleteEmployee = async (env, args) => {
+  await ensureExtraTables(env);
   const a0 = args[0];
   const isObj = a0 && typeof a0 === "object" && !Array.isArray(a0);
   const id = isObj ? a0.id : a0;
@@ -232,6 +284,7 @@ handlers.deleteEmployee = async (env, args) => {
     r = await env.DB.prepare("DELETE FROM employees WHERE id = ?").bind(id).run();
   }
   const changed = (r && r.meta && r.meta.changes) || 0;
+  if (changed > 0) await logChange(env, auth.employee.name, "employee", "delete", name || id, "");
   return { success: changed > 0, deleted: changed };
 };
 
@@ -267,25 +320,45 @@ handlers.getPaymentMethods = async (env) => {
 };
 
 handlers.savePaymentMethod = async (env, args) => {
+  await ensureExtraTables(env);
   const pm = args[0];
   // ถ้าไม่ได้ส่ง id มา แปลว่าเป็นการเพิ่มใหม่ ต้องสร้าง id ให้ ไม่งั้นจะไปทับแถวที่ id ว่าง
   const id = pm.id || ("PM-" + Date.now());
-  const existing = await env.DB.prepare("SELECT id FROM payment_methods WHERE id = ?").bind(id).first();
+  const isCash = (pm.isCash ?? pm.is_cash) ? 1 : 0;
+  const enabled = pm.enabled ? 1 : 0;
+  const sortOrder = pm.sort_order || 0;
+  const existing = await env.DB.prepare("SELECT * FROM payment_methods WHERE id = ?").bind(id).first();
   if (existing) {
     await env.DB.prepare(
       "UPDATE payment_methods SET name=?, is_cash=?, enabled=?, sort_order=? WHERE id=?"
-    ).bind(pm.name, (pm.isCash ?? pm.is_cash) ? 1 : 0, pm.enabled ? 1 : 0, pm.sort_order || 0, id).run();
+    ).bind(pm.name, isCash, enabled, sortOrder, id).run();
   } else {
     await env.DB.prepare(
       "INSERT INTO payment_methods (id, name, is_cash, enabled, sort_order, created_by) VALUES (?,?,?,?,?,?)"
-    ).bind(id, pm.name, (pm.isCash ?? pm.is_cash) ? 1 : 0, pm.enabled ? 1 : 0, pm.sort_order || 0, pm.created_by || "").run();
+    ).bind(id, pm.name, isCash, enabled, sortOrder, pm.created_by || "").run();
   }
+  const actor = pm.actorName || "";
+  const details = existing
+    ? diffFields(
+        { name: existing.name, is_cash: existing.is_cash ? "ใช่" : "ไม่ใช่", enabled: existing.enabled ? "เปิด" : "ปิด", sort_order: existing.sort_order },
+        { name: pm.name, is_cash: isCash ? "ใช่" : "ไม่ใช่", enabled: enabled ? "เปิด" : "ปิด", sort_order: sortOrder },
+        ["name", "is_cash", "enabled", "sort_order"]
+      )
+    : `เพิ่มวิธีชำระเงินใหม่: ${pm.name || "-"}`;
+  await logChange(env, actor, "payment_method", existing ? "update" : "create", pm.name, details);
   return { success: true };
 };
 
 handlers.deletePaymentMethod = async (env, args) => {
-  const id = args[0];
+  await ensureExtraTables(env);
+  const a0 = args[0];
+  const isObj = a0 && typeof a0 === "object";
+  const id = isObj ? a0.id : a0;
+  const auth = await authorizeEmployee(env, isObj ? a0.employeeId : null, isObj ? a0.pin : null, { tabs: ["payment"] });
+  if (!auth.ok) return { success: false, error: auth.error };
+  const row = await env.DB.prepare("SELECT name FROM payment_methods WHERE id = ?").bind(id).first();
   await env.DB.prepare("DELETE FROM payment_methods WHERE id = ?").bind(id).run();
+  await logChange(env, auth.employee.name, "payment_method", "delete", (row && row.name) || id, "");
   return { success: true };
 };
 
@@ -533,18 +606,24 @@ async function refundOrder(env, args) {
   const payment = await env.DB.prepare("SELECT total FROM payments WHERE invoice = ?").bind(invoice).first();
   if (!payment) return { success: false, error: "ไม่พบบิลนี้" };
 
-  const refundedR = await env.DB.prepare("SELECT IFNULL(SUM(amount), 0) AS t FROM refunds WHERE invoice = ?").bind(invoice).first();
-  const alreadyRefunded = Number((refundedR && refundedR.t) || 0);
-  const remaining = Number(payment.total || 0) - alreadyRefunded;
-  if (amount > remaining) {
+  // เช็คยอดคงเหลือกับ insert ในสเตตเมนต์เดียวแบบ atomic กันสองคนคืนเงินบิลเดียวกันพร้อมกันแล้วผ่านเช็คทั้งคู่
+  // (เดิมอ่านยอดคงเหลือแยกจากการ insert มี race window ระหว่างสอง request)
+  const id = "RFD-" + invoice + "-" + Date.now();
+  const ins = await env.DB.prepare(
+    `INSERT INTO refunds (id, invoice, amount, reason, refunded_by, created_at)
+     SELECT ?, ?, ?, ?, ?, ?
+     WHERE (SELECT total FROM payments WHERE invoice = ?) - (SELECT IFNULL(SUM(amount), 0) FROM refunds WHERE invoice = ?) >= ?`
+  ).bind(id, invoice, amount, reason, user, nowIso(), invoice, invoice, amount).run();
+
+  if (!ins.meta || !ins.meta.changes) {
+    const refundedR = await env.DB.prepare("SELECT IFNULL(SUM(amount), 0) AS t FROM refunds WHERE invoice = ?").bind(invoice).first();
+    const alreadyRefunded = Number((refundedR && refundedR.t) || 0);
+    const remaining = Number(payment.total || 0) - alreadyRefunded;
     return { success: false, error: `คืนเงินได้ไม่เกิน ${remaining.toFixed(2)} บาท (คืนไปแล้ว ${alreadyRefunded.toFixed(2)} บาท)` };
   }
 
-  const id = "RFD-" + invoice + "-" + Date.now();
-  await env.DB.prepare("INSERT INTO refunds (id, invoice, amount, reason, refunded_by, created_at) VALUES (?, ?, ?, ?, ?, ?)")
-    .bind(id, invoice, amount, reason, user, nowIso()).run();
-
-  return { success: true, id, refundedTotal: alreadyRefunded + amount };
+  const refundedR2 = await env.DB.prepare("SELECT IFNULL(SUM(amount), 0) AS t FROM refunds WHERE invoice = ?").bind(invoice).first();
+  return { success: true, id, refundedTotal: Number((refundedR2 && refundedR2.t) || 0) };
 }
 
 // ===== สั่งอาหารออนไลน์ผ่าน QR (order.html) =====
@@ -1011,6 +1090,12 @@ handlers.getErrorLogs = async (env) => {
   return r.results;
 };
 
+handlers.getChangeLogs = async (env) => {
+  await ensureExtraTables(env);
+  const r = await env.DB.prepare("SELECT * FROM change_log ORDER BY id DESC LIMIT 200").all();
+  return r.results;
+};
+
 handlers.syncAccessLogs = async (env, args) => {
   const snapshot = args[0] || [];
   for (const log of snapshot) {
@@ -1198,6 +1283,17 @@ handlers.updateOrderDetails = async (env, args) => {
   const a0 = args[0] || {};
   const invoice = a0.invoice;
   if (!invoice) return { success: false, error: "missing invoice" };
+
+  // ป้องกันสองคนแก้บิลเดียวกันพร้อมกันแล้วคนหลังเผลอทับข้อมูลคนแรกเงียบๆ
+  // เช็คว่ายอดรวมบิลตอนนี้ยังตรงกับที่ client อ่านตอนเปิดหน้าแก้ไข ก่อนจะแตะแถวไหนเลย
+  if (a0.expectedTotal !== undefined && a0.expectedTotal !== null) {
+    const cur = await env.DB.prepare("SELECT total FROM payments WHERE invoice = ?").bind(invoice).first();
+    if (!cur) return { success: false, error: "ไม่พบบิลนี้" };
+    if (Math.abs(Number(cur.total || 0) - Number(a0.expectedTotal)) > 0.01) {
+      return { success: false, error: "บิลนี้ถูกแก้ไขไปแล้วโดยคนอื่น กรุณาโหลดข้อมูลใหม่แล้วลองอีกครั้ง" };
+    }
+  }
+
   const items = Array.isArray(a0.items) ? a0.items : [];
   for (const it of items) {
     const qty = Number(it.qty || 0);

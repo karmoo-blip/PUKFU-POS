@@ -1880,7 +1880,7 @@
         if (tab === 'inventory') this.fetchInventory();
         if (tab === 'employees') this.fetchEmployeeList();
         if (tab === 'stock') { this.renderStockPanel(); this.renderProductList(); }
-        if (tab === 'log') { this.fetchAccessLog(); this.fetchErrorLogs(); }
+        if (tab === 'log') { this.fetchAccessLog(); this.fetchErrorLogs(); this.fetchChangeLog(); }
         if (tab === 'addons') { this.renderAddonList(); this.fetchAddons(); }
         if (tab === 'sweetness') { this.renderSweetnessList(); this.fetchSweetnessLevels(); }
         if (tab === 'notifications') { this.renderNotificationList(); this.fetchNotifications(); }
@@ -2206,7 +2206,9 @@
           active: document.getElementById('emp-form-active').checked,
           permissions: permissions,
           photo: this.editingEmployeePhoto || '',
-          createdBy: empId ? undefined : (this.currentSettingsUser ? this.currentSettingsUser.id : '')
+          createdBy: empId ? undefined : (this.currentSettingsUser ? this.currentSettingsUser.id : ''),
+          actorId: this.currentSettingsUser ? this.currentSettingsUser.id : '',
+          actorName: this.currentSettingsUser ? this.currentSettingsUser.name : ''
         };
 
         this.showLoading();
@@ -2323,6 +2325,38 @@
             <p class="font-bold text-red-500 text-sm">${escHtml(log.fn || 'ไม่ทราบฟังก์ชัน')}</p>
             <p class="text-xs text-slate-500 mt-1 break-words">${escHtml(log.message || '')}</p>
             <p class="text-xs text-slate-400 mt-1">${new Date(log.created_at).toLocaleString()}</p>
+          </div>
+        `).join('');
+      },
+
+      fetchChangeLog(btn) {
+        this.setBtnLoading(btn, true);
+        google.script.run
+          .withSuccessHandler(data => {
+            this.setBtnLoading(btn, false);
+            this.renderChangeLog(data);
+          })
+          .withFailureHandler(() => {
+            this.setBtnLoading(btn, false);
+            this.showAlert('โหลดประวัติการเปลี่ยนแปลงไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+          })
+          .getChangeLogs();
+      },
+
+      renderChangeLog(data) {
+        const list = document.getElementById('change-log-list');
+        if (!list) return;
+        if (!data || data.length === 0) {
+          list.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold">ยังไม่มีประวัติการเปลี่ยนแปลง</div>';
+          return;
+        }
+        const areaLabel = { menu: 'เมนู', employee: 'พนักงาน', payment_method: 'วิธีชำระเงิน' };
+        const actionLabel = { create: 'เพิ่ม', update: 'แก้ไข', delete: 'ลบ' };
+        list.innerHTML = data.map(log => `
+          <div class="p-4">
+            <p class="font-bold text-secondary text-sm">${actionLabel[log.action] || log.action}${areaLabel[log.area] ? ' ' + areaLabel[log.area] : ''}: ${escHtml(log.target || '')}</p>
+            ${log.details ? `<p class="text-xs text-slate-500 mt-1 break-words">${escHtml(log.details)}</p>` : ''}
+            <p class="text-xs text-slate-400 mt-1">${escHtml(log.actor || 'ไม่ทราบผู้ทำรายการ')} · ${new Date(log.created_at).toLocaleString()}</p>
           </div>
         `).join('');
       },
@@ -3081,19 +3115,21 @@
               }
             })
             .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
-            .saveMenuItem({ sku, name, lang2, category, price, cost, image, isNew });
+            .saveMenuItem({ sku, name, lang2, category, price, cost, image, isNew, actorId: this.currentSettingsUser ? this.currentSettingsUser.id : '', actorName: this.currentSettingsUser ? this.currentSettingsUser.name : '' });
         },
 
         async deleteProductConfirm(sku) {
           const item = (this.menuData || []).find(x => String(x.sku) === String(sku));
           const ok = await this.showConfirm('ต้องการลบสินค้า "' + (item ? item.name : sku) + '" ออกจากเมนูหรือไม่?', '');
           if (!ok) return;
+          const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการลบสินค้า:');
+          if (!auth) return;
           this.showLoading();
           google.script.run
             .withSuccessHandler(res => {
               this.hideLoading();
               if (res && res.success) {
-                this.logPinAttempt('ลบสินค้า: ' + (item ? item.name : sku), true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
+                this.logPinAttempt('ลบสินค้า: ' + (item ? item.name : sku), true, auth.employee.name);
                 this.fetchMenuForAdmin();
                 this.showAlert('ลบสินค้าแล้ว', '');
               } else {
@@ -3101,7 +3137,7 @@
               }
             })
             .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
-            .deleteMenuItem(sku);
+            .deleteMenuItem({ sku, employeeId: auth.employeeId, pin: auth.pin });
         },
 
         _recipeRowHtml(inventoryItemId, qty) {
@@ -3310,7 +3346,7 @@
           if (!order) return this.showAlert('ไม่พบบิลนี้', '');
           const items = (order.items || []).filter(it => !it.cancelled);
           const noId = items.some(it => it.id === undefined || it.id === null);
-          this.editBillData = { invoice: order.invoice, note: order.note || '', paymentType: order.paymentType || '', items: items.map(it => ({ id: it.id, name: it.name, qty: it.qty, price: it.price, note: it.note || '' })) };
+          this.editBillData = { invoice: order.invoice, note: order.note || '', paymentType: order.paymentType || '', expectedTotal: Number(order.total) || 0, items: items.map(it => ({ id: it.id, name: it.name, qty: it.qty, price: it.price, note: it.note || '' })) };
           const q = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
           const old = document.getElementById('modal-edit-bill');
           if (old) old.remove();
@@ -3373,10 +3409,13 @@
                 else this.fetchServerData();
               } else {
                 this.showAlert((res && res.error) || 'แก้ไขไม่สำเร็จ', '');
+                // ถ้าชนกันเพราะมีคนอื่นแก้บิลนี้ไปก่อน โหลดข้อมูลล่าสุดมาให้ ลองใหม่รอบหน้าจะได้ไม่ชนซ้ำ
+                if (this.historyViewDate) this.loadHistoryDate(this.historyViewDate);
+                else this.fetchServerData();
               }
             })
             .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
-            .updateOrderDetails({ invoice: data.invoice, items: items, paymentType: paymentType, note: note });
+            .updateOrderDetails({ invoice: data.invoice, items: items, paymentType: paymentType, note: note, expectedTotal: data.expectedTotal });
         },
 
 renderReport(r) {
@@ -3542,7 +3581,7 @@ renderReport(r) {
         /* ถ้าไม่มี id แปลว่าเป็นการเพิ่มใหม่ ต้องสร้าง id ที่นี่
            ไม่งั้นจะส่ง id ว่างไปทับรายการเดิมที่ id ว่างเหมือนกัน */
         const methodId = id || ('PM-' + Date.now());
-        const method = { id: methodId, name, isCash, enabled, createdBy: this.currentSettingsUser ? this.currentSettingsUser.name : '' };
+        const method = { id: methodId, name, isCash, enabled, createdBy: this.currentSettingsUser ? this.currentSettingsUser.name : '', actorId: this.currentSettingsUser ? this.currentSettingsUser.id : '', actorName: this.currentSettingsUser ? this.currentSettingsUser.name : '' };
 
         this.closeModal('modal-payment-method-form');
         this.setIndicator('syncing');
@@ -3566,7 +3605,7 @@ renderReport(r) {
       togglePaymentMethodEnabled(id) {
         const m = this.paymentMethods.find(x => x.id === id);
         if (!m) return;
-        const updated = { id: m.id, name: m.name, isCash: m.isCash, enabled: !m.enabled };
+        const updated = { id: m.id, name: m.name, isCash: m.isCash, enabled: !m.enabled, actorId: this.currentSettingsUser ? this.currentSettingsUser.id : '', actorName: this.currentSettingsUser ? this.currentSettingsUser.name : '' };
         this.setIndicator('syncing');
         google.script.run
           .withSuccessHandler(res => {
@@ -3588,6 +3627,9 @@ renderReport(r) {
         const ok = await this.showConfirm('ต้องการลบวิธีชำระเงินนี้ใช่หรือไม่?', '');
         if (!ok) return;
 
+        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการลบวิธีชำระเงิน:');
+        if (!auth) return;
+
         this.setIndicator('syncing');
         google.script.run
           .withSuccessHandler(res => {
@@ -3602,7 +3644,7 @@ renderReport(r) {
             this.setIndicator('error');
             this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
           })
-          .deletePaymentMethod(id);
+          .deletePaymentMethod({ id, employeeId: auth.employeeId, pin: auth.pin });
       },
 
       fetchBackupList(btn) {
