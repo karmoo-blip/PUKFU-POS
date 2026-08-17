@@ -44,20 +44,22 @@
   <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            // ค่าสีจริงกำหนดที่เดียวใน style.css (:root) ตรงนี้แค่ผูกชื่อคลาส Tailwind เข้ากับ CSS variable นั้น
-            primary: 'var(--color-primary)',
-            secondary: 'var(--color-secondary)',
-            accent: 'var(--color-accent)',
-            mustard: 'var(--color-mustard)',
-            sand: 'var(--color-sand)',
-            cream: 'var(--color-cream)',
-            ink: 'var(--color-ink)',
-          },
-          fontFamily: { sarabun: ['Sarabun', 'sans-serif'] }
+    if (typeof tailwind !== 'undefined') {
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              // ค่าสีจริงกำหนดที่เดียวใน style.css (:root) ตรงนี้แค่ผูกชื่อคลาส Tailwind เข้ากับ CSS variable นั้น
+              primary: 'var(--color-primary)',
+              secondary: 'var(--color-secondary)',
+              accent: 'var(--color-accent)',
+              mustard: 'var(--color-mustard)',
+              sand: 'var(--color-sand)',
+              cream: 'var(--color-cream)',
+              ink: 'var(--color-ink)',
+            },
+            fontFamily: { sarabun: ['Sarabun', 'sans-serif'] }
+          }
         }
       }
     }

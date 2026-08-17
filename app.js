@@ -36,17 +36,21 @@
         fail(new Error("ยังไม่ได้ตั้งค่า API : พิมพ์ posApiSetup() ใน console"));
         return;
       }
+      var controller = new AbortController();
+      var timer = setTimeout(function () { controller.abort(); }, 15000);
       fetch(c.url, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify({ token: c.key, fn: fn, args: args })
+        body: JSON.stringify({ token: c.key, fn: fn, args: args }),
+        signal: controller.signal
       })
         .then(function (r) { return r.json(); })
         .then(function (d) {
           if (!d.ok) throw new Error(d.error || "API error");
           ok(d.result);
         })
-        .catch(fail);
+        .catch(fail)
+        .finally(function () { clearTimeout(timer); });
     }
 
     function chain(h) {
@@ -905,6 +909,8 @@
         this.checkAndClearDailyCache();
         this.setIndicator('syncing');
         this.showLoading();
+        // กันสไปเนอร์ค้างตลอดไปกรณีมีอะไรพลาดไปที่ไม่คาดคิด (ปกติ hideLoading จะถูกเรียกไวกว่านี้จาก refreshFromServer)
+        setTimeout(() => this.hideLoading(), 20000);
 
         this.syncQueue = JSON.parse(localStorage.getItem('pos_syncQueue')) || [];
         this.queueNumber = parseInt(localStorage.getItem('pos_queueNumber')) || 1;
@@ -977,21 +983,32 @@
       refreshFromServer() {
         this.fetchServerData();
 
+        // เช็คว่าเรียกครบทุกตัวหรือยัง (settle) ค่อยซ่อน loading overlay
+        // กันสไปเนอร์ค้างตลอดไปถ้ามีแค่ตัวเดียวค้าง/ไม่ตอบ (ก่อนหน้านี้ผูกไว้กับ getMenuData ตัวเดียว)
+        this._refreshPending = new Set(['employees', 'addons', 'sweetness', 'payment', 'inventory', 'notifications', 'recipes', 'shopInfo', 'menu']);
+        this._refreshHadFailure = false;
+        const settle = (key) => {
+          this._refreshPending.delete(key);
+          if (this._refreshPending.size === 0) this.hideLoading();
+        };
+
         google.script.run
           .withSuccessHandler(data => {
             this.employees = data;
             localStorage.setItem('pos_employees', JSON.stringify(data));
             if (!this.loggedInEmployee) this.initPinLock();
+            settle('employees');
           })
-          .withFailureHandler(() => console.warn("ใช้รายชื่อพนักงานที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
+          .withFailureHandler(() => { console.warn("ใช้รายชื่อพนักงานที่เซฟไว้ในเครื่อง (ออฟไลน์)"); this._refreshHadFailure = true; settle('employees'); })
           .getEmployeesForCache();
 
         google.script.run
           .withSuccessHandler(data => {
             this.addons = data;
             localStorage.setItem('pos_addons', JSON.stringify(data));
+            settle('addons');
           })
-          .withFailureHandler(() => console.warn("ใช้รายการ Add-ons ที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
+          .withFailureHandler(() => { console.warn("ใช้รายการ Add-ons ที่เซฟไว้ในเครื่อง (ออฟไลน์)"); this._refreshHadFailure = true; settle('addons'); })
           .getAddons();
 
         google.script.run
@@ -999,16 +1016,18 @@
             this.sweetnessLevels = data;
             localStorage.setItem('pos_sweetnessLevels', JSON.stringify(data));
             this.updateSweetnessButtons();
+            settle('sweetness');
           })
-          .withFailureHandler(() => console.warn("ใช้รายการระดับความหวานที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
+          .withFailureHandler(() => { console.warn("ใช้รายการระดับความหวานที่เซฟไว้ในเครื่อง (ออฟไลน์)"); this._refreshHadFailure = true; settle('sweetness'); })
           .getSweetnessLevels();
 
         google.script.run
           .withSuccessHandler(data => {
             this.paymentMethods = data;
             localStorage.setItem('pos_paymentMethods', JSON.stringify(data));
+            settle('payment');
           })
-          .withFailureHandler(() => console.warn("ใช้วิธีชำระเงินที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
+          .withFailureHandler(() => { console.warn("ใช้วิธีชำระเงินที่เซฟไว้ในเครื่อง (ออฟไลน์)"); this._refreshHadFailure = true; settle('payment'); })
           .getPaymentMethods();
 
         google.script.run
@@ -1016,8 +1035,9 @@
             this.inventoryData = data;
             localStorage.setItem('pos_inventoryData', JSON.stringify(data));
             this.renderInventory();
+            settle('inventory');
           })
-          .withFailureHandler(() => console.warn("ใช้ข้อมูลสต๊อกที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
+          .withFailureHandler(() => { console.warn("ใช้ข้อมูลสต๊อกที่เซฟไว้ในเครื่อง (ออฟไลน์)"); this._refreshHadFailure = true; settle('inventory'); })
           .getInventoryData();
 
         google.script.run
@@ -1026,16 +1046,18 @@
             localStorage.setItem('pos_notifications', JSON.stringify(data));
             this.renderNotificationList();
             this.checkNotifications();
+            settle('notifications');
           })
-          .withFailureHandler(() => console.warn("ใช้รายการแจ้งเตือนที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
+          .withFailureHandler(() => { console.warn("ใช้รายการแจ้งเตือนที่เซฟไว้ในเครื่อง (ออฟไลน์)"); this._refreshHadFailure = true; settle('notifications'); })
           .getNotifications();
 
         google.script.run
           .withSuccessHandler(data => {
             this.recipes = data;
             localStorage.setItem('pos_recipes', JSON.stringify(data));
+            settle('recipes');
           })
-          .withFailureHandler(() => console.warn("ใช้สูตรที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
+          .withFailureHandler(() => { console.warn("ใช้สูตรที่เซฟไว้ในเครื่อง (ออฟไลน์)"); this._refreshHadFailure = true; settle('recipes'); })
           .getRecipes();
 
         google.script.run
@@ -1047,8 +1069,9 @@
             data.vatRate = Number(data.vatRate) || 7;
             this.shopInfo = data;
             localStorage.setItem('pos_shopInfo', JSON.stringify(data));
+            settle('shopInfo');
           })
-          .withFailureHandler(() => console.warn("ใช้ข้อมูลร้านที่เซฟไว้ในเครื่อง (ออฟไลน์)"))
+          .withFailureHandler(() => { console.warn("ใช้ข้อมูลร้านที่เซฟไว้ในเครื่อง (ออฟไลน์)"); this._refreshHadFailure = true; settle('shopInfo'); })
           .getShopInfo();
 
         google.script.run
@@ -1063,7 +1086,7 @@
             this.extractCategories(); // ดึงหมวดหมู่ใหม่หลังได้ข้อมูลล่าสุด
             this.setIndicator('synced');
             this.processSyncQueue();
-            this.hideLoading();
+            settle('menu');
           })
           .withFailureHandler(err => {
             console.warn("Offline Mode: ใช้ข้อมูลเมนูที่เซฟไว้ในเครื่อง");
@@ -1071,7 +1094,8 @@
             if (this.menuData.length === 0) {
               this.showAlert("ไม่สามารถดึงข้อมูลเมนูได้ และไม่มีข้อมูลเก่าอยู่ในเครื่อง กรุณาต่ออินเทอร์เน็ต", '');
             }
-            this.hideLoading();
+            this._refreshHadFailure = true;
+            settle('menu');
           })
           .getMenuData();
         this.floatCashQueue = JSON.parse(localStorage.getItem('pos_floatCashQueue')) || [];
@@ -5794,6 +5818,13 @@ renderReport(r) {
                                 this.processFloatCashQueue();
                                 this.processLogQueue();
                                 this.processStatusQueue();
+                                // ถ้าโหลดข้อมูลตอนเปิดแอปครั้งก่อนพลาดบางส่วน (เมนู/พนักงาน/ฯลฯ) ให้ลองใหม่อัตโนมัติ
+                                // ไม่ต้องรอให้ผู้ใช้ปิดเปิดแอปเอง (ใช้ throttle ตัวเดียวกับ visibilitychange ด้านล่าง)
+                                if (this._refreshHadFailure && Date.now() - (this.lastServerRefreshAt || 0) > 15000) {
+                                            this.lastServerRefreshAt = Date.now();
+                                            this.setIndicator('syncing');
+                                            this.refreshFromServer();
+                                }
                     };
 
                     window.addEventListener('online', () => {
