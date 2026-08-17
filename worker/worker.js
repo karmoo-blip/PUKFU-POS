@@ -786,7 +786,7 @@ async function summaryByRange(env, start, end) {
     "SELECT * FROM sales WHERE date(timestamp, '+7 hours') BETWEEN ? AND ? AND cancelled = 0 AND invoice IN (SELECT invoice FROM payments WHERE LOWER(IFNULL(status, '')) = 'waste')"
   ).bind(startDay, endDay).all();
   const paymentsR = await env.DB.prepare(
-    "SELECT *, date(timestamp, '+7 hours') AS bkk_date FROM payments WHERE date(timestamp, '+7 hours') BETWEEN ? AND ? AND (status IS NULL OR LOWER(status) NOT IN ('cancelled', 'waste'))"
+    "SELECT *, date(timestamp, '+7 hours') AS bkk_date, strftime('%H', timestamp, '+7 hours') AS bkk_hour FROM payments WHERE date(timestamp, '+7 hours') BETWEEN ? AND ? AND (status IS NULL OR LOWER(status) NOT IN ('cancelled', 'waste'))"
   ).bind(startDay, endDay).all();
   const pmR = await env.DB.prepare("SELECT * FROM payment_methods").all();
   const cashTypes = new Set(
@@ -796,6 +796,8 @@ async function summaryByRange(env, start, end) {
   let total = 0, totalCost = 0, cash = 0, other = 0, cupCount = 0;
   const byType = {};
   const daily = {};
+  const hourMap = {};
+  for (let h = 0; h < 24; h++) hourMap[h] = { hour: h, label: String(h).padStart(2, "0") + ":00", total: 0, bills: 0 };
 
   for (const p of paymentsR.results) {
     const amt = Number(p.total || 0);
@@ -807,7 +809,13 @@ async function summaryByRange(env, start, end) {
     const d = (daily[p.bkk_date] = daily[p.bkk_date] || { date: p.bkk_date, total: 0, bills: 0, cups: 0 });
     d.total += amt;
     d.bills += 1;
+    const hr = Number(p.bkk_hour);
+    if (!isNaN(hr) && hourMap[hr]) {
+      hourMap[hr].total += amt;
+      hourMap[hr].bills += 1;
+    }
   }
+  const byHour = Object.values(hourMap).sort((a, b) => a.hour - b.hour);
 
   let floatCash = 0;
   try {
@@ -878,7 +886,7 @@ async function summaryByRange(env, start, end) {
   const avgPerBill = billCount ? total / billCount : 0;
   return {
     success: true, total, totalProfit, billCount, cupCount, totalCost, wasteCost, refundedTotal,
-    avgPerBill, cash, other, qr: other, byType, topSellers, daily: dailyList, byWeekday, floatCash,
+    avgPerBill, cash, other, qr: other, byType, topSellers, daily: dailyList, byWeekday, byHour, floatCash,
   };
 }
 

@@ -3411,6 +3411,25 @@ renderReport(r) {
               </div>
             `).join('');
 
+        const hourEl = document.getElementById('rp-hourly');
+        const hoursWithData = (r.byHour || []).filter(h => h.bills > 0);
+        const maxBills = Math.max(1, ...hoursWithData.map(h => h.bills));
+        const peakHours = new Set(
+          [...hoursWithData].sort((a, b) => b.bills - a.bills).slice(0, 3).map(h => h.hour)
+        );
+        hourEl.innerHTML = hoursWithData.length === 0
+          ? '<p class="text-xs text-slate-300">ไม่มีข้อมูล</p>'
+          : hoursWithData.map(h => `
+              <div class="flex items-center gap-3 text-sm">
+                <span class="w-14 shrink-0 text-slate-500 font-bold">${h.label}</span>
+                <div class="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
+                  <div class="${peakHours.has(h.hour) ? 'bg-amber-500' : 'bg-primary'} h-full rounded-full" style="width:${(h.bills / maxBills * 100).toFixed(0)}%"></div>
+                </div>
+                <span class="w-16 shrink-0 text-right text-secondary font-black whitespace-nowrap">${h.bills} บิล</span>
+                ${peakHours.has(h.hour) ? '<span class="text-[10px] font-black text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded-full shrink-0">พีค</span>' : '<span class="w-8 shrink-0"></span>'}
+              </div>
+            `).join('');
+
         const dailyEl = document.getElementById('rp-daily');
         dailyEl.innerHTML = (!r.daily || r.daily.length === 0)
           ? '<p class="text-xs text-slate-300">ไม่มีข้อมูลในช่วงเวลานี้</p>'
