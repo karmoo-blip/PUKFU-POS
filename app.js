@@ -350,7 +350,10 @@
     // =============================================
     //  BluetoothPrinter — จัดการเครื่องพิมพ์ BLE
     // =============================================
-    const BluetoothPrinter = {
+    // สร้างเป็นฟังก์ชัน factory แทน object เดี่ยว จะได้เชื่อมต่อเครื่องพิมพ์ 2 เครื่องพร้อมกันได้
+    // (เครื่องเดิมมีตัวเดียวก็ยังใช้ได้ปกติ แค่เรียก factory 2 ครั้งด้านล่าง)
+    function createPrinterConnection() {
+      return {
       device: null,
       server: null,
       characteristic: null,
@@ -716,18 +719,24 @@
       },
 
       // ─── สั่งพิมพ์หลัก ───
-      async printReceipt(order, queueStr, settings) {
+      // kitchenPeer: เครื่องพิมพ์ครัวแยกต่างหาก (ถ้าเชื่อมต่ออยู่ ใบสั่งครัวจะไปออกที่นั่นแทน)
+      // ถ้าไม่ได้เชื่อมต่อ หรือไม่ได้ส่งมา จะ fallback มาออกเครื่องเดียวกับใบเสร็จเหมือนเดิม
+      async printReceipt(order, queueStr, settings, kitchenPeer) {
         await this.sendData(await this.buildReceipt(order, queueStr, settings));
         if (settings.printOrderSlip) {
+          const target = (kitchenPeer && kitchenPeer.isConnected) ? kitchenPeer : this;
           await new Promise(r => setTimeout(r, 50));
-          await this.sendData(await this.buildOrderSlip(order, queueStr, settings));
+          await target.sendData(await target.buildOrderSlip(order, queueStr, settings));
         }
       },
 
       async printTest(settings) {
         await this.sendData(await this.buildTestPage(settings));
       }
-    };
+      };
+    }
+    const ReceiptPrinter = createPrinterConnection();
+    const KitchenPrinter = createPrinterConnection();
     
     const Controller = {
       employees: [], // cache รายชื่อพนักงาน+PIN สำหรับเช็คสิทธิ์เข้า Settings แบบออฟไลน์
@@ -1069,6 +1078,18 @@
             data.vatRate = Number(data.vatRate) || 7;
             this.shopInfo = data;
             localStorage.setItem('pos_shopInfo', JSON.stringify(data));
+
+            // ดึงการตั้งค่าเครื่องพิมพ์ที่ซิงก์มาจาก shop_info ก้อนเดียวกัน (ไม่มีตารางแยก เก็บรวมกันไว้)
+            // merge ทับของเดิมในเครื่อง ไม่ replace ทั้งก้อน กันกรณีเครื่องนี้ยังไม่เคยซิงก์ค่าพวกนี้ขึ้นไปเลย
+            const rsBoolKeys = ['autoPrint', 'showQueue', 'printOrderSlip', 'showLogo', 'showHeader', 'showBranch', 'showCompany', 'showBranchNo', 'showAddress', 'showTaxId', 'showPhone', 'showDocTitle', 'showPosId', 'showInvoiceNo', 'showStaff', 'showDateTime', 'showItemNote', 'showSummary', 'showPayment', 'showFooter'];
+            const rsStrKeys = ['header', 'footer', 'branch', 'company', 'branchNo', 'posId', 'docTitle', 'paperSize', 'logoBase64'];
+            const syncedReceiptSettings = {};
+            rsStrKeys.forEach(k => { if (data[k] !== undefined) syncedReceiptSettings[k] = data[k]; });
+            rsBoolKeys.forEach(k => { if (data[k] !== undefined) syncedReceiptSettings[k] = (data[k] === true || data[k] === 'true'); });
+            this.receiptSettings = { ...this.receiptSettings, ...syncedReceiptSettings };
+            if (this.receiptSettings.logoBase64) this.regenerateLogoRaster();
+            localStorage.setItem('pos_receiptSettings', JSON.stringify(this.receiptSettings));
+
             settle('shopInfo');
           })
           .withFailureHandler(() => { console.warn("ใช้ข้อมูลร้านที่เซฟไว้ในเครื่อง (ออฟไลน์)"); this._refreshHadFailure = true; settle('shopInfo'); })
@@ -4555,14 +4576,16 @@ renderReport(r) {
           invoice: '(ยังไม่ชำระ)'
         };
 
-        if (!BluetoothPrinter.isConnected) {
+        // ใบสั่งครัวออกที่เครื่องพิมพ์ครัวถ้าเชื่อมต่ออยู่ ไม่งั้น fallback ไปเครื่องพิมพ์ใบเสร็จ
+        const target = KitchenPrinter.isConnected ? KitchenPrinter : ReceiptPrinter;
+        if (!target.isConnected) {
           this.showAlert('กรุณาเชื่อมต่อเครื่องพิมพ์ Bluetooth ก่อนพิมพ์', '');
           return;
         }
 
         try {
-          const bytes = await BluetoothPrinter.buildOrderSlip(fakeOrder, null, this.receiptSettings);
-          await BluetoothPrinter.sendData(bytes);
+          const bytes = await target.buildOrderSlip(fakeOrder, null, this.receiptSettings);
+          await target.sendData(bytes);
         } catch (e) {
           console.warn('BT Print Error:', e.message);
           this.showAlert('พิมพ์ผ่าน Bluetooth ไม่สำเร็จ: ' + e.message, '');
@@ -4570,13 +4593,13 @@ renderReport(r) {
       },
 
         async printReceipt(order, queueStr) {
-        if (!BluetoothPrinter.isConnected) {
-          this.showAlert('กรุณาเชื่อมต่อเครื่องพิมพ์ Bluetooth ก่อนพิมพ์', '');
+        if (!ReceiptPrinter.isConnected) {
+          this.showAlert('กรุณาเชื่อมต่อเครื่องพิมพ์ใบเสร็จ Bluetooth ก่อนพิมพ์', '');
           return;
         }
 
         try {
-          await BluetoothPrinter.printReceipt(order, queueStr, { ...this.receiptSettings, ...this.shopInfo });
+          await ReceiptPrinter.printReceipt(order, queueStr, { ...this.receiptSettings, ...this.shopInfo }, KitchenPrinter);
         } catch (e) {
           console.warn('BT Print Error:', e.message);
           this.showAlert('พิมพ์ผ่าน Bluetooth ไม่สำเร็จ: ' + e.message, '');
@@ -4611,6 +4634,7 @@ renderReport(r) {
         this.resetAutoLockTimer();
 
         this.shopInfo = {
+          ...this.shopInfo,
           address: document.getElementById('shop-address').value.trim(),
           phone: document.getElementById('shop-phone').value.trim(),
           taxId: document.getElementById('shop-tax-id').value.trim(),
@@ -4619,10 +4643,14 @@ renderReport(r) {
         };
         localStorage.setItem('pos_shopInfo', JSON.stringify(this.shopInfo));
 
+        // ส่งทั้งข้อมูลร้านและการตั้งค่าเครื่องพิมพ์ไปเก็บที่ backend ไปพร้อมกัน (shop_info เป็น key-value เก็บได้ทุกอย่าง)
+        // เครื่องอื่นที่ล็อกอินจะได้เห็นค่าเดียวกัน ไม่ต้องตั้งใหม่ทีละเครื่อง
+        // ไม่ส่ง logoRaster เพราะสร้างใหม่จาก logoBase64 ได้เร็วอยู่แล้วในเครื่อง ไม่ต้องเปลืองพื้นที่ซิงก์
+        const { logoRaster, ...receiptSettingsForSync } = this.receiptSettings;
         google.script.run
           .withSuccessHandler(() => {})
           .withFailureHandler(() => this.showAlert('บันทึกข้อมูลร้านลง Google Sheet ไม่สำเร็จ (จะเก็บไว้ในเครื่องก่อน)', ''))
-          .saveShopInfo(this.shopInfo);
+          .saveShopInfo({ ...this.shopInfo, ...receiptSettingsForSync });
 
         this.showAlert('บันทึกการตั้งค่าเครื่องพิมพ์แล้ว', '');
       },
@@ -4637,6 +4665,10 @@ renderReport(r) {
           await this.regenerateLogoRaster();
           localStorage.setItem('pos_receiptSettings', JSON.stringify(this.receiptSettings));
           this.renderLogoPreview();
+          google.script.run
+            .withSuccessHandler(() => {})
+            .withFailureHandler(() => this.showAlert('ซิงก์โลโก้ไปเครื่องอื่นไม่สำเร็จ (จะเก็บไว้ในเครื่องนี้ก่อน)', ''))
+            .saveShopInfo({ logoBase64: resizedBase64 });
           this.hideLoading();
           this.showAlert('อัปโหลดโลโก้เรียบร้อยแล้ว', '');
         } catch (e) {
@@ -4660,6 +4692,10 @@ renderReport(r) {
         localStorage.setItem('pos_receiptSettings', JSON.stringify(this.receiptSettings));
         document.getElementById('logo-upload-input').value = '';
         this.renderLogoPreview();
+        google.script.run
+          .withSuccessHandler(() => {})
+          .withFailureHandler(() => {})
+          .saveShopInfo({ logoBase64: '' });
       },
 
       toggleVatRateInput() {
@@ -4685,46 +4721,61 @@ renderReport(r) {
       // =============================================
       //  Bluetooth Printer Controls
       // =============================================
-      async connectBTPrinter() {
-        const res = await BluetoothPrinter.connect();
+      // role: 'receipt' | 'kitchen' — เลือกว่ากำลังทำงานกับเครื่องพิมพ์ไหน
+      _printerForRole(role) {
+        return role === 'kitchen' ? KitchenPrinter : ReceiptPrinter;
+      },
+      _printerRoleLabel(role) {
+        return role === 'kitchen' ? 'เครื่องพิมพ์ครัว' : 'เครื่องพิมพ์ใบเสร็จ';
+      },
+
+      async connectBTPrinter(role) {
+        const printer = this._printerForRole(role);
+        const res = await printer.connect();
         if (res.success) {
           this.showAlert('เชื่อมต่อสำเร็จ: ' + res.name, '');
-          localStorage.setItem('pos_btPrinterName', res.name);
+          localStorage.setItem('pos_btPrinterName_' + (role || 'receipt'), res.name);
         } else {
           this.showAlert('เชื่อมต่อไม่สำเร็จ: ' + res.message, '');
         }
-        this.updatePrinterStatusUI();
+        this.updatePrinterStatusUI(role);
       },
 
-      async disconnectBTPrinter() {
-        await BluetoothPrinter.disconnect();
-        localStorage.removeItem('pos_btPrinterName');
-        this.updatePrinterStatusUI();
+      async disconnectBTPrinter(role) {
+        const printer = this._printerForRole(role);
+        await printer.disconnect();
+        localStorage.removeItem('pos_btPrinterName_' + (role || 'receipt'));
+        this.updatePrinterStatusUI(role);
         this.showAlert('ตัดการเชื่อมต่อแล้ว', 'ℹ');
       },
 
-      async testBTPrint() {
-        if (!BluetoothPrinter.isConnected) {
-          return this.showAlert('กรุณาเชื่อมต่อเครื่องพิมพ์ก่อน', '');
+      async testBTPrint(role) {
+        const printer = this._printerForRole(role);
+        if (!printer.isConnected) {
+          return this.showAlert('กรุณาเชื่อมต่อ' + this._printerRoleLabel(role) + 'ก่อน', '');
         }
         try {
-          await BluetoothPrinter.printTest(this.receiptSettings);
+          await printer.printTest(this.receiptSettings);
           this.showAlert('ส่งหน้าทดสอบสำเร็จ!', '');
         } catch (e) {
           this.showAlert('พิมพ์ไม่สำเร็จ: ' + e.message, '');
         }
       },
 
-      updatePrinterStatusUI() {
-        const statusEl = document.getElementById('bt-printer-status');
-        const connectBtn = document.getElementById('btn-bt-connect');
-        const disconnectBtn = document.getElementById('btn-bt-disconnect');
-        const testBtn = document.getElementById('btn-bt-test');
-        const navIcon = document.getElementById('nav-printer-status');
-        const userMenuBtn = document.getElementById('user-menu-printer-btn');
+      updatePrinterStatusUI(role) {
+        if (!role) { this.updatePrinterStatusUI('receipt'); this.updatePrinterStatusUI('kitchen'); return; }
+        const printer = this._printerForRole(role);
+        const suffix = '-' + role;
+        const statusEl = document.getElementById('bt-printer-status' + suffix);
+        const connectBtn = document.getElementById('btn-bt-connect' + suffix);
+        const disconnectBtn = document.getElementById('btn-bt-disconnect' + suffix);
+        const testBtn = document.getElementById('btn-bt-test' + suffix);
+        // ไอคอน nav bar และปุ่มใน user menu ผูกกับเครื่องพิมพ์ใบเสร็จเท่านั้น (เป็นเครื่องหลักที่ใช้ทุกบิล)
+        const navIcon = role === 'receipt' ? document.getElementById('nav-printer-status') : null;
+        const userMenuBtn = role === 'receipt' ? document.getElementById('user-menu-printer-btn') : null;
 
-        if (BluetoothPrinter.isConnected) {
-          if (statusEl) statusEl.innerHTML = ' เชื่อมต่ออยู่: <strong>' + BluetoothPrinter.deviceName + '</strong>';
+        if (printer.isConnected) {
+          if (statusEl) statusEl.innerHTML = ' เชื่อมต่ออยู่: <strong>' + printer.deviceName + '</strong>';
           if (connectBtn) connectBtn.classList.add('hidden');
           if (disconnectBtn) disconnectBtn.classList.remove('hidden');
           if (testBtn) testBtn.classList.remove('hidden');
@@ -4948,10 +4999,10 @@ renderReport(r) {
       },
 
       togglePrinterFromUserMenu() {
-        if (BluetoothPrinter.isConnected) {
-          this.disconnectBTPrinter();
+        if (ReceiptPrinter.isConnected) {
+          this.disconnectBTPrinter('receipt');
         } else {
-          this.connectBTPrinter();
+          this.connectBTPrinter('receipt');
         }
       },
 
