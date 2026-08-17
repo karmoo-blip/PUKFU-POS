@@ -620,19 +620,28 @@
       <div id="settings-panel-log" class="settings-panel hidden">
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
           <p class="text-sm text-slate-400">ประวัติการใส่ PIN ล่าสุด 100 รายการ</p>
-          <button onclick="Controller.fetchAccessLog(this)" class="w-full sm:w-auto justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
+          <div class="flex gap-2 w-full sm:w-auto">
+            <button onclick="Controller.fetchAccessLog(this)" class="flex-1 sm:flex-none justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
+            <button onclick="Controller.clearAccessLog()" class="flex-1 sm:flex-none justify-center items-center flex bg-red-50 text-red-500 hover:bg-red-100 px-4 py-2 rounded-2xl font-bold transition">ล้างประวัติ</button>
+          </div>
         </div>
         <div id="access-log-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
 
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 mt-6">
           <p class="text-sm text-slate-400">ข้อผิดพลาดของระบบล่าสุด 100 รายการ</p>
-          <button onclick="Controller.fetchErrorLogs(this)" class="w-full sm:w-auto justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
+          <div class="flex gap-2 w-full sm:w-auto">
+            <button onclick="Controller.fetchErrorLogs(this)" class="flex-1 sm:flex-none justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
+            <button onclick="Controller.clearErrorLog()" class="flex-1 sm:flex-none justify-center items-center flex bg-red-50 text-red-500 hover:bg-red-100 px-4 py-2 rounded-2xl font-bold transition">ล้างประวัติ</button>
+          </div>
         </div>
         <div id="error-log-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
 
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 mt-6">
           <p class="text-sm text-slate-400">ประวัติการเปลี่ยนแปลงเมนู/พนักงาน/วิธีชำระเงิน ล่าสุด 200 รายการ</p>
-          <button onclick="Controller.fetchChangeLog(this)" class="w-full sm:w-auto justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
+          <div class="flex gap-2 w-full sm:w-auto">
+            <button onclick="Controller.fetchChangeLog(this)" class="flex-1 sm:flex-none justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
+            <button onclick="Controller.clearChangeLog()" class="flex-1 sm:flex-none justify-center items-center flex bg-red-50 text-red-500 hover:bg-red-100 px-4 py-2 rounded-2xl font-bold transition">ล้างประวัติ</button>
+          </div>
         </div>
         <div id="change-log-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
       </div>

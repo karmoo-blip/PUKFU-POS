@@ -208,6 +208,11 @@ async function logChange(env, actor, area, action, target, details) {
     await env.DB.prepare(
       "INSERT INTO change_log (created_at, actor, area, action, target, details) VALUES (?, ?, ?, ?, ?, ?)"
     ).bind(nowIso(), actor || "", area, action, target || "", details || "").run();
+    // เก็บแค่ 90 วันล่าสุด ไม่งั้นตารางจะโตไม่มีที่สิ้นสุด (สุ่ม 5% ต่อครั้งพอ ไม่ต้องเช็คทุกครั้ง)
+    if (Math.random() < 0.05) {
+      await env.DB.prepare("DELETE FROM change_log WHERE created_at < ?")
+        .bind(new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString()).run();
+    }
   } catch (e) {
     // ไม่ให้การล็อกที่พังไปกระทบรายการจริง
   }
@@ -1103,6 +1108,37 @@ handlers.syncAccessLogs = async (env, args) => {
       "INSERT INTO access_log (timestamp, context, result, name) VALUES (?,?,?,?)"
     ).bind(log.timestamp, log.context, log.result, log.name).run();
   }
+  // เก็บแค่ 90 วันล่าสุด ไม่งั้นตารางจะโตไม่มีที่สิ้นสุด (สุ่ม 5% ต่อครั้งพอ ไม่ต้องเช็คทุกครั้ง)
+  if (Math.random() < 0.05) {
+    await env.DB.prepare("DELETE FROM access_log WHERE timestamp < ?")
+      .bind(new Date(Date.now() - 90 * 24 * 3600 * 1000).toISOString()).run();
+  }
+  return { success: true };
+};
+
+handlers.clearAccessLogs = async (env, args) => {
+  const a0 = (args && args[0]) || {};
+  const auth = await authorizeEmployee(env, a0.employeeId, a0.pin, { ownerOnly: true });
+  if (!auth.ok) return { success: false, error: auth.error };
+  await env.DB.prepare("DELETE FROM access_log").run();
+  return { success: true };
+};
+
+handlers.clearErrorLogs = async (env, args) => {
+  await ensureExtraTables(env);
+  const a0 = (args && args[0]) || {};
+  const auth = await authorizeEmployee(env, a0.employeeId, a0.pin, { ownerOnly: true });
+  if (!auth.ok) return { success: false, error: auth.error };
+  await env.DB.prepare("DELETE FROM error_log").run();
+  return { success: true };
+};
+
+handlers.clearChangeLogs = async (env, args) => {
+  await ensureExtraTables(env);
+  const a0 = (args && args[0]) || {};
+  const auth = await authorizeEmployee(env, a0.employeeId, a0.pin, { ownerOnly: true });
+  if (!auth.ok) return { success: false, error: auth.error };
+  await env.DB.prepare("DELETE FROM change_log").run();
   return { success: true };
 };
 

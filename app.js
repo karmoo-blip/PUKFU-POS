@@ -2382,6 +2382,48 @@
         `).join('');
       },
 
+      async clearAccessLog() {
+        const ok = await this.showConfirm('ต้องการล้างประวัติการใส่ PIN ทั้งหมดใช่หรือไม่? กู้คืนไม่ได้', '');
+        if (!ok) return;
+        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการล้างประวัติ:');
+        if (!auth) return;
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res && res.success) this.fetchAccessLog();
+            else this.showAlert((res && res.error) || 'ล้างประวัติไม่สำเร็จ', '');
+          })
+          .withFailureHandler(() => this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''))
+          .clearAccessLogs({ employeeId: auth.employeeId, pin: auth.pin });
+      },
+
+      async clearErrorLog() {
+        const ok = await this.showConfirm('ต้องการล้างประวัติข้อผิดพลาดของระบบทั้งหมดใช่หรือไม่? กู้คืนไม่ได้', '');
+        if (!ok) return;
+        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการล้างประวัติ:');
+        if (!auth) return;
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res && res.success) this.fetchErrorLogs();
+            else this.showAlert((res && res.error) || 'ล้างประวัติไม่สำเร็จ', '');
+          })
+          .withFailureHandler(() => this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''))
+          .clearErrorLogs({ employeeId: auth.employeeId, pin: auth.pin });
+      },
+
+      async clearChangeLog() {
+        const ok = await this.showConfirm('ต้องการล้างประวัติการเปลี่ยนแปลงทั้งหมดใช่หรือไม่? กู้คืนไม่ได้', '');
+        if (!ok) return;
+        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการล้างประวัติ:');
+        if (!auth) return;
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res && res.success) this.fetchChangeLog();
+            else this.showAlert((res && res.error) || 'ล้างประวัติไม่สำเร็จ', '');
+          })
+          .withFailureHandler(() => this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''))
+          .clearChangeLogs({ employeeId: auth.employeeId, pin: auth.pin });
+      },
+
       fetchBestSellers(period) {
         ['today', 'week', 'month', 'all'].forEach(p => {
           const btn = document.getElementById(`bs-period-${p}`);
