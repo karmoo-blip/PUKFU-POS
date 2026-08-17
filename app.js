@@ -4470,202 +4470,32 @@ renderReport(r) {
           invoice: '(ยังไม่ชำระ)'
         };
 
-        if (BluetoothPrinter.isConnected) {
-          try {
-            const bytes = await BluetoothPrinter.buildOrderSlip(fakeOrder, null, this.receiptSettings);
-            await BluetoothPrinter.sendData(bytes);
-          } catch (e) {
-            console.warn('BT Print Error:', e.message);
-            this.showAlert('พิมพ์ผ่าน Bluetooth ไม่สำเร็จ: ' + e.message, '');
-          }
+        if (!BluetoothPrinter.isConnected) {
+          this.showAlert('กรุณาเชื่อมต่อเครื่องพิมพ์ Bluetooth ก่อนพิมพ์', '');
           return;
         }
 
-        const container = document.getElementById('receipt-container');
-        if (!container) return;
-
-        const paperSize = this.receiptSettings.paperSize || '80mm';
-        let styleEl = document.getElementById('dynamic-print-style');
-        if (!styleEl) {
-          styleEl = document.createElement('style');
-          styleEl.id = 'dynamic-print-style';
-          document.head.appendChild(styleEl);
+        try {
+          const bytes = await BluetoothPrinter.buildOrderSlip(fakeOrder, null, this.receiptSettings);
+          await BluetoothPrinter.sendData(bytes);
+        } catch (e) {
+          console.warn('BT Print Error:', e.message);
+          this.showAlert('พิมพ์ผ่าน Bluetooth ไม่สำเร็จ: ' + e.message, '');
         }
-        styleEl.innerHTML = `
-          @media print {
-            @page { margin: 0; size: ${paperSize} auto; }
-            #receipt-container { width: ${paperSize} !important; }
-          }
-        `;
-
-        const dateStr = new Date(fakeOrder.timestamp).toLocaleString('th-TH');
-        const slipItems = this.cart.map(item => `
-          <div style="margin-bottom: 8px; font-weight: bold; font-size: 1.1em;">
-            <div>- ${item.qty}x ${escHtml(item.name)}</div>
-            ${item.note ? `<div style="font-size: 0.9em; padding-left: 10px; font-weight: normal;"> ${escHtml(item.note)}</div>` : ''}
-          </div>
-        `).join('');
-
-        container.innerHTML = `
-          <div style="padding: 10px;">
-            <div style="text-align: center; font-weight: bold; font-size: 1.3em; margin-bottom: 10px; background: #000; color: #fff; padding: 4px; border-radius: 4px;">ใบสั่งทำเครื่องดื่ม (Order)</div>
-            <div style="border-bottom: 2px solid #000; margin-bottom: 10px;"></div>
-            ${slipItems}
-            <div style="border-bottom: 2px solid #000; margin-top: 10px; margin-bottom: 10px;"></div>
-            <div style="font-size: 0.8em; text-align: center;">วันที่: ${dateStr}</div>
-            <div style="font-size: 0.8em; text-align: center;">ยังไม่ชำระเงิน</div>
-          </div>
-        `;
-
-        setTimeout(() => window.print(), 100);
       },
 
         async printReceipt(order, queueStr) {
-        //  ถ้า Bluetooth เชื่อมต่ออยู่ → พิมพ์ผ่าน BLE (Silent Print!)
-        if (BluetoothPrinter.isConnected) {
-          try {
-            await BluetoothPrinter.printReceipt(order, queueStr, { ...this.receiptSettings, ...this.shopInfo });
-          } catch (e) {
-            console.warn('BT Print Error:', e.message);
-            this.showAlert('พิมพ์ผ่าน Bluetooth ไม่สำเร็จ: ' + e.message, '');
-          }
+        if (!BluetoothPrinter.isConnected) {
+          this.showAlert('กรุณาเชื่อมต่อเครื่องพิมพ์ Bluetooth ก่อนพิมพ์', '');
           return;
         }
 
-        //  Fallback: ไม่ได้เชื่อมต่อ BT → ใช้ window.print() แบบเดิม
-        const container = document.getElementById('receipt-container');
-        if (!container) return;
-        
-        const paperSize = this.receiptSettings.paperSize || '80mm';
-        
-        // Inject dynamic style for paper size
-        let styleEl = document.getElementById('dynamic-print-style');
-        if (!styleEl) {
-          styleEl = document.createElement('style');
-          styleEl.id = 'dynamic-print-style';
-          document.head.appendChild(styleEl);
+        try {
+          await BluetoothPrinter.printReceipt(order, queueStr, { ...this.receiptSettings, ...this.shopInfo });
+        } catch (e) {
+          console.warn('BT Print Error:', e.message);
+          this.showAlert('พิมพ์ผ่าน Bluetooth ไม่สำเร็จ: ' + e.message, '');
         }
-        styleEl.innerHTML = `
-          @media print {
-            @page { margin: 0; size: ${paperSize} auto; }
-            #receipt-container { width: ${paperSize} !important; }
-          }
-        `;
-        
-        const dateStr = new Date(order.timestamp).toLocaleString('th-TH');
-        const header = this.receiptSettings.showHeader === false ? '' : this.receiptSettings.header || 'Pukfu POS';
-        const footer = this.receiptSettings.showFooter === false ? '' : this.receiptSettings.footer || 'Thank You';
-        
-        let itemsHtml = order.items.map(item => `
-          <div style="display: flex; justify-content: space-between; margin-bottom: 12px;">
-            <div style="flex: 1; padding-right: 8px;">
-              <div>${item.qty}x ${escHtml(item.name)}</div>
-              ${item.note ? `<div style="font-size: 0.8em; color: #555;">(${escHtml(item.note)})</div>` : ''}
-            </div>
-            <div>${(item.price * item.qty).toFixed(2)}</div>
-          </div>
-        `).join('');
-
-        const queueHtml = this.receiptSettings.showQueue && queueStr ? `
-          <div style="text-align: center; margin: 10px 0; border: 1px dashed #000; padding: 5px;">
-            <div style="font-size: 0.9em;">คิวรับสินค้า / Queue</div>
-            <div style="font-size: 2em; font-weight: bold;">${queueStr}</div>
-          </div>
-        ` : '';
-
-        let orderSlipHtml = '';
-        if (this.receiptSettings.printOrderSlip) {
-          let slipItems = order.items.map(item => `
-            <div style="margin-bottom: 8px; font-weight: bold; font-size: 1.1em;">
-              <div>- ${item.qty}x ${escHtml(item.name)}</div>
-              ${item.note ? `<div style="font-size: 0.9em; padding-left: 10px; font-weight: normal;"> ${escHtml(item.note)}</div>` : ''}
-            </div>
-          `).join('');
-
-          orderSlipHtml = `
-            <!-- สั่งให้เครื่องพิมพ์ตัดกระดาษ หรือขึ้นหน้าใหม่ -->
-            <div style="page-break-before: always; border-top: 1px dashed #ccc; margin-top: 20px; padding-top: 10px;">
-              <div style="text-align: center; font-weight: bold; font-size: 1.3em; margin-bottom: 10px; background: #000; color: #fff; padding: 4px; border-radius: 4px;">ใบสั่งทำเครื่องดื่ม (Order)</div>
-              ${queueStr ? `<div style="text-align: center; font-size: 2.5em; font-weight: bold; margin-bottom: 10px;">${queueStr}</div>` : ''}
-              <div style="border-bottom: 2px solid #000; margin-bottom: 10px;"></div>
-              ${slipItems}
-              <div style="border-bottom: 2px solid #000; margin-top: 10px; margin-bottom: 10px;"></div>
-              <div style="font-size: 0.8em; text-align: center;">วันที่: ${dateStr}</div>
-              <div style="font-size: 0.8em; text-align: center;">บิล: ${order.invoice}</div>
-            </div>
-          `;
-        }
-
-        const logoHtml = this.receiptSettings.logoBase64 && this.receiptSettings.showLogo !== false
-          ? `<div style="text-align:center; margin-bottom:8px;"><img src="${this.receiptSettings.logoBase64}" style="display:block; margin:0 auto; max-width:75%; max-height:120px; object-fit:contain;"></div>`
-          : '';
-
-        const shopInfoHtml = `
-          ${this.shopInfo.address && this.receiptSettings.showAddress !== false ? `<div style="text-align:center; font-size:0.8em; margin-bottom:2px;">${this.shopInfo.address}</div>` : ''}
-          ${this.shopInfo.phone && this.receiptSettings.showPhone !== false ? `<div style="text-align:center; font-size:0.8em; margin-bottom:2px;">โทร: ${this.shopInfo.phone}</div>` : ''}
-          ${this.shopInfo.taxId && this.receiptSettings.showTaxId !== false ? `<div style="text-align:center; font-size:0.8em; margin-bottom:8px;">เลขผู้เสียภาษี: ${this.shopInfo.taxId}</div>` : ''}
-        `;
-
-        const discountHtml = (order.discount && order.discount > 0) ? `
-          <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-top: 5px;">
-            <div>ยอดก่อนลด</div>
-            <div>${(order.subtotal || (order.total + order.discount)).toFixed(2)}</div>
-          </div>
-          <div style="display: flex; justify-content: space-between; font-size: 0.9em; color: #dc2626;">
-            <div>ส่วนลด</div>
-            <div>${order.discountLabel || ('-' + order.discount.toFixed(2))}</div>
-          </div>
-        ` : '';
-
-        const vatHtml = this.shopInfo.vatEnabled ? (() => {
-          const vat = calcVatBreakdown(order.total, this.shopInfo.vatRate);
-          return `
-            <div style="display: flex; justify-content: space-between; font-size: 0.85em; margin-top: 5px; color: #666;">
-              <div>มูลค่าก่อนภาษี</div>
-              <div>${vat.exVat.toFixed(2)}</div>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.85em; color: #666;">
-              <div>VAT ${vat.rate}%</div>
-              <div>${vat.vatAmount.toFixed(2)}</div>
-            </div>
-          `;
-        })() : '';
-
-        container.innerHTML = `
-          <div style="padding: 12px; font-size: 14px; line-height: 1.7;">
-            ${logoHtml}
-            <div style="text-align: center; font-weight: bold; font-size: 1.2em; margin-bottom: 5px;">${escHtml(header)}</div>
-            ${shopInfoHtml}
-            <div style="text-align: center; font-size: 0.9em; margin-bottom: 10px;">${dateStr}</div>
-            <div style="font-size: 0.8em; margin-bottom: 10px;">เลขที่บิล: <br>${order.invoice}</div>
-            <div style="border-top: 1px dashed #000; margin: 14px 0;"></div>
-            ${itemsHtml}
-            <div style="border-top: 1px dashed #000; margin: 14px 0;"></div>
-            ${discountHtml}
-            ${vatHtml}
-            <div style="display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1em; margin-top: 5px;">
-              <div>ยอดรวม (Total)</div>
-              <div>${order.total.toFixed(2)}</div>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-top: 5px;">
-              <div>การชำระเงิน</div>
-              <div>${order.paymentType}</div>
-            </div>
-            ${order.cashReceived ? `
-            <div style="display: flex; justify-content: space-between; font-size: 0.9em; margin-top: 5px;">
-              <div>รับเงิน</div>
-              <div>฿${Number(order.cashReceived).toFixed(2)}</div>
-            </div>
-            <div style="display: flex; justify-content: space-between; font-size: 0.9em;">
-              <div>เงินทอน</div>
-              <div>฿${Number(order.changeAmount || 0).toFixed(2)}</div>
-            </div>` : ''}
-            ${queueHtml}
-            <div style="text-align: center; font-size: 0.9em; margin-top: 15px;">${escHtml(footer)}</div>
-          </div>
-          ${orderSlipHtml}
-        `;
-        window.print();
       },
 
       async savePrinterSettings() {
