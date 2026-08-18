@@ -496,6 +496,7 @@ async function deductRecipeStock(env, sku, saleQty, invoice) {
 
 async function syncOfflineOrders(env, args) {
   await ensureExtraTables(env);
+  await ensureColumn(env, "payments", "created_by", "TEXT");
   const orders = Array.isArray(args[0]) ? args[0] : [args[0]];
   let count = 0;
   for (const o of orders) {
@@ -505,8 +506,8 @@ async function syncOfflineOrders(env, args) {
     const paymentType = o.paymentType || o.paymentMethod || o.payment_type || '';
     const status = o.status || 'completed';
     const orderNote = o.note || o.employeeId || '';
-    await env.DB.prepare('INSERT INTO payments (timestamp, invoice, total, payment_type, order_note, status) VALUES (?, ?, ?, ?, ?, ?)')
-      .bind(timestamp, invoice, total, paymentType, orderNote, status).run();
+    await env.DB.prepare('INSERT INTO payments (timestamp, invoice, total, payment_type, order_note, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .bind(timestamp, invoice, total, paymentType, orderNote, status, o.cashier || '').run();
     const items = o.items || [];
     for (const it of items) {
       const qty = Number(it.qty || 0);
@@ -769,6 +770,7 @@ async function rejectPendingOrder(env, args) {
 }
 
 async function posDataForDay(env, day) {
+  await ensureColumn(env, "payments", "created_by", "TEXT");
   const today = day || bkkToday();
   const payR = await env.DB.prepare(
     "SELECT * FROM payments WHERE date(timestamp, '+7 hours') = ? ORDER BY id DESC"
@@ -800,6 +802,7 @@ async function posDataForDay(env, day) {
     status: String(p.status || "active").toLowerCase(),
     cancelReason: p.cancel_reason || "",
     note: p.order_note || "",
+    cashier: p.created_by || "",
     items: itemsByInvoice[p.invoice] || [],
   }));
 
@@ -816,6 +819,7 @@ async function posDataForDay(env, day) {
       status: "active",
       cancelReason: "",
       note: "",
+      cashier: "",
       items: items,
     });
   }

@@ -5326,7 +5326,7 @@ renderReport(r) {
           html += '<div class="py-4' + (off ? ' opacity-60' : '') + '">';
           html += '<div class="flex justify-between items-center gap-2 cursor-pointer lg:cursor-default" onclick="Controller.toggleHistoryDetail(this)">';
           html += '<div class="min-w-0"><p class="font-bold text-secondary' + (off ? ' line-through' : '') + '">' + h.invoice + '</p>';
-          html += '<p class="text-xs text-slate-400 mt-0.5">' + new Date(h.timestamp).toLocaleString() + '</p>';
+          html += '<p class="text-xs text-slate-400 mt-0.5">' + new Date(h.timestamp).toLocaleString() + (h.cashier ? ' · ' + escHtml(h.cashier) : '') + '</p>';
           html += '</div><div class="flex items-center gap-2 shrink-0"><div class="text-right">';
           html += '<p class="font-black text-lg ' + (off ? 'text-slate-400 line-through' : 'text-primary') + '">฿' + h.total + '</p>';
           html += '<span class="inline-block px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[10px] font-bold mt-1">' + (h.paymentType || 'ไม่ระบุ') + '</span>';
@@ -5401,7 +5401,7 @@ renderReport(r) {
             <div class="flex justify-between items-center gap-2 cursor-pointer lg:cursor-default" onclick="Controller.toggleHistoryDetail(this)">
               <div class="min-w-0">
                 <p class="font-bold text-secondary ${isCancelled || isWaste ? 'line-through' : ''}">${h.invoice}</p>
-                <p class="text-xs text-slate-400 mt-0.5">${new Date(h.timestamp).toLocaleString()}</p>
+                <p class="text-xs text-slate-400 mt-0.5">${new Date(h.timestamp).toLocaleString()}${h.cashier ? ' · ' + escHtml(h.cashier) : ''}</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
                 <div class="text-right">
