@@ -545,6 +545,7 @@ async function updateOrderStatus(env, args) {
 
 
 async function cancelSalesItems(env, args) {
+  await ensureColumn(env, "sales", "cancelled_by", "TEXT");
   const a0 = args && args[0];
   const isObj = a0 && typeof a0 === "object" && !Array.isArray(a0);
   const invoice = isObj ? a0.invoice : a0;
@@ -556,8 +557,8 @@ async function cancelSalesItems(env, args) {
   const now = nowIso();
 
   if (items.length === 0) {
-    await env.DB.prepare("UPDATE sales SET cancelled = 1, cancel_reason = ? WHERE invoice = ?")
-      .bind(reason, invoice)
+    await env.DB.prepare("UPDATE sales SET cancelled = 1, cancel_reason = ?, cancelled_by = ? WHERE invoice = ?")
+      .bind(reason, cancelledBy, invoice)
       .run();
   } else {
     for (const it of items) {
@@ -567,8 +568,8 @@ async function cancelSalesItems(env, args) {
         .bind(invoice, it.sku || "", it.note || "")
         .first();
       if (row) {
-        await env.DB.prepare("UPDATE sales SET cancelled = 1, cancel_reason = ? WHERE id = ?")
-          .bind(reason, row.id)
+        await env.DB.prepare("UPDATE sales SET cancelled = 1, cancel_reason = ?, cancelled_by = ? WHERE id = ?")
+          .bind(reason, cancelledBy, row.id)
           .run();
       }
     }
@@ -771,6 +772,9 @@ async function rejectPendingOrder(env, args) {
 
 async function posDataForDay(env, day) {
   await ensureColumn(env, "payments", "created_by", "TEXT");
+  await ensureColumn(env, "payments", "edited_by", "TEXT");
+  await ensureColumn(env, "payments", "edited_at", "TEXT");
+  await ensureColumn(env, "sales", "cancelled_by", "TEXT");
   const today = day || bkkToday();
   const payR = await env.DB.prepare(
     "SELECT * FROM payments WHERE date(timestamp, '+7 hours') = ? ORDER BY id DESC"
@@ -791,6 +795,7 @@ async function posDataForDay(env, day) {
       price: Number(s.price || 0),
       note: s.note || "",
       cancelled: !!s.cancelled,
+      cancelledBy: s.cancelled_by || "",
     });
   }
 
@@ -801,6 +806,8 @@ async function posDataForDay(env, day) {
     paymentType: p.payment_type || "",
     status: String(p.status || "active").toLowerCase(),
     cancelReason: p.cancel_reason || "",
+    cancelledBy: p.cancelled_by || "",
+    editedBy: p.edited_by || "",
     note: p.order_note || "",
     cashier: p.created_by || "",
     items: itemsByInvoice[p.invoice] || [],
@@ -818,6 +825,8 @@ async function posDataForDay(env, day) {
       paymentType: first.payment_type || "",
       status: "active",
       cancelReason: "",
+      cancelledBy: "",
+      editedBy: "",
       note: "",
       cashier: "",
       items: items,
@@ -831,11 +840,21 @@ async function posDataForDay(env, day) {
     const invoiceList = history.map((h) => h.invoice);
     const placeholders = invoiceList.map(() => "?").join(",");
     const refundR = await env.DB.prepare(
-      `SELECT invoice, SUM(amount) AS t FROM refunds WHERE invoice IN (${placeholders}) GROUP BY invoice`
+      `SELECT invoice, amount, refunded_by FROM refunds WHERE invoice IN (${placeholders}) ORDER BY created_at ASC`
     ).bind(...invoiceList).all();
     const refundByInvoice = {};
-    for (const row of refundR.results) refundByInvoice[row.invoice] = Number(row.t || 0);
-    for (const h of history) h.refundedTotal = refundByInvoice[h.invoice] || 0;
+    const refundersByInvoice = {};
+    for (const row of refundR.results) {
+      refundByInvoice[row.invoice] = (refundByInvoice[row.invoice] || 0) + Number(row.amount || 0);
+      if (row.refunded_by) {
+        refundersByInvoice[row.invoice] = refundersByInvoice[row.invoice] || [];
+        if (!refundersByInvoice[row.invoice].includes(row.refunded_by)) refundersByInvoice[row.invoice].push(row.refunded_by);
+      }
+    }
+    for (const h of history) {
+      h.refundedTotal = refundByInvoice[h.invoice] || 0;
+      h.refundedBy = (refundersByInvoice[h.invoice] || []).join(', ');
+    }
   }
 
   const voidInvoices = new Set(
@@ -1320,6 +1339,8 @@ handlers.deleteInventoryItem = async (env, args) => {
 };
 
 handlers.updateOrderDetails = async (env, args) => {
+  await ensureColumn(env, "payments", "edited_by", "TEXT");
+  await ensureColumn(env, "payments", "edited_at", "TEXT");
   const a0 = args[0] || {};
   const invoice = a0.invoice;
   if (!invoice) return { success: false, error: "missing invoice" };
@@ -1358,6 +1379,12 @@ handlers.updateOrderDetails = async (env, args) => {
   if (a0.note !== undefined && a0.note !== null) {
     sets.push("order_note = ?");
     binds.push(a0.note);
+  }
+  if (a0.editedBy) {
+    sets.push("edited_by = ?");
+    binds.push(a0.editedBy);
+    sets.push("edited_at = ?");
+    binds.push(nowIso());
   }
   binds.push(invoice);
   await env.DB.prepare("UPDATE payments SET " + sets.join(", ") + " WHERE invoice = ?").bind(...binds).run();

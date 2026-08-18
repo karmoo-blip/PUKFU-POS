@@ -3579,7 +3579,7 @@
               }
             })
             .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
-            .updateOrderDetails({ invoice: data.invoice, items: items, paymentType: paymentType, note: note, expectedTotal: data.expectedTotal });
+            .updateOrderDetails({ invoice: data.invoice, items: items, paymentType: paymentType, note: note, expectedTotal: data.expectedTotal, editedBy: this.currentSettingsUser ? this.currentSettingsUser.name : '' });
         },
 
 renderReport(r) {
@@ -5328,7 +5328,7 @@ renderReport(r) {
                 html += '<button data-invoice="' + escAttr(h.invoice) + '" data-sku="' + escAttr(it.sku) + '" data-note="' + escAttr(it.note || '') + '" onclick="Controller.cancelOrderItemFromButton(this)" class="px-2 min-h-[2rem] inline-flex items-center justify-center text-[10px] font-bold text-red-500 bg-red-50 rounded-full active:scale-95 transition-all whitespace-nowrap">ยกเลิก</button>';
               }
               if (it.cancelled) {
-                html += '<span class="text-[10px] font-bold text-orange-400 whitespace-nowrap">ยกเลิกแล้ว</span>';
+                html += '<span class="text-[10px] font-bold text-orange-400 whitespace-nowrap">ยกเลิกแล้ว' + (it.cancelledBy ? ' (โดย ' + escHtml(it.cancelledBy) + ')' : '') + '</span>';
               }
               html += '</span></div>';
             }
@@ -5344,11 +5344,14 @@ renderReport(r) {
               html += '<button data-invoice="' + escAttr(h.invoice) + '" onclick="Controller.cancelOrder(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-red-500 bg-red-50 rounded-full active:scale-95 transition-all whitespace-nowrap">ยกเลิกบิล</button>';
               html += '</div>';
             }
+            if (h.editedBy) {
+              html += '<div class="mt-2 bg-primary/5 text-primary text-xs font-bold px-3 py-2 rounded-lg">แก้ไขล่าสุดโดย: ' + escHtml(h.editedBy) + '</div>';
+            }
             if (h.refundedTotal > 0) {
-              html += '<div class="mt-2 bg-sky-50 text-sky-600 text-xs font-bold px-3 py-2 rounded-lg">คืนเงินแล้ว ฿' + Number(h.refundedTotal).toFixed(2) + ' จาก ฿' + Number(h.total).toFixed(2) + '</div>';
+              html += '<div class="mt-2 bg-sky-50 text-sky-600 text-xs font-bold px-3 py-2 rounded-lg">คืนเงินแล้ว ฿' + Number(h.refundedTotal).toFixed(2) + ' จาก ฿' + Number(h.total).toFixed(2) + (h.refundedBy ? ' (โดย ' + escHtml(h.refundedBy) + ')' : '') + '</div>';
             }
             if (h.cancelReason) {
-            html += '<div class="mt-2 bg-red-50 text-red-500 text-xs font-bold px-3 py-2 rounded-lg">ยกเลิกแล้ว: ' + h.cancelReason + '</div>';
+            html += '<div class="mt-2 bg-red-50 text-red-500 text-xs font-bold px-3 py-2 rounded-lg">ยกเลิกแล้ว: ' + h.cancelReason + (h.cancelledBy ? ' (โดย ' + escHtml(h.cancelledBy) + ')' : '') + '</div>';
           }
           html += '</div>'; // .history-detail
           html += '</div>'; // .py-4
@@ -5408,17 +5411,18 @@ renderReport(r) {
                     <span class="flex items-center gap-2 shrink-0">
                       ฿${item.price * item.qty}
                       ${canCancelItem ? `<button data-invoice="${escAttr(h.invoice)}" data-sku="${escAttr(item.sku)}" data-note="${escAttr(item.note || '')}" onclick="Controller.cancelOrderItemFromButton(this)" class="px-2 min-h-[2rem] inline-flex items-center justify-center text-[10px] font-bold text-red-500 bg-red-50 rounded-full active:scale-95 transition-all whitespace-nowrap">ยกเลิก</button>` : ''}
-                      ${itemCancelled ? `<span class="text-[10px] font-bold text-orange-400 whitespace-nowrap">ยกเลิกแล้ว</span>` : ''}
+                      ${itemCancelled ? `<span class="text-[10px] font-bold text-orange-400 whitespace-nowrap">ยกเลิกแล้ว${item.cancelledBy ? ' (โดย ' + escHtml(item.cancelledBy) + ')' : ''}</span>` : ''}
                     </span>
                   </div>
                 `}).join('')}
               </div>
             ` : ''}
-            ${h.refundedTotal > 0 ? `<div class="mt-2 bg-sky-50 text-sky-600 text-xs font-bold px-3 py-2 rounded-lg">คืนเงินแล้ว ฿${Number(h.refundedTotal).toFixed(2)} จาก ฿${Number(h.total).toFixed(2)}</div>` : ''}
+            ${h.editedBy ? `<div class="mt-2 bg-primary/5 text-primary text-xs font-bold px-3 py-2 rounded-lg">แก้ไขล่าสุดโดย: ${escHtml(h.editedBy)}</div>` : ''}
+            ${h.refundedTotal > 0 ? `<div class="mt-2 bg-sky-50 text-sky-600 text-xs font-bold px-3 py-2 rounded-lg">คืนเงินแล้ว ฿${Number(h.refundedTotal).toFixed(2)} จาก ฿${Number(h.total).toFixed(2)}${h.refundedBy ? ' (โดย ' + escHtml(h.refundedBy) + ')' : ''}</div>` : ''}
             ${isCancelled
-              ? `<div class="mt-2 bg-red-50 text-red-500 text-xs font-bold px-3 py-2 rounded-lg"> ยกเลิกแล้ว: ${escHtml(h.cancelReason)}</div>`
+              ? `<div class="mt-2 bg-red-50 text-red-500 text-xs font-bold px-3 py-2 rounded-lg"> ยกเลิกแล้ว: ${escHtml(h.cancelReason)}${h.cancelledBy ? ' (โดย ' + escHtml(h.cancelledBy) + ')' : ''}</div>`
               : isWaste
-              ? `<div class="mt-2 bg-orange-50 text-orange-500 text-xs font-bold px-3 py-2 rounded-lg"> ของเสีย: ${escHtml(h.cancelReason)}</div>`
+              ? `<div class="mt-2 bg-orange-50 text-orange-500 text-xs font-bold px-3 py-2 rounded-lg"> ของเสีย: ${escHtml(h.cancelReason)}${h.cancelledBy ? ' (โดย ' + escHtml(h.cancelledBy) + ')' : ''}</div>`
               : `<div class="mt-2 flex flex-wrap justify-end gap-2">
                    <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.openEditBill(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-primary bg-primary/10 rounded-full active:scale-95 transition-all whitespace-nowrap">แก้ไขบิล</button>
                    <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.printReceiptByInvoice(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-slate-500 bg-slate-100 rounded-full active:scale-95 transition-all whitespace-nowrap">พิมพ์</button>
