@@ -10,6 +10,9 @@ config.local.js
 # node
 node_modules/
 
+# wrangler
+.wrangler/
+
 # os / editor
 .DS_Store
 Thumbs.db
