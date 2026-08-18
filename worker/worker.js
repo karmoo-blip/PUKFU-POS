@@ -1127,6 +1127,11 @@ handlers.getChangeLogs = async (env) => {
 handlers.syncAccessLogs = async (env, args) => {
   const snapshot = args[0] || [];
   for (const log of snapshot) {
+    // กันซ้ำ กรณีเครื่องที่เน็ตกระตุกส่งชุดเดิมมาซ้ำ (ส่งสำเร็จฝั่งเซิร์ฟเวอร์แล้วแต่เครื่องไม่รู้ผลเพราะ timeout เลยลองใหม่เรื่อยๆ)
+    const existing = await env.DB.prepare(
+      "SELECT id FROM access_log WHERE timestamp = ? AND context = ? AND result = ? AND IFNULL(name, '') = ? LIMIT 1"
+    ).bind(log.timestamp, log.context, log.result, log.name || '').first();
+    if (existing) continue;
     await env.DB.prepare(
       "INSERT INTO access_log (timestamp, context, result, name) VALUES (?,?,?,?)"
     ).bind(log.timestamp, log.context, log.result, log.name).run();
