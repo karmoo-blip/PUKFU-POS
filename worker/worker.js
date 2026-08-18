@@ -1,3 +1,4 @@
+// ตอนนี้ deploy อัตโนมัติผ่าน GitHub Actions ทุกครั้งที่ push (ดู .github/workflows/deploy-worker.yml) ไม่ต้องรัน wrangler deploy มือแล้ว
 // จำกัด CORS ให้เรียกได้เฉพาะจากเว็บของร้านจริง แทนที่จะเปิดให้ทุกเว็บ (เดิม "*" ใครก็เรียก API นี้จากเว็บไหนก็ได้)
 const ALLOWED_ORIGINS = new Set(["https://karmoo-blip.github.io"]);
 function corsHeaders(origin) {
