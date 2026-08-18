@@ -1124,6 +1124,14 @@ handlers.clearAccessLogs = async (env, args) => {
   return { success: true };
 };
 
+handlers.deleteAccessLogEntry = async (env, args) => {
+  const a0 = (args && args[0]) || {};
+  const auth = await authorizeEmployee(env, a0.employeeId, a0.pin, { ownerOnly: true });
+  if (!auth.ok) return { success: false, error: auth.error };
+  await env.DB.prepare("DELETE FROM access_log WHERE id = ?").bind(a0.id).run();
+  return { success: true };
+};
+
 handlers.clearErrorLogs = async (env, args) => {
   await ensureExtraTables(env);
   const a0 = (args && args[0]) || {};

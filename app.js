@@ -2342,12 +2342,15 @@
         }
 
         list.innerHTML = pendingHtml + data.map(log => `
-          <div class="p-4 flex justify-between items-center">
+          <div class="p-4 flex justify-between items-center gap-2">
             <div>
               <p class="font-bold text-secondary">${log.context} ${log.result === 'สำเร็จ' ? `— ${escHtml(log.name)}` : ''}</p>
               <p class="text-xs text-slate-400 mt-1">${new Date(log.timestamp).toLocaleString()}</p>
             </div>
-            <span class="text-xs font-bold px-3 py-1 rounded-full ${log.result === 'สำเร็จ' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'}">${log.result === 'สำเร็จ' ? ' สำเร็จ' : ' ล้มเหลว'}</span>
+            <div class="flex items-center gap-2 shrink-0">
+              <span class="text-xs font-bold px-3 py-1 rounded-full ${log.result === 'สำเร็จ' ? 'bg-emerald-100 text-emerald-600' : 'bg-red-100 text-red-500'}">${log.result === 'สำเร็จ' ? ' สำเร็จ' : ' ล้มเหลว'}</span>
+              <button onclick="Controller.deleteAccessLogEntry(${log.id})" class="w-7 h-7 flex items-center justify-center rounded-full text-red-400 hover:bg-red-50 hover:text-red-500 transition" title="ลบรายการนี้">✕</button>
+            </div>
           </div>
         `).join('');
       },
@@ -2426,6 +2429,20 @@
           })
           .withFailureHandler(() => this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''))
           .clearAccessLogs({ employeeId: auth.employeeId, pin: auth.pin });
+      },
+
+      async deleteAccessLogEntry(id) {
+        const ok = await this.showConfirm('ต้องการลบประวัติรายการนี้ใช่หรือไม่? กู้คืนไม่ได้', '');
+        if (!ok) return;
+        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการลบ:');
+        if (!auth) return;
+        google.script.run
+          .withSuccessHandler(res => {
+            if (res && res.success) this.fetchAccessLog();
+            else this.showAlert((res && res.error) || 'ลบไม่สำเร็จ', '');
+          })
+          .withFailureHandler(() => this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''))
+          .deleteAccessLogEntry({ id, employeeId: auth.employeeId, pin: auth.pin });
       },
 
       async clearErrorLog() {
