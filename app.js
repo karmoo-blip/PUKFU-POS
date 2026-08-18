@@ -3844,6 +3844,7 @@ renderReport(r) {
             </div>
             <div class="shrink-0 flex items-center gap-2">
               <button onclick="Controller.exportBackupToExcel(${f.id})" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-primary bg-primary/10 rounded-full active:scale-95 transition-all whitespace-nowrap">Export Excel</button>
+              <button onclick="Controller.restoreBackupConfirm(${f.id})" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-amber-600 bg-amber-50 rounded-full active:scale-95 transition-all whitespace-nowrap">กู้คืน</button>
               <button onclick="Controller.deleteBackupConfirm(${f.id})" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-red-500 bg-red-50 rounded-full active:scale-95 transition-all whitespace-nowrap">ลบ</button>
             </div>
           </div>
@@ -3890,6 +3891,39 @@ renderReport(r) {
             this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
           })
           .deleteBackup({ id, employeeId: auth.employeeId, pin: auth.pin });
+      },
+
+      async restoreBackupConfirm(id) {
+        const ok = await this.showConfirm(
+          'การกู้คืนจะเขียนทับข้อมูลปัจจุบันทั้งหมด (เมนู, พนักงาน, สต๊อก, ยอดขาย, บิล ฯลฯ) ด้วยข้อมูลจาก backup นี้ กระทำนี้ไม่สามารถยกเลิกกลางคันได้ (ระบบจะสำรองข้อมูลปัจจุบันไว้ให้อัตโนมัติก่อนเขียนทับ) ต้องการดำเนินการต่อหรือไม่?',
+          ''
+        );
+        if (!ok) return;
+
+        const typed = await this.showPrompt('พิมพ์คำว่า "กู้คืน" เพื่อยืนยันอีกครั้ง:', {});
+        if (typed === null) return;
+        if (typed.trim() !== 'กู้คืน') return this.showAlert('ข้อความไม่ตรง ยกเลิกการกู้คืน', '');
+
+        const auth = await this.requireActionPin('ใส่รหัส PIN ของเจ้าของ/ผู้ดูแลระบบเพื่อยืนยันการกู้คืนข้อมูล:');
+        if (!auth) return;
+
+        this.showLoading();
+        google.script.run
+          .withSuccessHandler(res => {
+            this.hideLoading();
+            if (res && res.success) {
+              this.showAlert('กู้คืนข้อมูลสำเร็จแล้ว แอปจะรีเฟรชตอนนี้', '');
+              localStorage.removeItem('pos_loggedInUserId');
+              location.reload();
+            } else {
+              this.showAlert((res && res.error) || 'กู้คืนไม่สำเร็จ', '');
+            }
+          })
+          .withFailureHandler(() => {
+            this.hideLoading();
+            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กู้คืนไม่สำเร็จ', '');
+          })
+          .restoreBackup({ id, employeeId: auth.employeeId, pin: auth.pin });
       },
 
       // แปลง array ของ object เป็นข้อความ CSV หนึ่งตาราง (เปิดใน Excel ได้โดยตรง)

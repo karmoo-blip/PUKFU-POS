@@ -1203,6 +1203,43 @@ handlers.getBackupData = async (env, args) => {
   return { success: true, data: JSON.parse(r.data) };
 };
 
+// กู้คืนข้อมูลจาก backup กลับเข้าตารางจริง เขียนทับข้อมูลปัจจุบันในตารางที่ backup ไว้ทั้งหมด (ไม่แตะ log ต่างๆ)
+// สำรองสถานะปัจจุบันไว้ก่อนเขียนทับเสมอ กันพลาดกู้คืนผิดตัวแล้วย้อนกลับไม่ได้
+handlers.restoreBackup = async (env, args) => {
+  await ensureExtraTables(env);
+  const a0 = (args && args[0]) || {};
+  const auth = await authorizeEmployee(env, a0.employeeId, a0.pin, { ownerOnly: true });
+  if (!auth.ok) return { success: false, error: auth.error };
+  const id = a0.id;
+  if (!id) return { success: false, error: "missing id" };
+
+  const row = await env.DB.prepare("SELECT data FROM backups WHERE id = ?").bind(id).first();
+  if (!row) return { success: false, error: "ไม่พบ backup นี้" };
+  const data = JSON.parse(row.data);
+
+  await handlers.createBackup(env, ["ก่อนกู้คืนจาก backup #" + id + " (อัตโนมัติ)"]);
+
+  const tables = [
+    "menu", "employees", "addons", "payment_methods", "shop_info", "inventory",
+    "sales", "payments", "refunds", "pending_orders", "sweetness_levels", "recipes",
+  ];
+  const statements = [];
+  for (const t of tables) {
+    statements.push(env.DB.prepare("DELETE FROM " + t));
+    const rows = Array.isArray(data[t]) ? data[t] : [];
+    for (const r of rows) {
+      const cols = Object.keys(r);
+      if (cols.length === 0) continue;
+      const placeholders = cols.map(() => "?").join(",");
+      statements.push(
+        env.DB.prepare(`INSERT INTO ${t} (${cols.join(",")}) VALUES (${placeholders})`).bind(...cols.map((c) => r[c]))
+      );
+    }
+  }
+  await env.DB.batch(statements);
+  return { success: true };
+};
+
 handlers.deleteBackup = async (env, args) => {
   await ensureExtraTables(env);
   const a0 = args && args[0];
