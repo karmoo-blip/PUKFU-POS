@@ -1015,6 +1015,8 @@
           const keys = await caches.keys();
           await Promise.all(keys.map(k => caches.delete(k)));
         } catch (e) { /* ล้าง cache ไม่สำเร็จก็ยัง reload ต่อได้ แค่ช้ากว่าปกติ */ }
+        // บังคับใส่ PIN ใหม่หลังอัปเดตแอปเสมอ กันกรณีคนละคนถืออุปกรณ์ต่อตอนอัปเดตพอดี ไม่ใช่แค่สลับแท็บ/รีเฟรชปกติ
+        localStorage.removeItem('pos_loggedInUserId');
         location.reload();
       },
 
