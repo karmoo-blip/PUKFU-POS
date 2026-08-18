@@ -4142,6 +4142,7 @@ renderReport(r) {
         this.editingCartIndex = null;
         document.getElementById('modal-product-name').innerText = this.activeProduct.name;
         document.getElementById('modal-note').value = '';
+        this.ensureOrderOptionsLoaded();
         this.updateAddonButtons();
         this.updateSweetnessButtons();
 
@@ -4182,11 +4183,40 @@ renderReport(r) {
       updateSweetnessButtons() {
         const container = document.getElementById('modal-sweetness-container');
         if (!container) return;
+        if (this.sweetnessLevels.length === 0) {
+          container.innerHTML = '<p class="text-slate-400 text-sm">กำลังโหลดตัวเลือก...</p>';
+          return;
+        }
         let html = '';
         this.sweetnessLevels.forEach(sw => {
           html += `<button class="mod-btn border border-sand px-4 min-h-[2.75rem] inline-flex items-center justify-center rounded-full text-sm font-bold text-slate-500 hover:bg-accent active:scale-95 transition-all" onclick="Controller.selectSweetness(this)">${escHtml(sw.name)}</button>`;
         });
         container.innerHTML = html;
+      },
+
+      // บางครั้งตอนเปิดแอปครั้งแรก (เครื่องใหม่/เน็ตช้าตอน sync รอบแรก) ข้อมูลความหวาน/แอดออนอาจโหลดไม่ทันหรือพลาดไปเงียบๆ
+      // เช็คอีกทีตอนเปิด modal สินค้า ถ้ายังว่างอยู่ให้ลองดึงใหม่ ไม่ต้องรอให้ user ปิดแอปแล้วเปิดใหม่เอง
+      ensureOrderOptionsLoaded() {
+        if (this.sweetnessLevels.length === 0) {
+          google.script.run
+            .withSuccessHandler(data => {
+              this.sweetnessLevels = data;
+              localStorage.setItem('pos_sweetnessLevels', JSON.stringify(data));
+              this.updateSweetnessButtons();
+            })
+            .withFailureHandler(() => {})
+            .getSweetnessLevels();
+        }
+        if (this.addons.length === 0) {
+          google.script.run
+            .withSuccessHandler(data => {
+              this.addons = data;
+              localStorage.setItem('pos_addons', JSON.stringify(data));
+              this.updateAddonButtons();
+            })
+            .withFailureHandler(() => {})
+            .getAddons();
+        }
       },
 
       updateAddonButtons() {
