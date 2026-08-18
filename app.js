@@ -1822,7 +1822,7 @@
       },
 
       getAllowedTabs(user) {
-        const allTabs = ['printer', 'history', 'summary', 'report', 'inventory', 'stock', 'employees', 'log', 'addons', 'sweetness', 'payment', 'notifications', 'backup', 'onlineorder'];
+        const allTabs = ['printer', 'history', 'summary', 'report', 'calendar', 'inventory', 'stock', 'employees', 'log', 'addons', 'sweetness', 'payment', 'notifications', 'backup', 'onlineorder'];
         if (user.role === 'Owner' || user.role === 'Admin') return allTabs;
         return user.permissions ? user.permissions.split(',').filter(t => allTabs.includes(t)) : [];
       },
@@ -1938,6 +1938,7 @@
         if (tab === 'notifications') { this.renderNotificationList(); this.fetchNotifications(); }
         if (tab === 'payment') this.fetchPaymentMethods();
         if (tab === 'report') this.initReportTab();
+        if (tab === 'calendar') this.initCalendarTab();
         if (tab === 'backup') { this.fetchBackupList(); this.fetchArchiveList(); }
         if (tab === 'onlineorder') { this.renderPaymentQrPreview(); this.loadOnlineOrderHistory(); this.restoreTableQr(); }
       },
@@ -2832,6 +2833,73 @@
             this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ (รายงานต้องใช้อินเทอร์เน็ต)', '');
           })
           .getSummaryByRange(start, end);
+      },
+
+      calendarYear: null,
+      calendarMonth: null,
+
+      initCalendarTab() {
+        if (this.calendarYear == null) {
+          const today = new Date();
+          this.calendarYear = today.getFullYear();
+          this.calendarMonth = today.getMonth();
+        }
+        this.fetchCalendarMonth();
+      },
+
+      calendarPrevMonth() {
+        this.calendarMonth--;
+        if (this.calendarMonth < 0) { this.calendarMonth = 11; this.calendarYear--; }
+        this.fetchCalendarMonth();
+      },
+
+      calendarNextMonth() {
+        this.calendarMonth++;
+        if (this.calendarMonth > 11) { this.calendarMonth = 0; this.calendarYear++; }
+        this.fetchCalendarMonth();
+      },
+
+      fetchCalendarMonth() {
+        const start = this.toLocalDateStr(new Date(this.calendarYear, this.calendarMonth, 1));
+        const end = this.toLocalDateStr(new Date(this.calendarYear, this.calendarMonth + 1, 0));
+        const label = document.getElementById('cal-month-label');
+        if (label) label.innerText = new Date(this.calendarYear, this.calendarMonth, 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+
+        google.script.run
+          .withSuccessHandler(res => { if (res && res.success) this.renderCalendar(res, start, end); })
+          .withFailureHandler(() => this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', ''))
+          .getSummaryByRange(start, end);
+      },
+
+      renderCalendar(r, start, end) {
+        const fmt = n => `฿${(n || 0).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
+        const byDate = {};
+        (r.daily || []).forEach(d => { byDate[d.date] = d; });
+
+        const firstDay = new Date(start + 'T00:00:00');
+        const lastDay = new Date(end + 'T00:00:00');
+        const leadingBlanks = firstDay.getDay();
+        const totalDays = lastDay.getDate();
+
+        let cells = '';
+        for (let i = 0; i < leadingBlanks; i++) cells += '<div></div>';
+        for (let day = 1; day <= totalDays; day++) {
+          const dateStr = this.toLocalDateStr(new Date(this.calendarYear, this.calendarMonth, day));
+          const d = byDate[dateStr];
+          const hasSale = d && d.bills > 0;
+          cells += `<div class="rounded-xl border p-1.5 min-h-[4.5rem] flex flex-col ${hasSale ? 'bg-accent border-primary/30' : 'bg-cream border-sand'}">
+            <span class="text-xs font-bold ${hasSale ? 'text-secondary' : 'text-slate-400'}">${day}</span>
+            ${hasSale ? `<span class="text-xs font-black text-secondary mt-auto">${d.bills} บิล</span><span class="text-[11px] text-slate-500">${fmt(d.total)}</span>` : ''}
+          </div>`;
+        }
+
+        const grid = document.getElementById('cal-grid');
+        if (grid) grid.innerHTML = cells;
+
+        const daysWithSale = (r.daily || []).filter(d => d.bills > 0).length;
+        const monthTotal = (r.daily || []).reduce((s, d) => s + (d.total || 0), 0);
+        const summary = document.getElementById('cal-month-summary');
+        if (summary) summary.innerText = `${daysWithSale} วันที่มีขาย · รวม ${fmt(monthTotal)}`;
       },
 
               readReceiptToggles() {
