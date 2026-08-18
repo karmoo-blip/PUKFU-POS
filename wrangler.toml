@@ -6,3 +6,6 @@ compatibility_date = "2026-08-06"
 binding = "DB"
 database_name = "pukfu-pos"
 database_id = "df3802ed-9f4e-440a-8c79-3440906337b3"
+
+[triggers]
+crons = ["0 20 * * *"]
