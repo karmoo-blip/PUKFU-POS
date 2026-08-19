@@ -1441,7 +1441,12 @@ export default {
       return new Response(null, { headers: corsHeaders(origin) });
     }
     if (request.method === "GET") {
-      return json({ ok: true, message: "Pukfu POS API" }, 200, origin);
+      let db = false;
+      try {
+        await env.DB.prepare("SELECT 1").first();
+        db = true;
+      } catch (_) { /* db stays false */ }
+      return json({ ok: true, message: "Pukfu POS API", db }, 200, origin);
     }
     if (request.method === "POST") {
       let fn;
@@ -1481,8 +1486,8 @@ export default {
     return json({ ok: false, error: "Method not allowed" }, 405, origin);
   },
 
-  // ต้องเพิ่ม Cron Trigger เองที่ Cloudflare dashboard (Workers & Pages > pukfu-pos-api > Triggers)
-  // แนะนำตั้งวันละครั้ง เช่น "0 20 * * *" (20:00 UTC = 03:00 เวลาไทย) โค้ดข้างในจะเช็คเองว่าถึงรอบ 30 วันหรือยัง
+  // Cron Trigger ตั้งไว้แล้วใน wrangler.toml ("0 20 * * *" = 20:00 UTC = 03:00 เวลาไทย) deploy ผ่าน CI
+  // โค้ดข้างในจะเช็คเองว่าถึงรอบ 30 วันหรือยัง
   async scheduled(event, env, ctx) {
     ctx.waitUntil(handlers.autoBackupIfDue(env));
   },

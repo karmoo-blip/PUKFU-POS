@@ -21,7 +21,7 @@ worker/worker.js คือโค้ด Cloudflare Worker ที่ deploy จร
 
 สำรองข้อมูลอัตโนมัติ
 
-Worker มีฟังก์ชัน scheduled() ที่จะสร้าง backup ให้เองทุก 30 วัน (นับจาก backup ล่าสุด) และลบ backup ที่เก่ากว่า 180 วันทิ้งอัตโนมัติ แต่ต้องไปตั้ง Cron Trigger เองที่ Cloudflare dashboard (Workers & Pages > pukfu-pos-api > แท็บ Triggers > Cron Triggers > Add) แนะนำตั้งให้รันวันละครั้ง เช่น 0 20 * * * (20:00 UTC = 03:00 เวลาไทย) โค้ดจะเช็คเองว่าถึงรอบ 30 วันหรือยังก่อนสร้าง backup ใหม่จริง ไม่ต้องกังวลว่าจะสร้างซ้ำทุกวัน
+Worker มีฟังก์ชัน scheduled() ที่จะสร้าง backup ให้เองทุก 30 วัน (นับจาก backup ล่าสุด) และลบ backup ที่เก่ากว่า 180 วันทิ้งอัตโนมัติ Cron Trigger ตั้งไว้แล้วใน wrangler.toml (`0 20 * * *` = 20:00 UTC = 03:00 เวลาไทย) และ deploy ผ่าน CI อัตโนมัติ ไม่ต้องไปตั้งเองที่ Cloudflare dashboard อีก โค้ดจะเช็คเองว่าถึงรอบ 30 วันหรือยังก่อนสร้าง backup ใหม่จริง ไม่ต้องกังวลว่าจะสร้างซ้ำทุกวัน
 
 การทำงานออฟไลน์
 
