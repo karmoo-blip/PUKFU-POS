@@ -2889,9 +2889,9 @@
           const dateStr = this.toLocalDateStr(new Date(this.calendarYear, this.calendarMonth, day));
           const d = byDate[dateStr];
           const hasSale = d && d.bills > 0;
-          cells += `<div class="rounded-xl border p-1.5 min-h-[4.5rem] flex flex-col ${hasSale ? 'bg-accent border-primary/30' : 'bg-cream border-sand'}">
+          cells += `<div class="rounded-xl border p-1.5 min-h-[4.5rem] min-w-0 flex flex-col ${hasSale ? 'bg-accent border-primary/30' : 'bg-cream border-sand'}">
             <span class="text-xs font-bold ${hasSale ? 'text-secondary' : 'text-slate-400'}">${day}</span>
-            ${hasSale ? `<span class="text-xs font-black text-secondary mt-auto">${d.bills} บิล</span><span class="text-[11px] text-slate-500">${fmt(d.total)}</span>` : ''}
+            ${hasSale ? `<span class="text-xs font-black text-secondary mt-auto truncate">${d.bills} บิล</span><span class="text-[11px] text-slate-500 truncate">${fmt(d.total)}</span>` : ''}
           </div>`;
         }
 
