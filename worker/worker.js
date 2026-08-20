@@ -25,6 +25,19 @@ const PUBLIC_HANDLERS = new Set([
 
 async function ensureExtraTables(env) {
   const stmts = [
+    // ตารางหลัก 11 ตัว เดิมสร้างนอก repo ตรงๆ ไม่มี schema เก็บไว้เลย — กู้คืนโครงสร้างจาก repo อย่างเดียวไม่ได้ถ้า D1 หายทั้งฐาน
+    // ก็อปมาจาก schema จริงบน production (sqlite_master) เป๊ะๆ ใส่ IF NOT EXISTS ไม่กระทบข้อมูลเดิม
+    "CREATE TABLE IF NOT EXISTS menu (sku TEXT PRIMARY KEY, name TEXT, price REAL, image TEXT, lang2 TEXT, category TEXT, cost REAL, is_sold_out INTEGER DEFAULT 0)",
+    "CREATE TABLE IF NOT EXISTS employees (id TEXT PRIMARY KEY, name TEXT, pin TEXT, role TEXT, active INTEGER, permission TEXT, created_by TEXT, photo TEXT)",
+    "CREATE TABLE IF NOT EXISTS addons (id TEXT PRIMARY KEY, name TEXT, price REAL, active INTEGER, created_by TEXT)",
+    "CREATE TABLE IF NOT EXISTS payment_methods (id TEXT PRIMARY KEY, name TEXT, is_cash INTEGER, enabled INTEGER, sort_order INTEGER, created_by TEXT)",
+    "CREATE TABLE IF NOT EXISTS shop_info (key TEXT PRIMARY KEY, value TEXT)",
+    "CREATE TABLE IF NOT EXISTS inventory (id TEXT PRIMARY KEY, name TEXT, current_stock REAL, unit TEXT, opened_at TEXT, expires_at TEXT, photo TEXT, purchase_unit TEXT, purchase_factor REAL)",
+    "CREATE TABLE IF NOT EXISTS sales (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, invoice TEXT, sku TEXT, name TEXT, qty REAL, price REAL, note TEXT, payment_type TEXT, cancelled INTEGER DEFAULT 0, cancel_reason TEXT, cancelled_by TEXT)",
+    "CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, invoice TEXT, total REAL, payment_type TEXT, order_note TEXT, status TEXT, cancel_reason TEXT, cancelled_by TEXT, cancelled_at TEXT, created_by TEXT, edited_by TEXT, edited_at TEXT)",
+    "CREATE TABLE IF NOT EXISTS access_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, context TEXT, result TEXT, name TEXT)",
+    "CREATE TABLE IF NOT EXISTS float_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, user TEXT, action TEXT, total_amount REAL, note TEXT, b1000 REAL, b500 REAL, b100 REAL, b50 REAL, b20 REAL, c10 REAL, c5 REAL, c2 REAL, c1 REAL)",
+    "CREATE TABLE IF NOT EXISTS inventory_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, item_name TEXT, change REAL, new_stock REAL, recorded_by TEXT)",
     "CREATE TABLE IF NOT EXISTS backups (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, label TEXT, data TEXT)",
     "CREATE TABLE IF NOT EXISTS archives (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, range_start TEXT, range_end TEXT, note TEXT)",
     "CREATE TABLE IF NOT EXISTS archive_sales (id INTEGER PRIMARY KEY AUTOINCREMENT, archive_id INTEGER, timestamp TEXT, invoice TEXT, sku TEXT, name TEXT, qty REAL, price REAL, note TEXT, payment_type TEXT, cancelled INTEGER, cancel_reason TEXT)",
