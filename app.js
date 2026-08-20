@@ -122,6 +122,17 @@
       return escAttr(str === null || str === undefined ? '' : str);
     }
 
+    // ---- PIN hashing (salted SHA-256 via Web Crypto — เหมือนกับ worker.js เป๊ะ ต้อง hash ตรงกัน) ----
+    function bufToHex(buf) {
+      return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+    async function sha256Hex(str) {
+      return bufToHex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)));
+    }
+    async function hashPinWithSalt(pin, saltHex) {
+      return sha256Hex(saltHex + String(pin).trim());
+    }
+
     function calcVatBreakdown(total, rate) {
       const r = Number(rate) || 0;
       const vatAmount = total * (r / (100 + r));
@@ -1806,8 +1817,12 @@
       currentSettingsUser: null,
       employeeList: [],
 
-      checkSettingsAccess(pin) {
-        return this.employees.find(e => String(e.pin).trim() === String(pin).trim() && e.active) || null;
+      async checkSettingsAccess(pin) {
+        for (const e of this.employees) {
+          if (!e.active || !e.pinSalt || !e.pinHash) continue;
+          if ((await hashPinWithSalt(pin, e.pinSalt)) === e.pinHash) return e;
+        }
+        return null;
       },
 
       // ใช้ก่อนทำรายการที่มีความเสี่ยงสูง (คืนเงิน/ยกเลิกบิล/ลบพนักงาน/ลบข้อมูล) ให้พนักงานใส่ PIN ยืนยันตัวตนอีกครั้ง
@@ -1815,7 +1830,7 @@
       async requireActionPin(message) {
         const pin = await this.showPrompt(message, { type: 'password', icon: '' });
         if (pin === null) return null;
-        const user = this.checkSettingsAccess(pin);
+        const user = await this.checkSettingsAccess(pin);
         if (!user) {
           this.showAlert('รหัส PIN ไม่ถูกต้อง', '');
           return null;
@@ -2098,7 +2113,7 @@
         
         list.innerHTML = visibleEmployees.map(emp => {
           const canManage = this.canManageEmployee(emp);
-          const maskedPin = '•'.repeat(emp.pin.length);
+          const pinStatus = emp.hasPin ? '•••• (ตั้งไว้แล้ว)' : 'ยังไม่ได้ตั้ง PIN';
           return `
           <div class="p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
             <div class="flex items-center gap-3 min-w-0">
@@ -2106,8 +2121,7 @@
               <div class="min-w-0 flex-1">
                 <p class="font-bold text-secondary truncate">${escHtml(emp.name)} ${!emp.active ? '<span class="text-xs text-red-400 font-bold">(ปิดใช้งาน)</span>' : ''}</p>
                 <p class="text-xs text-slate-400 break-words">
-                  ${escHtml(emp.role)} • PIN: <span id="pin-display-${emp.id}">${maskedPin}</span>
-                  ${canManage ? `<button onclick="Controller.togglePinVisibility('${emp.id}', '${emp.pin}')" class="text-primary font-bold hover:underline ml-1">ดู</button>` : ''}
+                  ${escHtml(emp.role)} • PIN: ${pinStatus}
                 </p>
                 <p class="text-xs text-slate-400 break-words mt-0.5">
                   ${(emp.role === 'Owner' || emp.role === 'Admin') ? 'เข้าถึงทุกอย่าง' : `เข้าถึง: ${escHtml((emp.permissions || 'ยังไม่กำหนด').split(',').join(', '))}`}
@@ -2122,23 +2136,6 @@
             </div>
           </div>
         `}).join('');
-      },
-
-      pinVisibleTimeouts: {},
-
-      togglePinVisibility(empId, actualPin) {
-        const el = document.getElementById(`pin-display-${empId}`);
-        if (!el) return;
-
-        if (this.pinVisibleTimeouts[empId]) {
-          clearTimeout(this.pinVisibleTimeouts[empId]);
-        }
-
-        el.innerText = actualPin;
-        this.pinVisibleTimeouts[empId] = setTimeout(() => {
-          el.innerText = '•'.repeat(actualPin.length);
-          delete this.pinVisibleTimeouts[empId];
-        }, 5000);
       },
 
       isCurrentUserTopLevel() {
@@ -2176,7 +2173,8 @@
         document.getElementById('emp-form-title').innerText = emp ? 'แก้ไขพนักงาน' : 'เพิ่มพนักงาน';
         document.getElementById('emp-form-id').value = emp ? emp.id : '';
         document.getElementById('emp-form-name').value = emp ? emp.name : '';
-        document.getElementById('emp-form-pin').value = emp ? emp.pin : '';
+        document.getElementById('emp-form-pin').value = '';
+        document.getElementById('emp-form-pin').placeholder = emp ? 'เว้นว่างไว้ถ้าไม่เปลี่ยน PIN' : '';
         
         let defaultRole = 'Staff';
         document.getElementById('emp-form-role').value = emp ? emp.role : defaultRole;
@@ -2228,7 +2226,8 @@
       async saveEmployeeForm() {
         const name = document.getElementById('emp-form-name').value.trim();
         const pin = document.getElementById('emp-form-pin').value.trim();
-        if (!name || !pin) return this.showAlert('กรุณากรอกชื่อและ PIN ให้ครบ', '');
+        const empId = document.getElementById('emp-form-id').value || null;
+        if (!name || (!empId && !pin)) return this.showAlert('กรุณากรอกชื่อและ PIN ให้ครบ', '');
 
         const role = document.getElementById('emp-form-role').value;
         const isFullAccess = (role === 'Owner' || role === 'Admin');
@@ -2239,8 +2238,6 @@
             return this.showAlert('คุณไม่สามารถตั้งตำแหน่งพนักงานให้เท่ากับหรือสูงกว่าตัวเองได้', '');
           }
         }
-
-        const empId = document.getElementById('emp-form-id').value || null;
 
         if (empId) {
           const existing = this.employeeList.find(e => e.id === empId);
@@ -5133,9 +5130,13 @@ renderReport(r) {
         }
       },
 
-      tryUnlockPin() {
+      async tryUnlockPin() {
         const pin = this.pinBuffer.trim();
-        const user = this.employees.find(e => String(e.pin).trim() === pin && e.active);
+        let user = null;
+        for (const e of this.employees) {
+          if (!e.active || !e.pinSalt || !e.pinHash) continue;
+          if ((await hashPinWithSalt(pin, e.pinSalt)) === e.pinHash) { user = e; break; }
+        }
 
         if (user) {
           this.loggedInEmployee = user;
@@ -5147,13 +5148,7 @@ renderReport(r) {
           this.updateLoggedInUserLabel();
           this.resetAutoLockTimer();
         } else {
-          // หาความยาว PIN ที่ยาวที่สุดในระบบ ถ้ากรอกเกินนั้นแล้วยังไม่เจอ = ผิดแน่นอน
-          const maxPinLength = this.employees.reduce((max, e) => {
-            const len = String(e.pin).trim().length;
-            return len > max ? len : max;
-          }, 0) || 6;
-
-          if (pin.length >= maxPinLength) {
+          if (this.pinBuffer.length >= 6) {
             this.logPinAttempt('เข้าใช้งานระบบ (Lock Screen)', false, null);
             const err = document.getElementById('pin-lock-error');
             if (err) err.classList.remove('hidden');
@@ -5664,7 +5659,7 @@ renderReport(r) {
 
       async clearHistory() {
         const pin = await this.showPrompt("กรุณาใส่รหัส PIN เพื่อล้างข้อมูล History (Clear Cache):", { type: 'password', icon: '' });
-        const user = this.checkSettingsAccess(pin);
+        const user = await this.checkSettingsAccess(pin);
         if (user && this.getAllowedTabs(user).includes('history')) {
           this.logPinAttempt('Clear History', true, user.name);
           const ok = await this.showConfirm("ยืนยันการล้างข้อมูล? บิลที่ยังไม่ซิงค์เข้าระบบจะหายไปทั้งหมด!", '');

@@ -50,6 +50,44 @@ async function ensureColumn(env, table, column, type) {
   }
 }
 
+// ---- PIN hashing (salted SHA-256 via Web Crypto — identical logic duplicated in app.js) ----
+// เก็บในคอลัมน์ pin เดิม รูปแบบ "<salt hex 32 ตัว>:<sha256 hex 64 ตัว>" แทนเลข PIN ดิบ ไม่ต้อง ALTER TABLE
+function bufToHex(buf) {
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+function randomSaltHex() {
+  return bufToHex(crypto.getRandomValues(new Uint8Array(16)));
+}
+async function sha256Hex(str) {
+  return bufToHex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str)));
+}
+function isHashedPin(v) {
+  return typeof v === "string" && /^[0-9a-f]{32}:[0-9a-f]{64}$/i.test(v);
+}
+async function hashPinWithSalt(pin, saltHex) {
+  return sha256Hex(saltHex + String(pin).trim());
+}
+async function makePinRecord(pin) {
+  const salt = randomSaltHex();
+  return `${salt}:${await hashPinWithSalt(pin, salt)}`;
+}
+async function verifyPinRecord(pin, record) {
+  if (!isHashedPin(record)) return false;
+  const [salt, hash] = String(record).split(":");
+  return (await hashPinWithSalt(pin, salt)) === hash;
+}
+// migrate เลข PIN ดิบเดิมเป็น hash ทีละแถว ปลอดภัยเรียกซ้ำได้ (ข้ามแถวที่ hash แล้ว)
+async function ensurePinsHashed(env) {
+  const r = await env.DB.prepare("SELECT id, pin FROM employees").all();
+  for (const row of r.results) {
+    const pin = row.pin;
+    if (isHashedPin(pin)) continue;
+    if (pin === null || pin === undefined || String(pin).trim() === "") continue;
+    const record = await makePinRecord(String(pin).trim());
+    await env.DB.prepare("UPDATE employees SET pin = ? WHERE id = ?").bind(record, row.id).run();
+  }
+}
+
 function nowIso() {
   return new Date().toISOString();
 }
@@ -178,9 +216,10 @@ function normPermission(v) {
 async function authorizeEmployee(env, employeeId, pin, opts) {
   opts = opts || {};
   if (!employeeId || !pin) return { ok: false, error: "กรุณายืนยันตัวตนก่อนทำรายการนี้" };
+  await ensurePinsHashed(env);
   const emp = await env.DB.prepare("SELECT * FROM employees WHERE id = ?").bind(employeeId).first();
   if (!emp || !emp.active) return { ok: false, error: "ไม่พบพนักงานหรือถูกปิดใช้งาน" };
-  if (String(emp.pin).trim() !== String(pin).trim()) return { ok: false, error: "PIN ไม่ถูกต้อง" };
+  if (!(await verifyPinRecord(pin, emp.pin))) return { ok: false, error: "PIN ไม่ถูกต้อง" };
   const isTop = emp.role === "Owner" || emp.role === "Admin";
   if (opts.ownerOnly && !isTop) return { ok: false, error: "ต้องเป็นเจ้าของ/ผู้ดูแลระบบเท่านั้น" };
   if (opts.tabs && !isTop) {
@@ -229,18 +268,33 @@ function mapEmployeeRow(row) {
 }
 
 handlers.getEmployees = async (env) => {
+  await ensurePinsHashed(env);
   const r = await env.DB.prepare("SELECT * FROM employees").all();
-  return r.results.map(mapEmployeeRow);
+  return r.results.map((row) => {
+    const mapped = mapEmployeeRow(row);
+    mapped.hasPin = isHashedPin(row.pin);
+    delete mapped.pin;
+    return mapped;
+  });
 };
 
 handlers.getEmployeesForCache = async (env) => {
+  await ensurePinsHashed(env);
   const r = await env.DB.prepare("SELECT id, name, pin, role, active, permission FROM employees").all();
-  return r.results.map(mapEmployeeRow);
+  return r.results.map((row) => {
+    const mapped = mapEmployeeRow(row);
+    const [salt, hash] = isHashedPin(row.pin) ? String(row.pin).split(":") : ["", ""];
+    mapped.pinSalt = salt;
+    mapped.pinHash = hash;
+    delete mapped.pin;
+    return mapped;
+  });
 };
 
 handlers.saveEmployee = async (env, args) => {
   await ensureExtraTables(env);
   await ensureColumn(env, "employees", "photo", "TEXT");
+  await ensurePinsHashed(env);
   const emp = args[0] || {};
   const id = emp.id || "EMP-" + Date.now();
   const rawPerm = emp.permissions !== undefined && emp.permissions !== null ? emp.permissions : emp.permission;
@@ -248,14 +302,23 @@ handlers.saveEmployee = async (env, args) => {
   const createdBy = emp.createdBy || emp.created_by || "";
   const photo = String(emp.photo || "");
   const existing = await env.DB.prepare("SELECT * FROM employees WHERE id = ?").bind(id).first();
+  const typedPin = emp.pin !== undefined && emp.pin !== null ? String(emp.pin).trim() : "";
+  let pinRecord;
+  if (typedPin) {
+    pinRecord = await makePinRecord(typedPin);
+  } else if (existing) {
+    pinRecord = existing.pin; // ไม่กรอกใหม่ = คงรหัสเดิม
+  } else {
+    return { success: false, error: "กรุณาระบุ PIN" };
+  }
   if (existing) {
     await env.DB.prepare(
       "UPDATE employees SET name=?, pin=?, role=?, active=?, permission=?, photo=? WHERE id=?"
-    ).bind(emp.name, emp.pin, emp.role, emp.active ? 1 : 0, perm, photo, id).run();
+    ).bind(emp.name, pinRecord, emp.role, emp.active ? 1 : 0, perm, photo, id).run();
   } else {
     await env.DB.prepare(
       "INSERT INTO employees (id, name, pin, role, active, permission, created_by, photo) VALUES (?,?,?,?,?,?,?,?)"
-    ).bind(id, emp.name, emp.pin, emp.role, emp.active ? 1 : 0, perm, createdBy, photo).run();
+    ).bind(id, emp.name, pinRecord, emp.role, emp.active ? 1 : 0, perm, createdBy, photo).run();
   }
   const actor = emp.actorName || "";
   const diffParts = existing
@@ -265,7 +328,7 @@ handlers.saveEmployee = async (env, args) => {
         ["name", "role", "active", "permission"]
       )
     : "";
-  const pinChanged = existing && String(existing.pin) !== String(emp.pin);
+  const pinChanged = !!typedPin;
   const details = existing
     ? [diffParts, pinChanged ? "เปลี่ยน PIN" : ""].filter(Boolean).join(", ") || "ไม่มีการเปลี่ยนแปลงข้อมูลหลัก"
     : `สร้างพนักงานใหม่ ตำแหน่ง ${emp.role || "-"}`;
