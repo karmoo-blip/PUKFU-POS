@@ -1,0 +1,62 @@
+name: Deploy Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'index.html'
+      - 'order.html'
+      - 'app.js'
+      - 'order.js'
+      - 'pure-helpers.js'
+      - 'qrcode-lib.js'
+      - 'style.css'
+      - 'sw.js'
+      - 'manifest.json'
+      - 'favicon.png'
+      - 'icons/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'eslint.config.js'
+      - 'tests/**'
+      - '.github/workflows/deploy-pages.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+
+  deploy:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Stage static site files
+        run: |
+          mkdir -p dist/icons
+          cp index.html order.html app.js order.js pure-helpers.js qrcode-lib.js style.css sw.js manifest.json favicon.png dist/
+          cp icons/*.png dist/icons/
+      - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v5

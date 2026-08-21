@@ -10,18 +10,6 @@
 const ORDER_API_URL = "https://pukfu-pos-api.karmoo1133.workers.dev/";
 const ORDER_PUBLIC_TOKEN = "5614a45f8835548fd91ddbf3a599508864f6879e893c4147";
 
-function escAttr(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-function escHtml(str) {
-  return escAttr(str === null || str === undefined ? '' : str);
-}
-
 function resizeImageBase64(file, maxWidth, mimeType, quality) {
   mimeType = mimeType || 'image/jpeg';
   quality = quality === undefined ? 0.8 : quality;

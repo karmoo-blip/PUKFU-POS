@@ -107,39 +107,6 @@
       });
     }
 
-    function escAttr(str) {
-      return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-    }
-
-    /* ใช้ครอบข้อความที่ผู้ใช้พิมพ์เอง (ชื่อสินค้า/พนักงาน/หมายเหตุ) ก่อนใส่ลง innerHTML
-       กัน < > & " ' ทำให้หน้าจอเพี้ยนหรือถูกฉีดแท็กเข้ามา */
-    function escHtml(str) {
-      return escAttr(str === null || str === undefined ? '' : str);
-    }
-
-    // ---- PIN hashing (salted SHA-256 via Web Crypto — เหมือนกับ worker.js เป๊ะ ต้อง hash ตรงกัน) ----
-    function bufToHex(buf) {
-      return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, '0')).join('');
-    }
-    async function sha256Hex(str) {
-      return bufToHex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str)));
-    }
-    async function hashPinWithSalt(pin, saltHex) {
-      return sha256Hex(saltHex + String(pin).trim());
-    }
-
-    function calcVatBreakdown(total, rate) {
-      const r = Number(rate) || 0;
-      const vatAmount = total * (r / (100 + r));
-      const exVat = total - vatAmount;
-      return { exVat, vatAmount, rate: r };
-    }
-
     function imageToRaster(base64, targetWidthPx) {
       return new Promise((resolve, reject) => {
         const img = new Image();
@@ -4610,7 +4577,7 @@ renderReport(r) {
         let inputVal = Number(document.getElementById('checkout-discount-input').value) || 0;
         if (inputVal < 0) inputVal = 0;
 
-        let discount = 0;
+        let discount;
         if (this.discountMode === 'percent') {
           if (inputVal > 100) inputVal = 100;
           discount = subtotal * (inputVal / 100);
@@ -6080,8 +6047,6 @@ renderReport(r) {
 
                     const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยันการยกเลิกรายการ "${item.name}":`);
                     if (!auth) return;
-                    const userName = auth.employee.name;
-
                     item.cancelled = true;
                     item.cancelReason = reason.trim();
                     // บิลของวันอื่น (ไม่ใช่วันนี้) ยอดแก้วของวันนั้นถูกสรุปปิดไปแล้ว ไม่ต้องไปหักยอดแก้ววันนี้
