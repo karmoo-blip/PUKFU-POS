@@ -38,6 +38,8 @@ async function ensureExtraTables(env) {
     "CREATE TABLE IF NOT EXISTS access_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, context TEXT, result TEXT, name TEXT)",
     "CREATE TABLE IF NOT EXISTS float_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, user TEXT, action TEXT, total_amount REAL, note TEXT, b1000 REAL, b500 REAL, b100 REAL, b50 REAL, b20 REAL, c10 REAL, c5 REAL, c2 REAL, c1 REAL)",
     "CREATE TABLE IF NOT EXISTS inventory_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, item_name TEXT, change REAL, new_stock REAL, recorded_by TEXT)",
+    // นับจำนวนครั้งที่ใส่ PIN ผิดต่อพนักงาน กันคนสวมรอยลองสุ่ม PIN ยิงถล่ม authorizeEmployee ทางเน็ตซ้ำๆ
+    "CREATE TABLE IF NOT EXISTS pin_attempts (employee_id TEXT PRIMARY KEY, failed_count INTEGER DEFAULT 0, first_failed_at TEXT, locked_until TEXT)",
     "CREATE TABLE IF NOT EXISTS backups (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, label TEXT, data TEXT)",
     "CREATE TABLE IF NOT EXISTS archives (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, range_start TEXT, range_end TEXT, note TEXT)",
     "CREATE TABLE IF NOT EXISTS archive_sales (id INTEGER PRIMARY KEY AUTOINCREMENT, archive_id INTEGER, timestamp TEXT, invoice TEXT, sku TEXT, name TEXT, qty REAL, price REAL, note TEXT, payment_type TEXT, cancelled INTEGER, cancel_reason TEXT)",
@@ -223,16 +225,41 @@ function normPermission(v) {
   return s;
 }
 
+// จำนวนครั้งที่ใส่ PIN ผิดได้ก่อนล็อก / หน้าต่างเวลานับจำนวนครั้ง / ระยะเวลาล็อก
+const PIN_ATTEMPT_LIMIT = 5;
+const PIN_ATTEMPT_WINDOW_MS = 15 * 60 * 1000;
+const PIN_LOCKOUT_MS = 15 * 60 * 1000;
+
 // ตรวจสิทธิ์จริงที่ฝั่งเซิร์ฟเวอร์ก่อนทำรายการที่มีความเสี่ยงสูง (คืนเงิน/ยกเลิกบิล/ลบพนักงาน/ลบข้อมูล)
 // เดิม API_TOKEN ตัวเดียวเรียกฟังก์ชันไหนก็ได้ และฟิลด์ "user" เป็นแค่ข้อความที่ client ส่งมาเอง ไม่มีการตรวจสอบเลย
 // ฟังก์ชันนี้เช็ค employeeId + pin กับตาราง employees จริง แล้วดูสิทธิ์ (role หรือ permission) ก่อนอนุญาต
+// จำกัดจำนวนครั้งที่ใส่ PIN ผิดต่อพนักงานด้วย (กันสุ่ม PIN ยิงถล่มทางเน็ต) — ล็อกเฉพาะทางนี้
+// หน้าจอล็อกหลัก (tryUnlockPin) เทียบ PIN ในเครื่องล้วนๆ ไม่ผ่านเซิร์ฟเวอร์ กันสุ่มทางนี้ไม่ได้ (เพื่อให้ใช้ออฟไลน์ได้)
 async function authorizeEmployee(env, employeeId, pin, opts) {
   opts = opts || {};
   if (!employeeId || !pin) return { ok: false, error: "กรุณายืนยันตัวตนก่อนทำรายการนี้" };
   await ensurePinsHashed(env);
+  await ensureExtraTables(env);
+  const attempt = await env.DB.prepare("SELECT * FROM pin_attempts WHERE employee_id = ?").bind(employeeId).first();
+  if (attempt && attempt.locked_until && new Date(attempt.locked_until) > new Date()) {
+    const minutesLeft = Math.ceil((new Date(attempt.locked_until) - new Date()) / 60000);
+    return { ok: false, error: `ใส่ PIN ผิดหลายครั้งเกินไป กรุณาลองใหม่ในอีก ${minutesLeft} นาที` };
+  }
   const emp = await env.DB.prepare("SELECT * FROM employees WHERE id = ?").bind(employeeId).first();
   if (!emp || !emp.active) return { ok: false, error: "ไม่พบพนักงานหรือถูกปิดใช้งาน" };
-  if (!(await verifyPinRecord(pin, emp.pin))) return { ok: false, error: "PIN ไม่ถูกต้อง" };
+  if (!(await verifyPinRecord(pin, emp.pin))) {
+    const now = new Date();
+    const withinWindow = attempt && attempt.first_failed_at && (now - new Date(attempt.first_failed_at)) < PIN_ATTEMPT_WINDOW_MS;
+    const failedCount = withinWindow ? attempt.failed_count + 1 : 1;
+    const firstFailedAt = withinWindow ? attempt.first_failed_at : now.toISOString();
+    const lockedUntil = failedCount >= PIN_ATTEMPT_LIMIT ? new Date(now.getTime() + PIN_LOCKOUT_MS).toISOString() : null;
+    await env.DB.prepare(
+      "INSERT INTO pin_attempts (employee_id, failed_count, first_failed_at, locked_until) VALUES (?, ?, ?, ?) " +
+      "ON CONFLICT(employee_id) DO UPDATE SET failed_count = ?, first_failed_at = ?, locked_until = ?"
+    ).bind(employeeId, failedCount, firstFailedAt, lockedUntil, failedCount, firstFailedAt, lockedUntil).run();
+    return { ok: false, error: "PIN ไม่ถูกต้อง" };
+  }
+  await env.DB.prepare("DELETE FROM pin_attempts WHERE employee_id = ?").bind(employeeId).run();
   const isTop = emp.role === "Owner" || emp.role === "Admin";
   if (opts.ownerOnly && !isTop) return { ok: false, error: "ต้องเป็นเจ้าของ/ผู้ดูแลระบบเท่านั้น" };
   if (opts.tabs && !isTop) {
