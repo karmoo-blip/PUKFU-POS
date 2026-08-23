@@ -630,6 +630,7 @@
         if (settings.showSummary !== false) R.lr(doc, 'Subtotal:', money(subtotal), { size: small, indent: Math.round(doc.width * 0.35) });
         if (order.discount && order.discount > 0) {
           R.lr(doc, 'Discount:', order.discountLabel || ('-' + money(order.discount)), { size: small, indent: Math.round(doc.width * 0.35) });
+          if (order.discountReason) R.text(doc, 'เหตุผล: ' + order.discountReason, { size: Math.round(S * 0.8), indent: Math.round(S * 1.7) });
         }
         if (settings.vatEnabled) {
           const vat = calcVatBreakdown(order.total, settings.vatRate);
@@ -831,6 +832,7 @@
       shopInfo: { address: '', phone: '', taxId: '', vatEnabled: false, vatRate: 7 },
       checkoutDiscount: 0,
       checkoutDiscountRaw: 0,
+      checkoutDiscountReason: '',
       discountMode: 'baht',
 
       checkAndClearDailyCache() {
@@ -4528,11 +4530,45 @@ renderReport(r) {
         if (this.cart.length === 0) return this.showAlert('ยังไม่มีสินค้าในตะกร้าเลยครับ', '');
         this.checkoutDiscount = 0;
         this.checkoutDiscountRaw = 0;
+        this.checkoutDiscountReason = '';
         document.getElementById('checkout-discount-input').value = '';
+        document.getElementById('discount-reason-input').value = '';
         this.setDiscountMode('baht');
+        this.updateDiscountButtonLabel();
         this.updateCheckoutTotalDisplay();
         this.renderCheckoutPaymentMethods();
         this.openModal('modal-checkout');
+      },
+
+      openDiscountPrompt() {
+        document.getElementById('checkout-discount-input').value = this.checkoutDiscountRaw || '';
+        document.getElementById('discount-reason-input').value = this.checkoutDiscountReason || '';
+        this.setDiscountMode(this.discountMode);
+        this.openModal('modal-discount');
+      },
+
+      async confirmDiscount() {
+        const reason = document.getElementById('discount-reason-input').value.trim();
+        if (this.checkoutDiscount > 0 && reason === '') {
+          await this.showAlert('กรุณาระบุเหตุผลที่ให้ส่วนลดก่อนครับ', '');
+          return;
+        }
+        this.checkoutDiscountReason = this.checkoutDiscount > 0 ? reason : '';
+        this.updateDiscountButtonLabel();
+        this.closeModal('modal-discount');
+      },
+
+      updateDiscountButtonLabel() {
+        const btn = document.getElementById('btn-checkout-discount');
+        if (!btn) return;
+        if (this.checkoutDiscount > 0) {
+          const amountText = this.discountMode === 'percent'
+            ? `${this.checkoutDiscountRaw}% (-฿${this.checkoutDiscount.toFixed(0)})`
+            : `-฿${this.checkoutDiscount.toFixed(0)}`;
+          btn.innerText = `ส่วนลด: ${amountText}`;
+        } else {
+          btn.innerText = '+ ใส่ส่วนลด';
+        }
       },
 
       renderCheckoutPaymentMethods() {
@@ -4694,6 +4730,7 @@ renderReport(r) {
           subtotal: subtotal,
           discount: discount,
           discountLabel: discountLabel,
+          discountReason: discount > 0 ? (this.checkoutDiscountReason || '') : '',
           total: total,
           paymentType: this.paymentMode,
           cashReceived: cashPaid,

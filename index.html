@@ -1066,13 +1066,8 @@
         <p class="text-center text-sm font-bold text-slate-400 mb-1">ยอดรวมที่ต้องชำระ</p>
         <h3 class="text-4xl font-black text-center mb-2 text-secondary" id="checkout-total">฿0.00</h3>
         
-        <div class="mb-6 flex items-center justify-center gap-2">
-          <label class="text-xs font-bold text-slate-400 whitespace-nowrap">ส่วนลด</label>
-          <input type="number" id="checkout-discount-input" min="0" class="w-24 min-h-[2.75rem] border border-sand rounded-xl p-2 text-center font-bold focus:outline-none focus:border-primary bg-cream" placeholder="0" oninput="Controller.updateCheckoutDiscount()">
-          <div class="flex bg-slate-100 rounded-lg p-0.5">
-            <button id="btn-discount-baht" onclick="Controller.setDiscountMode('baht')" class="px-3 min-h-[2.75rem] rounded-md text-xs font-bold bg-white shadow-sm text-primary transition active:scale-95">฿</button>
-            <button id="btn-discount-percent" onclick="Controller.setDiscountMode('percent')" class="px-3 min-h-[2.75rem] rounded-md text-xs font-bold text-slate-400 transition active:scale-95">%</button>
-          </div>
+        <div class="mb-6 flex justify-center">
+          <button id="btn-checkout-discount" onclick="Controller.openDiscountPrompt()" type="button" class="min-h-[2.75rem] px-4 border border-sand rounded-xl font-bold text-sm text-slate-500 bg-cream hover:bg-accent active:scale-95 transition-all">+ ใส่ส่วนลด</button>
         </div>
 
         <div id="checkout-payment-methods" class="flex flex-wrap gap-2 mb-6"></div>
@@ -1114,6 +1109,27 @@
       <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-between gap-3 shrink-0" style="padding-bottom: max(1rem, env(safe-area-inset-bottom))">
         <button onclick="Controller.closeModal('modal-checkout')" class="flex-1 py-3 border border-sand bg-white rounded-2xl text-slate-500 font-bold hover:bg-accent active:scale-95 transition-all">Cancel</button>
         <button onclick="Controller.submitOrder()" id="btn-submit-order" class="flex-[1.5] py-3 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl font-bold shadow-md shadow-primary/30 hover:brightness-110 active:scale-95 transition-all"> Confirm Order </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-discount" class="hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[92] flex items-center justify-center p-4" onclick="if(event.target===this) Controller.closeModal('modal-discount')">
+    <div class="bg-white rounded-2xl shadow-xl w-full max-w-sm max-h-[85vh] overflow-y-auto">
+      <div class="p-6">
+        <p class="font-bold text-secondary text-center mb-4">ส่วนลด</p>
+        <div class="mb-4 flex items-center justify-center gap-2">
+          <input type="number" id="checkout-discount-input" min="0" class="w-24 min-h-[2.75rem] border border-sand rounded-xl p-2 text-center font-bold focus:outline-none focus:border-primary bg-cream" placeholder="0" oninput="Controller.updateCheckoutDiscount()">
+          <div class="flex bg-slate-100 rounded-lg p-0.5">
+            <button id="btn-discount-baht" onclick="Controller.setDiscountMode('baht')" class="px-3 min-h-[2.75rem] rounded-md text-xs font-bold bg-white shadow-sm text-primary transition active:scale-95">฿</button>
+            <button id="btn-discount-percent" onclick="Controller.setDiscountMode('percent')" class="px-3 min-h-[2.75rem] rounded-md text-xs font-bold text-slate-400 transition active:scale-95">%</button>
+          </div>
+        </div>
+        <label class="text-xs font-bold text-slate-400 mb-1 block">เหตุผลที่ให้ส่วนลด</label>
+        <textarea id="discount-reason-input" rows="2" class="w-full border border-sand rounded-xl p-2.5 text-sm focus:outline-none focus:border-primary bg-cream resize-none" placeholder="เช่น โปรโมชั่น, ลูกค้าประจำ, สินค้าตำหนิ"></textarea>
+      </div>
+      <div class="p-4 bg-cream border-t border-sand flex gap-3">
+        <button onclick="Controller.closeModal('modal-discount')" class="flex-1 py-2.5 border border-sand bg-white text-slate-500 rounded-xl font-bold hover:bg-accent transition">ยกเลิก</button>
+        <button onclick="Controller.confirmDiscount()" class="flex-1 py-2.5 bg-gradient-to-b from-primary to-secondary text-white rounded-xl font-bold hover:brightness-110 transition">ยืนยัน</button>
       </div>
     </div>
   </div>
