@@ -5028,14 +5028,19 @@ renderReport(r) {
         this.isSyncing = true;
         this.setIndicator('syncing');
 
-        const queueSnapshot = [...this.syncQueue]; 
+        const queueSnapshot = [...this.syncQueue];
+
+        // จำไว้ว่าตอนนี้บิลไหนถูกส่งไปแล้วและกำลังรอผลอยู่
+        // เนื้อความที่ส่งถูกแปลงเป็น JSON ตั้งแต่ตอนเรียกแล้ว แก้ค่าในคิวทีหลังไม่มีผลกับของที่ส่งไป
+        // ฝั่งที่สั่งยกเลิกบิลต้องรู้เรื่องนี้ ไม่งั้นการยกเลิกจะหายไปเฉยๆ (ดู Controller.updateOrderStatus)
+        this.syncingInvoices = new Set(queueSnapshot.map(o => o.invoice));
 
         google.script.run
           .withSuccessHandler(res => {
             this.isSyncing = false;
+            this.syncingInvoices = new Set();
             if(res.success) {
               // ตัดออกตามเลขบิลที่ส่งไปจริง ไม่ใช่ตัดตามจำนวน
-              // ถ้าระหว่างรอเซิร์ฟเวอร์มีการแก้สถานะบิลที่ค้างคิวอยู่ การตัดตามจำนวนจะทิ้งของที่แก้ไปเงียบๆ
               const syncedInvoices = new Set(queueSnapshot.map(o => o.invoice));
               this.syncQueue = this.syncQueue.filter(o => !syncedInvoices.has(o.invoice));
               this.checkAndClearDailyCache();
@@ -5043,11 +5048,14 @@ renderReport(r) {
               this.updateSyncQueueBadge();
               this.setIndicator('synced');
               this.fetchServerData(); // ดึงข้อมูลอัปเดตจากเซิร์ฟเวอร์ทันทีที่ซิงค์สำเร็จ
-              if(this.syncQueue.length > 0) this.processSyncQueue(); 
+              // งานเปลี่ยนสถานะที่รอบิลใบนี้อยู่ ตอนนี้บิลถึงเซิร์ฟเวอร์แล้ว ปล่อยให้วิ่งต่อได้เลย
+              if(this.statusQueue && this.statusQueue.length > 0) this.processStatusQueue();
+              if(this.syncQueue.length > 0) this.processSyncQueue();
             }
           })
           .withFailureHandler(err => {
             this.isSyncing = false;
+            this.syncingInvoices = new Set();
             console.warn("Sync Failed (Offline) - จะซิงค์ใหม่เมื่อมีเน็ต");
             this.setIndicator('error');
           })
@@ -5997,8 +6005,16 @@ renderReport(r) {
                     if (!this.statusQueue || this.statusQueue.length === 0) return;
                     if (this.isStatusSyncing) return;
                     if (!navigator.onLine) return;
-                    this.isStatusSyncing = true;
                     const job = this.statusQueue[0];
+
+                    // บิลใบนี้ยังไปไม่ถึงเซิร์ฟเวอร์ รอให้ซิงค์บิลเสร็จก่อน
+                    // updateOrderStatus ฝั่งเซิร์ฟเวอร์เป็น UPDATE ... WHERE invoice = ? ถ้ายังไม่มีแถวนั้น
+                    // มันจะไม่แก้อะไรเลยแต่ตอบ success กลับมา แล้วงานนี้จะถูกตัดทิ้งทั้งที่ยังไม่ได้ผล
+                    const awaitingSync = this.syncQueue.some(o => o.invoice === job.invoice)
+                              || (this.syncingInvoices && this.syncingInvoices.has(job.invoice));
+                    if (awaitingSync) return;
+
+                    this.isStatusSyncing = true;
 
                     const finish = (ok) => {
                                 this.isStatusSyncing = false;
@@ -6055,6 +6071,16 @@ renderReport(r) {
                                 queueEntry.cancelTimestamp = new Date().toISOString();
                                 this.saveLocalState();
                                 this.renderHistory();
+
+                                // บิลใบนี้ถูกส่งขึ้นเซิร์ฟเวอร์ไปแล้วและกำลังรอผลอยู่ เนื้อความที่ส่งเป็นสถานะเดิม
+                                // แก้ค่าในคิวอย่างเดียวไม่พอ ของที่ส่งไปแล้วไม่เปลี่ยนตาม ต้องสั่งเปลี่ยนสถานะตามไปอีกที
+                                if (this.syncingInvoices && this.syncingInvoices.has(order.invoice)) {
+                                              this.statusQueue.push({ type: 'updateOrderStatus', invoice: order.invoice, status: status, reason: reason.trim(), employeeId: auth.employeeId, pin: auth.pin, ts: Date.now() });
+                                              localStorage.setItem('pos_statusQueue', JSON.stringify(this.statusQueue));
+                                              this.updateSyncQueueBadge();
+                                              this.processStatusQueue();
+                                }
+
                                 this.processSyncQueue();
                                 return;
                     }
