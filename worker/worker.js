@@ -1519,9 +1519,15 @@ handlers.saveInventoryItem = async (env, args) => {
   const photo = String(it.photo || "");
   const purchaseUnit = String(it.purchaseUnit || it.purchase_unit || "").trim();
   const purchaseFactor = Number(it.purchaseFactor ?? it.purchase_factor) || 0;
-  const purchasePrice = Number(it.purchasePrice ?? it.purchase_price) || 0;
   const id = it.id || "ITM-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
-  const existing = await env.DB.prepare("SELECT id FROM inventory WHERE id = ?").bind(id).first();
+  const existing = await env.DB.prepare("SELECT id, purchase_price FROM inventory WHERE id = ?").bind(id).first();
+  // เครื่องที่ยังใช้ app.js เวอร์ชันเก่า (แคชไว้) ส่งข้อมูลมาโดยไม่มี purchasePrice เลย
+  // ถ้าแปลงเป็น 0 ตรงๆ ราคาที่เพิ่งกรอกไว้จะถูกลบทิ้งทันทีที่พนักงานเครื่องเก่าแก้สต๊อก
+  // ไม่มีคีย์ = ไม่ได้ตั้งใจแก้ราคา ให้คงค่าเดิมไว้ ต่างจากกรอก 0 มาจริงๆ
+  const priceGiven = it.purchasePrice ?? it.purchase_price;
+  const purchasePrice = priceGiven === undefined
+    ? (existing ? Number(existing.purchase_price) || 0 : 0)
+    : Number(priceGiven) || 0;
   if (existing) {
     await env.DB.prepare("UPDATE inventory SET name = ?, unit = ?, current_stock = ?, photo = ?, purchase_unit = ?, purchase_factor = ?, purchase_price = ? WHERE id = ?")
       .bind(name, unit, stock, photo, purchaseUnit, purchaseFactor, purchasePrice, id).run();
