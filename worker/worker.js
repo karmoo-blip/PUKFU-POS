@@ -1334,29 +1334,50 @@ handlers.getBackupList = async (env) => {
   return r.results;
 };
 
-handlers.createBackup = async (env, args) => {
+// ตั้งใจไม่รวม access_log/inventory_log/error_log (log ไม่มีวันจบ กู้คืนแล้วไม่มีประโยชน์มาก แค่ทำให้ backup ใหญ่)
+// ไม่รวม archives/archive_sales/archive_payments (เป็น backup ของข้อมูลเก่าอยู่แล้วจากฟีเจอร์ archive)
+// ไม่รวม pin_attempts (ตัวนับชั่วคราว กู้คืนกลับมาแล้วจะไปล็อกพนักงานที่ปลดล็อกไปแล้ว)
+// notifications = ตั้งค่าที่เจ้าของกรอกเอง ไม่ใช่ log — หายแล้วต้องตั้งใหม่ทั้งหมด
+// float_log = บันทึกนับเงินในลิ้นชัก เป็นข้อมูลการเงิน ไม่ใช่ log ระบบ
+// ประกาศไว้ที่เดียว createBackup กับ restoreBackup ต้องใช้รายการเดียวกันเสมอ เดิมก็อปไว้คนละที่แล้วหลุดกันได้ง่าย
+const BACKUP_TABLES = [
+  "menu", "employees", "addons", "payment_methods", "shop_info", "inventory",
+  "sales", "payments", "refunds", "pending_orders", "sweetness_levels", "recipes",
+  "notifications", "float_log",
+];
+
+// ตัวสร้าง backup จริง ไม่เช็คสิทธิ์ เพราะถูกเรียกจาก cron (ไม่มีผู้ใช้) และจากตอนกู้คืน (สำรองก่อนเขียนทับ)
+// ทางที่ผู้ใช้เรียกเข้ามาเองอยู่ที่ handlers.createBackup ด้านล่าง ตรงนั้นเช็ค PIN
+async function createBackupInternal(env, label) {
   await ensureExtraTables(env);
-  const label = (args && args[0]) || nowIso();
-  // ตั้งใจไม่รวม access_log/inventory_log/float_log (log ไม่มีวันจบ กู้คืนแล้วไม่มีประโยชน์มาก แค่ทำให้ backup ใหญ่)
-  // และไม่รวม archives/archive_sales/archive_payments (เป็น backup ของข้อมูลเก่าอยู่แล้วจากฟีเจอร์ archive)
-  const tables = [
-    "menu", "employees", "addons", "payment_methods", "shop_info", "inventory",
-    "sales", "payments", "refunds", "pending_orders", "sweetness_levels", "recipes",
-  ];
   const data = {};
-  for (const t of tables) {
+  for (const t of BACKUP_TABLES) {
     const r = await env.DB.prepare("SELECT * FROM " + t).all();
     data[t] = r.results;
   }
   await env.DB.prepare("INSERT INTO backups (created_at, label, data) VALUES (?,?,?)")
-    .bind(nowIso(), label, JSON.stringify(data)).run();
-  return { success: true, label, data };
+    .bind(nowIso(), label || nowIso(), JSON.stringify(data)).run();
+  return { success: true, label: label || nowIso(), data };
+}
+
+handlers.createBackup = async (env, args) => {
+  await ensureExtraTables(env);
+  const a0 = args && args[0];
+  // เครื่องเวอร์ชันเก่าส่ง label มาเป็นสตริงเปล่าๆ รับไว้ให้ไม่พัง แล้วปล่อยให้ตกด่านเช็ค PIN ตามปกติ
+  const a = (a0 && typeof a0 === "object") ? a0 : { label: a0 };
+  const auth = await authorizeEmployee(env, a.employeeId, a.pin, { ownerOnly: true });
+  if (!auth.ok) return { success: false, error: auth.error };
+  return createBackupInternal(env, a.label);
 };
 
 handlers.getBackupData = async (env, args) => {
   await ensureExtraTables(env);
-  const id = args && args[0];
-  const r = await env.DB.prepare("SELECT data FROM backups WHERE id = ?").bind(id).first();
+  const a0 = args && args[0];
+  const a = (a0 && typeof a0 === "object") ? a0 : { id: a0 };
+  // ก้อน backup มีตาราง employees รวมอยู่ด้วย ใครถือ API_TOKEN เฉยๆ ไม่ควรดึงออกไปได้
+  const auth = await authorizeEmployee(env, a.employeeId, a.pin, { ownerOnly: true });
+  if (!auth.ok) return { success: false, error: auth.error };
+  const r = await env.DB.prepare("SELECT data FROM backups WHERE id = ?").bind(a.id).first();
   if (!r) return { success: false, error: "not found" };
   return { success: true, data: JSON.parse(r.data) };
 };
@@ -1375,14 +1396,15 @@ handlers.restoreBackup = async (env, args) => {
   if (!row) return { success: false, error: "ไม่พบ backup นี้" };
   const data = JSON.parse(row.data);
 
-  await handlers.createBackup(env, ["ก่อนกู้คืนจาก backup #" + id + " (อัตโนมัติ)"]);
+  await createBackupInternal(env, "ก่อนกู้คืนจาก backup #" + id + " (อัตโนมัติ)");
 
-  const tables = [
-    "menu", "employees", "addons", "payment_methods", "shop_info", "inventory",
-    "sales", "payments", "refunds", "pending_orders", "sweetness_levels", "recipes",
-  ];
   const statements = [];
-  for (const t of tables) {
+  const skipped = [];
+  for (const t of BACKUP_TABLES) {
+    // ก้อน backup เก่าที่สร้างก่อนจะเพิ่มตารางนี้เข้ารายการ จะไม่มีคีย์ของตารางนี้เลย
+    // "ไม่มีคีย์" = backup นี้ไม่รู้จักตารางนี้ ไม่ใช่ "ตารางนี้ว่าง" ถ้าลบทิ้งข้อมูลปัจจุบันจะหายฟรีๆ
+    // ต่างจากมีคีย์แต่เป็น array ว่าง ซึ่งแปลว่าตอน backup ตารางนั้นว่างจริง ให้ล้างได้
+    if (!Object.prototype.hasOwnProperty.call(data, t)) { skipped.push(t); continue; }
     statements.push(env.DB.prepare("DELETE FROM " + t));
     const rows = Array.isArray(data[t]) ? data[t] : [];
     for (const r of rows) {
@@ -1395,7 +1417,8 @@ handlers.restoreBackup = async (env, args) => {
     }
   }
   await env.DB.batch(statements);
-  return { success: true };
+  // บอกกลับไปด้วยว่าตารางไหนไม่ได้แตะ จะได้ไม่เข้าใจผิดว่ากู้คืนครบทุกตาราง
+  return { success: true, skipped };
 };
 
 handlers.deleteBackup = async (env, args) => {
@@ -1425,7 +1448,7 @@ handlers.autoBackupIfDue = async (env) => {
   const last = await env.DB.prepare("SELECT created_at FROM backups ORDER BY id DESC LIMIT 1").first();
   const dueMs = 30 * 24 * 3600 * 1000;
   if (!last || (Date.now() - new Date(last.created_at).getTime()) >= dueMs) {
-    await handlers.createBackup(env, ["auto-30day"]);
+    await createBackupInternal(env, "auto-30day");
   }
   await handlers.cleanupOldBackups(env);
   return { success: true };

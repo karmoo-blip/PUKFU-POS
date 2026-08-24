@@ -810,7 +810,7 @@
         </div>
 
         <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-          <p class="text-sm text-slate-400">รายการไฟล์สำรองล่าสุด (20 รายการล่าสุด)</p>
+          <p class="text-sm text-slate-400">รายการสำรองข้อมูลทั้งหมดที่เก็บไว้ (เก็บย้อนหลัง 180 วัน)</p>
           <button onclick="Controller.fetchBackupList(this)" class="w-full sm:w-auto justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
         </div>
         <div id="backup-stale-warning" class="hidden bg-amber-50 border border-amber-300 text-amber-700 text-sm font-bold rounded-2xl p-4 mb-4"></div>
@@ -818,7 +818,7 @@
 
         <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 mb-4">
           <h3 class="font-bold text-lg text-secondary mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> เก็บข้อมูลปีต่อปี (Archive)</h3>
-          <p class="text-sm text-slate-400 mb-4">ย้ายข้อมูล Sales, Payments, Log ต่างๆ ของปีเก่ากว่าปัจจุบัน ไปเก็บไว้ในไฟล์แยกตามปี ช่วยให้ Sheet หลักไม่บวมและระบบทำงานเร็วขึ้น เช็คให้ทำงานอัตโนมัติทุกต้นปีมกราคม</p>
+          <p class="text-sm text-slate-400 mb-4">ย้ายข้อมูล Sales และ Payments ของปีเก่ากว่าปีปัจจุบัน ไปเก็บไว้ในตารางแยกตามปี ช่วยให้ตารางหลักไม่บวมและระบบทำงานเร็วขึ้น ต้องกดเองเมื่อต้องการ ระบบไม่ได้ตั้งเวลาให้อัตโนมัติ</p>
           <button id="btn-manual-archive" onclick="Controller.manualArchiveNow(this)" class="w-full sm:w-auto bg-gradient-to-b from-amber-500 to-amber-600 text-white px-6 py-3 rounded-2xl font-bold hover:brightness-110 transition shadow-md shadow-amber-500/30">เก็บข้อมูลปีเก่าเดี๋ยวนี้</button>
         </div>
 

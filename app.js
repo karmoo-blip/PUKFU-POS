@@ -4093,11 +4093,14 @@ renderReport(r) {
         return sections.join('\r\n');
       },
 
-      exportBackupToExcel(id) {
+      async exportBackupToExcel(id) {
+        // ก้อน backup มีข้อมูลพนักงานรวมอยู่ด้วย ขอ PIN เจ้าของ/แอดมินก่อนเหมือนตอนกู้คืนและตอนลบ
+        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อดาวน์โหลดไฟล์สำรองข้อมูล:');
+        if (!auth) return;
         google.script.run
           .withSuccessHandler(res => {
             if (!res.success) {
-              this.showAlert('ไม่พบข้อมูล backup นี้', '');
+              this.showAlert(res.error || 'ไม่พบข้อมูล backup นี้', '');
               return;
             }
             this._downloadTextFile(`pukfu-backup-${id}.csv`, this._buildBackupCsv(res.data));
@@ -4105,11 +4108,13 @@ renderReport(r) {
           .withFailureHandler(() => {
             this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
           })
-          .getBackupData(id);
+          .getBackupData({ id: id, employeeId: auth.employeeId, pin: auth.pin });
       },
 
       // สำรองข้อมูล + ดาวน์โหลดไฟล์ CSV ทันทีในคลิกเดียว (เดิมต้องกดสำรองก่อน แล้วไปหาไฟล์ในลิสต์เพื่อกด Export Excel อีกที)
-      manualBackupNow(btn) {
+      async manualBackupNow(btn) {
+        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อสำรองข้อมูล:');
+        if (!auth) return;
         this.setBtnLoading(btn, true);
         google.script.run
           .withSuccessHandler(res => {
@@ -4122,14 +4127,14 @@ renderReport(r) {
               this.showAlert('สำรองข้อมูลสำเร็จแล้ว และดาวน์โหลดไฟล์ให้แล้ว: ' + res.label, '');
               this.fetchBackupList();
             } else {
-              this.showAlert(res.message || 'สำรองข้อมูลไม่สำเร็จ', '');
+              this.showAlert(res.error || res.message || 'สำรองข้อมูลไม่สำเร็จ', '');
             }
           })
           .withFailureHandler(() => {
             this.setBtnLoading(btn, false);
             this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
           })
-          .createBackup();
+          .createBackup({ employeeId: auth.employeeId, pin: auth.pin });
       },
 
       fetchArchiveList(btn) {
@@ -4155,20 +4160,26 @@ renderReport(r) {
           return;
         }
 
-        list.innerHTML = data.map(f => `
+        // เดิมอ่าน f.name / f.createdAt / f.url ซึ่งเซิร์ฟเวอร์ไม่เคยส่งมา (ตกค้างจากสมัยเก็บไฟล์ไว้บน Google Drive)
+        // ทุกแถวเลยขึ้น undefined กับ Invalid Date และลิงก์กดไม่ได้ ตอนนี้อ่านฟิลด์ที่ getArchiveList ส่งมาจริง
+        // ข้อมูลที่ archive ไปอยู่ในตาราง archive_sales/archive_payments ในฐานข้อมูลเดิม ไม่มีไฟล์ให้เปิด
+        list.innerHTML = data.map(f => {
+          const range = [f.range_start, f.range_end].filter(Boolean).join(' - ');
+          const created = f.created_at ? new Date(f.created_at).toLocaleDateString() : '-';
+          return `
           <div class="p-4 flex justify-between items-center gap-3">
             <div class="min-w-0">
-              <p class="font-bold text-secondary text-sm truncate">${escHtml(f.name)}</p>
-              <p class="text-xs text-slate-400 mt-0.5">สร้างเมื่อ ${new Date(f.createdAt).toLocaleDateString()}</p>
+              <p class="font-bold text-secondary text-sm truncate">${escHtml(range || ('Archive #' + f.id))}</p>
+              <p class="text-xs text-slate-400 mt-0.5">ย้ายเมื่อ ${escHtml(created)}${f.note ? ' · ' + escHtml(f.note) : ''}</p>
             </div>
-            <a href="${f.url}" target="_blank" rel="noopener" class="shrink-0 text-sm font-bold text-primary hover:underline">เปิดไฟล์</a>
-          </div>
-        `).join('');
+            <span class="shrink-0 text-xs font-bold text-slate-400">#${escHtml(f.id)}</span>
+          </div>`;
+        }).join('');
       },
 
       async manualArchiveNow(btn) {
         const ok = await this.showConfirm(
-          'จะย้ายข้อมูล Sales, Payments, Log ต่างๆ ของปีเก่ากว่าปัจจุบัน ไปเก็บไว้ในไฟล์ archive แยกตามปี และลบออกจาก Sheet หลัก แนะนำให้กด "สำรองข้อมูลเดี๋ยวนี้" ไว้ก่อนเผื่อไว้ ต้องการดำเนินการต่อหรือไม่?',
+          'จะย้ายข้อมูล Sales และ Payments ของปีเก่ากว่าปีปัจจุบัน ไปเก็บไว้ในตาราง archive แยกตามปี และลบออกจากตารางหลัก (ไม่ได้ย้าย Log) แนะนำให้กด "สำรองข้อมูลเดี๋ยวนี้" ไว้ก่อนเผื่อไว้ ต้องการดำเนินการต่อหรือไม่?',
           ''
         );
         if (!ok) return;
