@@ -2,7 +2,7 @@ const js = require('@eslint/js');
 const globals = require('globals');
 
 module.exports = [
-  { ignores: ['qrcode-lib.js', 'worker/**', 'node_modules/**', 'dist/**'] },
+  { ignores: ['qrcode-lib.js', 'worker/**', 'node_modules/**', 'dist/**', '.wrangler/**'] },
 
   js.configs.recommended,
 
@@ -32,6 +32,8 @@ module.exports = [
         sha256Hex: 'readonly',
         hashPinWithSalt: 'readonly',
         calcVatBreakdown: 'readonly',
+        unitCost: 'readonly',
+        recipeCost: 'readonly',
       },
     },
   },

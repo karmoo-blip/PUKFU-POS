@@ -37,7 +37,7 @@ async function ensureExtraTables(env) {
     "CREATE TABLE IF NOT EXISTS addons (id TEXT PRIMARY KEY, name TEXT, price REAL, active INTEGER, created_by TEXT)",
     "CREATE TABLE IF NOT EXISTS payment_methods (id TEXT PRIMARY KEY, name TEXT, is_cash INTEGER, enabled INTEGER, sort_order INTEGER, created_by TEXT)",
     "CREATE TABLE IF NOT EXISTS shop_info (key TEXT PRIMARY KEY, value TEXT)",
-    "CREATE TABLE IF NOT EXISTS inventory (id TEXT PRIMARY KEY, name TEXT, current_stock REAL, unit TEXT, opened_at TEXT, expires_at TEXT, photo TEXT, purchase_unit TEXT, purchase_factor REAL)",
+    "CREATE TABLE IF NOT EXISTS inventory (id TEXT PRIMARY KEY, name TEXT, current_stock REAL, unit TEXT, opened_at TEXT, expires_at TEXT, photo TEXT, purchase_unit TEXT, purchase_factor REAL, purchase_price REAL)",
     "CREATE TABLE IF NOT EXISTS sales (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, invoice TEXT, sku TEXT, name TEXT, qty REAL, price REAL, note TEXT, payment_type TEXT, cancelled INTEGER DEFAULT 0, cancel_reason TEXT, cancelled_by TEXT)",
     "CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, invoice TEXT, total REAL, payment_type TEXT, order_note TEXT, status TEXT, cancel_reason TEXT, cancelled_by TEXT, cancelled_at TEXT, created_by TEXT, edited_by TEXT, edited_at TEXT)",
     "CREATE TABLE IF NOT EXISTS access_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, context TEXT, result TEXT, name TEXT)",
@@ -1509,6 +1509,8 @@ handlers.saveInventoryItem = async (env, args) => {
   await ensureColumn(env, "inventory", "photo", "TEXT");
   await ensureColumn(env, "inventory", "purchase_unit", "TEXT");
   await ensureColumn(env, "inventory", "purchase_factor", "REAL");
+  // ราคาซื้อต่อหนึ่งหน่วยที่ซื้อ (ต่อถุง/ขวด/แพ็ค) ใช้คำนวณต้นทุนวัตถุดิบต่อแก้วจากสูตร
+  await ensureColumn(env, "inventory", "purchase_price", "REAL");
   const it = args[0] || {};
   const name = String(it.name || "").trim();
   if (!name) return { success: false, error: "missing name" };
@@ -1517,14 +1519,15 @@ handlers.saveInventoryItem = async (env, args) => {
   const photo = String(it.photo || "");
   const purchaseUnit = String(it.purchaseUnit || it.purchase_unit || "").trim();
   const purchaseFactor = Number(it.purchaseFactor ?? it.purchase_factor) || 0;
+  const purchasePrice = Number(it.purchasePrice ?? it.purchase_price) || 0;
   const id = it.id || "ITM-" + Date.now() + "-" + Math.floor(Math.random() * 1000);
   const existing = await env.DB.prepare("SELECT id FROM inventory WHERE id = ?").bind(id).first();
   if (existing) {
-    await env.DB.prepare("UPDATE inventory SET name = ?, unit = ?, current_stock = ?, photo = ?, purchase_unit = ?, purchase_factor = ? WHERE id = ?")
-      .bind(name, unit, stock, photo, purchaseUnit, purchaseFactor, id).run();
+    await env.DB.prepare("UPDATE inventory SET name = ?, unit = ?, current_stock = ?, photo = ?, purchase_unit = ?, purchase_factor = ?, purchase_price = ? WHERE id = ?")
+      .bind(name, unit, stock, photo, purchaseUnit, purchaseFactor, purchasePrice, id).run();
   } else {
-    await env.DB.prepare("INSERT INTO inventory (id, name, current_stock, unit, photo, purchase_unit, purchase_factor) VALUES (?, ?, ?, ?, ?, ?, ?)")
-      .bind(id, name, stock, unit, photo, purchaseUnit, purchaseFactor).run();
+    await env.DB.prepare("INSERT INTO inventory (id, name, current_stock, unit, photo, purchase_unit, purchase_factor, purchase_price) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+      .bind(id, name, stock, unit, photo, purchaseUnit, purchaseFactor, purchasePrice).run();
   }
   return { success: true, id: id };
 };

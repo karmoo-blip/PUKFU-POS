@@ -1378,7 +1378,7 @@
       pendingOrders: [], // ออเดอร์ออนไลน์ (สแกน QR) ที่รอพนักงานยืนยัน
       _alertedPendingOrderIds: new Set(), // id ออเดอร์ออนไลน์ที่เด้ง popup แจ้งไปแล้วในเซสชันนี้ กันไม่ให้เด้งซ้ำทุกรอบเช็ค
 
-      fetchInventory(btn) {
+      fetchInventory(btn, onDone) {
         this.setIndicator('syncing');
         this.setBtnLoading(btn, true);
         const list = document.getElementById('inventory-list');
@@ -1389,6 +1389,7 @@
             this.inventoryData = data;
             this.renderInventory();
             this.setIndicator('synced');
+            if (typeof onDone === 'function') onDone();
           })
           .withFailureHandler(() => {
              this.setBtnLoading(btn, false);
@@ -1451,6 +1452,9 @@
                 <button onclick='Controller.showInventoryItemForm(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="px-2.5 min-h-[2rem] inline-flex items-center justify-center text-xs font-bold text-primary bg-primary/10 rounded-full active:scale-95 transition-all whitespace-nowrap">แก้ไข</button>
                 <button onclick="Controller.deleteInventoryItemConfirm('${item.id}')" class="px-2.5 min-h-[2rem] inline-flex items-center justify-center text-xs font-bold text-red-500 bg-red-50 rounded-full active:scale-95 transition-all whitespace-nowrap">ลบ</button>
                 <span id="inv-changed-${idx}" class="lg:hidden hidden text-amber-500 font-bold text-xs whitespace-nowrap">● แก้ไข</span>
+                ${Number(item.purchase_price) > 0
+                  ? `<span class="text-xs text-slate-400 font-bold whitespace-nowrap">฿${Number(item.purchase_price).toLocaleString()}${item.purchase_unit ? '/' + escHtml(item.purchase_unit) : ''}</span>`
+                  : '<span class="text-xs text-amber-500 font-bold whitespace-nowrap">ยังไม่ใส่ราคา</span>'}
                 ${item.purchase_unit && Number(item.purchase_factor) > 0 ? `
                   <div class="basis-full mt-1">
                     <span class="text-xs text-slate-400">หน่วยที่ป้อนเบิก/เติม:</span>
@@ -1661,6 +1665,14 @@
         return Number(val.toFixed(2)).toString();
       },
 
+      // ต้นทุนต่อหน่วยย่อยมักน้อยกว่าสตางค์ (เช่น ฿0.0032 ต่อ ML) ปัดสองตำแหน่งจะกลายเป็น 0
+      // ใช้ทศนิยมมากขึ้นเฉพาะตอนตัวเลขเล็ก แล้วตัดศูนย์ท้ายทิ้ง
+      _formatMoneyPerUnit(v) {
+        const n = Number(v) || 0;
+        const digits = n === 0 ? 2 : Math.min(6, Math.max(2, 2 - Math.floor(Math.log10(Math.abs(n)))));
+        return Number(n.toFixed(digits)).toString();
+      },
+
       updateInvRowStockDisplay(idx) {
         const item = this.inventoryData[idx];
         const toggle = document.getElementById(`inv-unit-toggle-${idx}`);
@@ -1808,7 +1820,7 @@
       },
 
       getAllowedTabs(user) {
-        const allTabs = ['printer', 'history', 'summary', 'report', 'calendar', 'inventory', 'stock', 'employees', 'log', 'addons', 'sweetness', 'payment', 'notifications', 'backup', 'onlineorder'];
+        const allTabs = ['printer', 'history', 'summary', 'report', 'calendar', 'inventory', 'cost', 'stock', 'employees', 'log', 'addons', 'sweetness', 'payment', 'notifications', 'backup', 'onlineorder'];
         if (user.role === 'Owner' || user.role === 'Admin') return allTabs;
         return user.permissions ? user.permissions.split(',').filter(t => allTabs.includes(t)) : [];
       },
@@ -1916,6 +1928,7 @@
         if (tab === 'history') this.renderHistory();
         if (tab === 'summary') this.fetchSummary();
         if (tab === 'inventory') this.fetchInventory();
+        if (tab === 'cost') this.initCostTab();
         if (tab === 'employees') this.fetchEmployeeList();
         if (tab === 'stock') { this.renderStockPanel(); this.renderProductList(); }
         if (tab === 'log') { this.fetchAccessLog(); this.fetchErrorLogs(); this.fetchChangeLog(); }
@@ -1927,6 +1940,92 @@
         if (tab === 'calendar') this.initCalendarTab();
         if (tab === 'backup') { this.fetchBackupList(); this.fetchArchiveList(); }
         if (tab === 'onlineorder') { this.renderPaymentQrPreview(); this.loadOnlineOrderHistory(); this.restoreTableQr(); }
+      },
+
+      // ---- แท็บต้นทุน ----
+      // คิดต้นทุนต่อแก้วจากสูตร + ราคาวัตถุดิบ แล้ววางเทียบกับต้นทุนที่กรอกมือไว้ใน menu.cost
+      // ตัวที่กรอกมือยังเป็นตัวที่ใช้คิดกำไรในรายงานอยู่ ตรงนี้ไว้ดูว่าตรงกันไหมเท่านั้น
+      initCostTab() {
+        // ราคาวัตถุดิบมาจาก inventory ซึ่งบางทีผู้ใช้ยังไม่ได้เปิดแท็บวัตถุดิบเลยในรอบนี้
+        if (!this.inventoryData || this.inventoryData.length === 0) {
+          this.fetchInventory(null, () => this.renderCostTable());
+          return;
+        }
+        this.renderCostTable();
+      },
+
+      renderCostTable() {
+        const host = document.getElementById('cost-list');
+        if (!host) return;
+
+        const byId = {};
+        for (const inv of (this.inventoryData || [])) byId[inv.id] = inv;
+
+        const recipesBySku = {};
+        for (const r of (this.recipes || [])) (recipesBySku[r.menu_sku] ||= []).push(r);
+
+        // สูตรที่เหมือนกันเป๊ะแปลว่าน่าจะลืมใส่วัตถุดิบที่ทำให้เมนูต่างกัน เก็บไว้เตือน
+        const recipeKey = rows => (rows || []).map(r => r.inventory_item_id + ':' + r.qty).sort().join('|');
+        const skusByKey = {};
+        for (const m of (this.menuData || [])) {
+          const rows = recipesBySku[m.sku];
+          if (!rows || rows.length === 0) continue;
+          (skusByKey[recipeKey(rows)] ||= []).push(m.name);
+        }
+
+        const money = n => '฿' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const rowsHtml = [];
+        const noRecipe = [];
+        let pricedCount = 0;
+
+        for (const m of (this.menuData || [])) {
+          const recipeRows = recipesBySku[m.sku] || [];
+          if (recipeRows.length === 0) { noRecipe.push(m.name); continue; }
+
+          const result = recipeCost(recipeRows, byId);
+          const typed = Number(m.cost) || 0;
+          const price = Number(m.price) || 0;
+          const computed = result.total;
+          if (computed !== null) pricedCount++;
+
+          const diff = computed === null || typed === 0 ? null : computed - typed;
+          const margin = computed === null || price === 0 ? null : ((price - computed) / price) * 100;
+          const twin = skusByKey[recipeKey(recipeRows)] || [];
+
+          const warn = [];
+          if (result.missingPrice.length) warn.push('ยังไม่ใส่ราคา: ' + result.missingPrice.map(x => escHtml(x.name)).join(', '));
+          if (twin.length > 1) warn.push('สูตรซ้ำกับ ' + twin.filter(n => n !== m.name).map(escHtml).join(', ') + ' — น่าจะยังไม่ได้ใส่วัตถุดิบที่ทำให้ต่างกัน');
+
+          rowsHtml.push(`
+            <div class="p-3 lg:grid lg:grid-cols-[1fr_5rem_6rem_6rem_5rem] lg:gap-2 lg:items-center">
+              <div class="min-w-0">
+                <p class="font-bold text-secondary truncate">${escHtml(m.name)}</p>
+                <p class="text-xs text-slate-400 font-bold lg:hidden">ขาย ${money(price)} · คำนวณ ${computed === null ? 'ยังไม่ครบ' : money(computed)} · กรอกไว้ ${money(typed)}</p>
+                ${warn.length ? `<p class="text-xs text-amber-500 font-bold mt-1">${warn.join(' / ')}</p>` : ''}
+              </div>
+              <div class="hidden lg:block text-right text-sm font-bold text-slate-500">${money(price)}</div>
+              <div class="hidden lg:block text-right text-sm font-black ${computed === null ? 'text-amber-500' : 'text-secondary'}">${computed === null ? 'ยังไม่ครบ' : money(computed)}</div>
+              <div class="hidden lg:block text-right text-sm font-bold ${diff !== null && Math.abs(diff) >= 1 ? 'text-red-500' : 'text-slate-400'}">${typed === 0 ? '—' : money(typed)}${diff !== null && Math.abs(diff) >= 1 ? ` (${diff > 0 ? '+' : ''}${diff.toFixed(2)})` : ''}</div>
+              <div class="hidden lg:block text-right text-sm font-black ${margin === null ? 'text-slate-300' : (margin >= 50 ? 'text-emerald-500' : 'text-amber-500')}">${margin === null ? '—' : margin.toFixed(0) + '%'}</div>
+            </div>`);
+        }
+
+        const unusedIngredients = (this.inventoryData || [])
+          .filter(inv => !(this.recipes || []).some(r => r.inventory_item_id === inv.id))
+          .map(inv => inv.name);
+        const unpriced = (this.inventoryData || []).filter(inv => !(Number(inv.purchase_price) > 0)).length;
+
+        host.innerHTML = `
+          <div class="p-3 bg-cream border-b border-sand text-xs font-bold text-slate-400 hidden lg:grid lg:grid-cols-[1fr_5rem_6rem_6rem_5rem] lg:gap-2">
+            <span>เมนู</span><span class="text-right">ราคาขาย</span><span class="text-right">ต้นทุนคำนวณ</span><span class="text-right">ต้นทุนที่กรอก</span><span class="text-right">กำไร %</span>
+          </div>
+          ${rowsHtml.join('') || '<p class="p-4 text-sm text-slate-400 font-bold">ยังไม่มีเมนูที่ตั้งสูตรไว้</p>'}
+          ${noRecipe.length ? `<div class="p-3 bg-amber-50 border-t border-sand"><p class="text-xs font-bold text-amber-600">ยังไม่ได้ตั้งสูตร (${noRecipe.length} เมนู) คิดต้นทุนไม่ได้: ${noRecipe.map(escHtml).join(', ')}</p></div>` : ''}
+          ${unusedIngredients.length ? `<div class="p-3 bg-amber-50 border-t border-sand"><p class="text-xs font-bold text-amber-600">วัตถุดิบที่ไม่ได้อยู่ในสูตรไหนเลย (${unusedIngredients.length}): ${unusedIngredients.map(escHtml).join(', ')}</p></div>` : ''}
+          ${unpriced ? `<div class="p-3 bg-amber-50 border-t border-sand"><p class="text-xs font-bold text-amber-600">วัตถุดิบที่ยังไม่ใส่ราคาซื้อ: ${unpriced} รายการ — ไปใส่ที่แท็บวัตถุดิบ</p></div>` : ''}`;
+
+        const summary = document.getElementById('cost-summary');
+        if (summary) summary.innerText = `คิดต้นทุนได้ ${pricedCount} เมนู จากทั้งหมด ${(this.menuData || []).length} เมนู`;
       },
 
       renderPaymentQrPreview() {
@@ -2969,7 +3068,7 @@
         showInventoryItemForm(item) {
           const old = document.getElementById('modal-inv-item');
           if (old) old.remove();
-          const it = item || { id: '', name: '', unit: '', stock: 0, opened_at: '', expires_at: '' };
+          const it = item || { id: '', name: '', unit: '', stock: 0, opened_at: '', expires_at: '', purchase_price: 0 };
           const q = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
           const wrap = document.createElement('div');
           wrap.id = 'modal-inv-item';
@@ -2984,6 +3083,9 @@
             + '<input id="inv-item-purchase-unit" oninput="Controller.updateInvStockUnitToggle()" class="w-full border border-sand rounded-xl p-2.5 mb-3" value="' + q(it.purchase_unit) + '" placeholder="ไม่บังคับ">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">1 หน่วยซื้อ = กี่หน่วย (เช่น 1 ถุง = 1000)</label>'
             + '<input id="inv-item-purchase-factor" type="number" min="0" step="0.01" oninput="Controller.updateInvStockUnitToggle()" class="w-full border border-sand rounded-xl p-2.5 mb-3" value="' + (Number(it.purchase_factor) || '') + '" placeholder="เช่น 1000">'
+            + '<label id="inv-item-price-label" class="text-sm font-bold text-slate-500 mb-1 block">ราคาซื้อ (ต่อหน่วยซื้อ)</label>'
+            + '<input id="inv-item-purchase-price" type="number" min="0" step="0.01" oninput="Controller.updateInvStockUnitToggle()" class="w-full border border-sand rounded-xl p-2.5 mb-1" value="' + (Number(it.purchase_price) || '') + '" placeholder="เช่น 900">'
+            + '<p id="inv-item-price-hint" class="text-xs text-slate-400 font-bold mb-3">ใส่ราคาแล้วระบบคำนวณต้นทุนต่อแก้วจากสูตรให้เอง</p>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">จำนวนคงเหลือ</label>'
             + '<div class="flex gap-2 mb-3">'
             + '<input id="inv-item-stock" type="number" step="0.01" class="flex-1 border border-sand rounded-xl p-2.5" value="' + (Number(it.stock) || 0) + '">'
@@ -3014,6 +3116,20 @@
           const unit = unitEl.value.trim();
           const purchaseUnit = puEl ? puEl.value.trim() : '';
           const purchaseFactor = pfEl ? Number(pfEl.value) || 0 : 0;
+
+          // ป้ายราคา + บอกต้นทุนต่อหน่วยย่อยให้เห็นทันทีที่พิมพ์ จะได้รู้ว่ากรอกผิดหลักหรือเปล่า
+          // อยู่ก่อน early return ด้านล่าง เพราะราคาต้องอัปเดตแม้ยังไม่ได้ตั้งหน่วยซื้อ
+          const priceEl = document.getElementById('inv-item-purchase-price');
+          const priceLabel = document.getElementById('inv-item-price-label');
+          const priceHint = document.getElementById('inv-item-price-hint');
+          if (priceEl && priceLabel && priceHint) {
+            priceLabel.innerText = purchaseUnit ? `ราคาซื้อ (ต่อ ${purchaseUnit})` : 'ราคาซื้อ (ต่อหน่วยซื้อ)';
+            const per = unitCost({ purchase_price: Number(priceEl.value) || 0, purchase_factor: purchaseFactor });
+            priceHint.innerText = per === null
+              ? 'ใส่ราคาแล้วระบบคำนวณต้นทุนต่อแก้วจากสูตรให้เอง'
+              : `= ฿${this._formatMoneyPerUnit(per)} ต่อ ${unit || 'หน่วยหลัก'}`;
+          }
+
           if (!purchaseUnit || purchaseFactor <= 0) {
             toggle.classList.add('hidden');
             toggle.innerHTML = '';
@@ -3045,6 +3161,7 @@
           const unit = document.getElementById('inv-item-unit').value.trim();
           const purchaseUnit = document.getElementById('inv-item-purchase-unit').value.trim();
           const purchaseFactor = Number(document.getElementById('inv-item-purchase-factor').value) || 0;
+          const purchasePrice = Number(document.getElementById('inv-item-purchase-price').value) || 0;
           const stockToggle = document.getElementById('inv-item-stock-unit-toggle');
           const stockFactor = (stockToggle && !stockToggle.classList.contains('hidden')) ? (Number(stockToggle.value) || 1) : 1;
           const stock = (Number(document.getElementById('inv-item-stock').value) || 0) * stockFactor;
@@ -3064,7 +3181,7 @@
               }
             })
             .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
-            .saveInventoryItem({ id: id, name: name, unit: unit, stock: stock, photo: photo, purchaseUnit: purchaseUnit, purchaseFactor: purchaseFactor });
+            .saveInventoryItem({ id: id, name: name, unit: unit, stock: stock, photo: photo, purchaseUnit: purchaseUnit, purchaseFactor: purchaseFactor, purchasePrice: purchasePrice });
         },
 
         async deleteInventoryItemConfirm(id) {
@@ -3274,11 +3391,52 @@
           const opts = ['<option value="">-- เลือกวัตถุดิบ --</option>']
             .concat((this.inventoryData || []).map(inv => '<option value="' + inv.id + '"' + (inv.id === inventoryItemId ? ' selected' : '') + '>' + escHtml(inv.name) + ' (' + escHtml(inv.unit || '') + ')</option>'))
             .join('');
-          return '<div class="recipe-row flex items-center gap-2 mb-2">'
-            + '<select class="recipe-ing-select flex-1 border border-sand rounded-xl p-2 text-sm bg-white">' + opts + '</select>'
-            + '<input type="number" min="0" step="0.01" class="recipe-ing-qty w-20 border border-sand rounded-xl p-2 text-sm text-center" value="' + (qty || '') + '">'
-            + '<button onclick="this.closest(\'.recipe-row\').remove()" class="text-red-400 hover:text-red-600 font-bold px-2">✕</button>'
+          return '<div class="recipe-row flex items-center gap-2 mb-1">'
+            + '<select onchange="Controller.updateRecipeCostPreview()" class="recipe-ing-select flex-1 border border-sand rounded-xl p-2 text-sm bg-white">' + opts + '</select>'
+            + '<input type="number" min="0" step="0.01" oninput="Controller.updateRecipeCostPreview()" class="recipe-ing-qty w-20 border border-sand rounded-xl p-2 text-sm text-center" value="' + (qty || '') + '">'
+            + '<span class="recipe-ing-cost text-xs font-bold text-slate-400 w-16 text-right"></span>'
+            + '<button onclick="this.closest(\'.recipe-row\').remove(); Controller.updateRecipeCostPreview();" class="text-red-400 hover:text-red-600 font-bold px-2">✕</button>'
             + '</div>';
+        },
+
+        // คิดต้นทุนสดๆ ตอนแก้สูตร ใช้ราคาวัตถุดิบที่โหลดมาแล้วในเครื่อง ไม่ต้องยิงเซิร์ฟเวอร์
+        updateRecipeCostPreview() {
+          const wrap = document.getElementById('modal-recipe-form');
+          if (!wrap) return;
+          const byId = {};
+          for (const inv of (this.inventoryData || [])) byId[inv.id] = inv;
+
+          const rowEls = Array.from(wrap.querySelectorAll('.recipe-row'));
+          const rows = rowEls.map(el => ({
+            inventory_item_id: el.querySelector('.recipe-ing-select').value,
+            qty: Number(el.querySelector('.recipe-ing-qty').value) || 0,
+          }));
+          const result = recipeCost(rows.filter(r => r.inventory_item_id && r.qty > 0), byId);
+
+          // ผูกผลลัพธ์กลับเข้าแถวตามลำดับแถว ไม่ใช่ตาม id
+          // วัตถุดิบตัวเดียวกันใส่ได้สองแถว (เช่น กาแฟสองช็อต) ถ้าเทียบด้วย id แถวหลังจะทับแถวแรก
+          for (let i = 0; i < rowEls.length; i++) {
+            const cell = rowEls[i].querySelector('.recipe-ing-cost');
+            if (!cell) continue;
+            const row = rows[i];
+            if (!row.inventory_item_id || row.qty <= 0) { cell.innerText = ''; continue; }
+            const per = unitCost(byId[row.inventory_item_id]);
+            const subtotal = per === null ? null : per * row.qty;
+            cell.innerText = subtotal === null ? 'ไม่มีราคา' : '฿' + subtotal.toFixed(2);
+            cell.className = 'recipe-ing-cost text-xs font-bold w-16 text-right ' + (subtotal === null ? 'text-amber-500' : 'text-slate-400');
+          }
+
+          const totalEl = document.getElementById('recipe-cost-total');
+          const noteEl = document.getElementById('recipe-cost-note');
+          if (totalEl) {
+            totalEl.innerText = result.total === null ? 'ยังไม่ครบ' : '฿' + result.total.toFixed(2);
+            totalEl.className = 'font-black ' + (result.total === null ? 'text-amber-500' : 'text-secondary');
+          }
+          if (noteEl) {
+            noteEl.innerText = result.missingPrice.length
+              ? 'ยังไม่ได้ใส่ราคาซื้อของ: ' + result.missingPrice.map(m => m.name).join(', ')
+              : '';
+          }
         },
 
         openRecipeForm(sku) {
@@ -3296,18 +3454,25 @@
             + '<p class="text-xs text-slate-400 mb-4">เลือกวัตถุดิบและจำนวนที่ใช้ต่อสินค้า 1 ชิ้น ระบบจะหักสต๊อกอัตโนมัติเมื่อขาย</p>'
             + '<div id="recipe-rows">' + (rows.length ? rows.map(r => this._recipeRowHtml(r.inventory_item_id, r.qty)).join('') : '') + '</div>'
             + (rows.length === 0 ? '<p id="recipe-empty-note" class="text-xs text-slate-400 mb-2">ยังไม่ได้ตั้งสูตรสำหรับสินค้านี้</p>' : '')
-            + '<button onclick="Controller.addRecipeRow()" class="text-sm font-bold text-primary hover:underline mb-4">+ เพิ่มวัตถุดิบ</button>'
+            + '<button onclick="Controller.addRecipeRow()" class="text-sm font-bold text-primary hover:underline mb-3 block">+ เพิ่มวัตถุดิบ</button>'
+            + '<div class="border-t border-sand pt-3 mb-1 flex justify-between items-center">'
+            + '<span class="text-sm font-bold text-slate-500">ต้นทุนวัตถุดิบต่อแก้ว</span>'
+            + '<span id="recipe-cost-total" class="font-black text-secondary"></span>'
+            + '</div>'
+            + '<p id="recipe-cost-note" class="text-xs text-amber-500 font-bold mb-4"></p>'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeRecipeForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
             + '<button onclick="Controller.saveRecipeForm()" class="flex-1 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl py-2.5 font-bold hover:brightness-110 transition">บันทึกสูตร</button>'
             + '</div></div>';
           document.body.appendChild(wrap);
+          this.updateRecipeCostPreview();
         },
 
         addRecipeRow() {
           const note = document.getElementById('recipe-empty-note');
           if (note) note.remove();
           document.getElementById('recipe-rows').insertAdjacentHTML('beforeend', this._recipeRowHtml('', ''));
+          this.updateRecipeCostPreview();
         },
 
         closeRecipeForm() {

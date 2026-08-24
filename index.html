@@ -254,6 +254,7 @@
         <button id="settings-tab-report" onclick="Controller.switchSettingsTab('report')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> Report</button>
         <button id="settings-tab-calendar" onclick="Controller.switchSettingsTab('calendar')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> ปฏิทิน</button>
         <button id="settings-tab-inventory" onclick="Controller.switchSettingsTab('inventory')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> Inventory</button>
+        <button id="settings-tab-cost" onclick="Controller.switchSettingsTab('cost')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> ต้นทุน</button>
         <button id="settings-tab-employees" onclick="Controller.switchSettingsTab('employees')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg> Employee</button>
         <button id="settings-tab-log" onclick="Controller.switchSettingsTab('log')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/></svg> Log</button>
         <button id="settings-tab-addons" onclick="Controller.switchSettingsTab('addons')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg> Add-ons</button>
@@ -372,6 +373,17 @@
         </div>
         <div id="inventory-list" class="flex-1 overflow-y-auto bg-white rounded-b-3xl border-x border-b border-sand shadow-sm divide-y divide-sand pb-8 max-h-[55vh]">
         </div>
+      </div>
+
+      <div id="settings-panel-cost" class="settings-panel hidden flex flex-col">
+        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
+          <div>
+            <p class="text-sm text-slate-400">ต้นทุนวัตถุดิบต่อแก้ว คิดจากสูตร x ราคาซื้อที่กรอกไว้ในแท็บวัตถุดิบ</p>
+            <p id="cost-summary" class="text-xs text-slate-400 font-bold mt-1"></p>
+          </div>
+          <button onclick="Controller.initCostTab()" class="w-full sm:w-auto justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-3 py-2 text-sm rounded-xl font-bold transition active:scale-95">Refresh</button>
+        </div>
+        <div id="cost-list" class="flex-1 overflow-y-auto bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh]"></div>
       </div>
 
       <div id="settings-panel-notifications" class="settings-panel hidden">
