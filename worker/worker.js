@@ -23,7 +23,12 @@ const PUBLIC_HANDLERS = new Set([
   "submitPendingOrder", "getPendingOrderStatus", "uploadPaymentSlip", "cancelPendingOrder",
 ]);
 
+// CREATE TABLE 24 ตัวนี้ถูกเรียกทุก request (ทุก handler เรียกนำหน้าหมด) รันเรียงทีละอันกินเวลามาก
+// จนบางครั้งเกิน timeout ฝั่งเครื่อง แล้วเครื่องยิงซ้ำ = บิลซ้ำ จำไว้ว่ารันแล้วต่อ isolate พอ
+let extraTablesReady = false;
+
 async function ensureExtraTables(env) {
+  if (extraTablesReady) return;
   const stmts = [
     // ตารางหลัก 11 ตัว เดิมสร้างนอก repo ตรงๆ ไม่มี schema เก็บไว้เลย — กู้คืนโครงสร้างจาก repo อย่างเดียวไม่ได้ถ้า D1 หายทั้งฐาน
     // ก็อปมาจาก schema จริงบน production (sqlite_master) เป๊ะๆ ใส่ IF NOT EXISTS ไม่กระทบข้อมูลเดิม
@@ -55,6 +60,7 @@ async function ensureExtraTables(env) {
   for (const s of stmts) {
     await env.DB.prepare(s).run();
   }
+  extraTablesReady = true;
 }
 
 async function ensureColumn(env, table, column, type) {
@@ -62,6 +68,16 @@ async function ensureColumn(env, table, column, type) {
     await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
   } catch (e) {
     // คอลัมน์มีอยู่แล้ว
+  }
+}
+
+// สร้าง unique index แบบไม่พังถ้ามีอยู่แล้ว หรือถ้าข้อมูลเดิมยังซ้ำอยู่
+// CREATE TABLE ทุกอันเป็น IF NOT EXISTS จึงแก้ constraint ที่ schema เดิมไม่ได้ ต้องเพิ่ม index ทีหลังแบบนี้แทน
+async function ensureUniqueIndex(env, name, table, column) {
+  try {
+    await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS ${name} ON ${table}(${column})`).run();
+  } catch (e) {
+    // index มีอยู่แล้ว หรือข้อมูลเดิมยังซ้ำอยู่ (ต้องล้างซ้ำก่อนถึงจะสร้างได้)
   }
 }
 
@@ -601,27 +617,52 @@ async function deductRecipeStock(env, sku, saleQty, invoice) {
 async function syncOfflineOrders(env, args) {
   await ensureExtraTables(env);
   await ensureColumn(env, "payments", "created_by", "TEXT");
+  await ensureUniqueIndex(env, "idx_payments_invoice", "payments", "invoice");
   const orders = Array.isArray(args[0]) ? args[0] : [args[0]];
   let count = 0;
+  let skipped = 0;
+  const rejected = [];
   for (const o of orders) {
-    const invoice = o.invoice || o.id || ('INV-' + Date.now() + '-' + count);
+    const invoice = o.invoice || o.id;
+    // เดิมมี fallback ปั้นเลขบิลใหม่จาก Date.now() ตรงนี้ ซึ่งทำให้ยิงซ้ำทีไรก็ได้บิลใหม่ทุกที กันซ้ำไม่ได้เลย
+    // ถ้าไม่มีเลขบิลมาให้ ข้ามไปแล้วรายงานกลับ ดีกว่าสร้างบิลผีที่ไม่มีทางจับคู่กับของเดิมได้
+    if (!invoice) {
+      rejected.push({ reason: "missing invoice", total: Number(o.total || 0) });
+      continue;
+    }
+    // กันบิลซ้ำ เครื่องที่เน็ตช้าจะยกเลิก request ตอน timeout แล้วยิงชุดเดิมซ้ำ
+    // ทั้งที่เซิร์ฟเวอร์บันทึกไปแล้ว (worker ไม่ได้ถูกยกเลิกตาม) ถ้าเลขบิลนี้มีแล้วให้ถือว่าสำเร็จไปเลย
+    const existing = await env.DB.prepare("SELECT id FROM payments WHERE invoice = ? LIMIT 1").bind(invoice).first();
+    if (existing) {
+      skipped++;
+      count++;
+      continue;
+    }
     const timestamp = o.timestamp || nowIso();
     const total = Number(o.total || 0);
     const paymentType = o.paymentType || o.paymentMethod || o.payment_type || '';
     const status = o.status || 'completed';
     const orderNote = o.note || o.employeeId || '';
-    await env.DB.prepare('INSERT INTO payments (timestamp, invoice, total, payment_type, order_note, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .bind(timestamp, invoice, total, paymentType, orderNote, status, o.cashier || '').run();
     const items = o.items || [];
+    // หัวบิลกับรายการสินค้าลงเป็นชุดเดียวกัน ถ้าพังกลางทางจะไม่เหลือหัวบิลลอยที่ไม่มีรายการ
+    const statements = [
+      env.DB.prepare('INSERT INTO payments (timestamp, invoice, total, payment_type, order_note, status, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)')
+        .bind(timestamp, invoice, total, paymentType, orderNote, status, o.cashier || ''),
+    ];
     for (const it of items) {
-      const qty = Number(it.qty || 0);
-      await env.DB.prepare('INSERT INTO sales (timestamp, invoice, sku, name, qty, price, note, payment_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(timestamp, invoice, it.sku || '', it.name || '', qty, Number(it.price || 0), it.note || '', paymentType).run();
-      await deductRecipeStock(env, it.sku || '', qty, invoice);
+      statements.push(
+        env.DB.prepare('INSERT INTO sales (timestamp, invoice, sku, name, qty, price, note, payment_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
+          .bind(timestamp, invoice, it.sku || '', it.name || '', Number(it.qty || 0), Number(it.price || 0), it.note || '', paymentType)
+      );
+    }
+    await env.DB.batch(statements);
+    // หักสต๊อกหลังบิลลงเรียบร้อย เพราะต้องอ่านยอดคงเหลือปัจจุบันมาคำนวณ ใส่ใน batch ไม่ได้
+    for (const it of items) {
+      await deductRecipeStock(env, it.sku || '', Number(it.qty || 0), invoice);
     }
     count++;
   }
-  return { success: true, synced: count };
+  return { success: true, synced: count, skipped, rejected };
 }
 
 async function updateOrderStatus(env, args) {
@@ -846,15 +887,28 @@ async function confirmPendingOrder(env, args) {
   const items = JSON.parse(row.items_json || "[]");
   const invoice = "ONL-" + row.id;
   const now = nowIso();
-  await syncOfflineOrders(env, [{
-    invoice, timestamp: now, total: row.total, paymentType: "QR", status: "completed",
-    note: `Online: ${row.location || ""} / ${row.customer_name || ""}`.trim(),
-    items,
-  }]);
 
-  await env.DB.prepare(
-    "UPDATE pending_orders SET status = 'confirmed', confirmed_by = ?, confirmed_at = ? WHERE id = ?"
+  // ปิดสถานะก่อนสร้างบิล ไม่ใช่หลัง เดิมสองคำสั่งยืนยันที่เข้ามาพร้อมกัน (กดรัวหรือ UI ค้างจาก poll ทุก 8 วิ)
+  // ผ่านด่านเช็ค status ได้ทั้งคู่แล้วสร้างบิลเลขเดียวกันสองใบ ตอนนี้ UPDATE ... WHERE status = 'pending'
+  // ทำให้มีแค่คำสั่งเดียวที่เปลี่ยนแถวได้จริง อีกอันเห็น changes = 0 แล้วถอยออกไป
+  const claim = await env.DB.prepare(
+    "UPDATE pending_orders SET status = 'confirmed', confirmed_by = ?, confirmed_at = ? WHERE id = ? AND status = 'pending'"
   ).bind(user, now, id).run();
+  if (!claim.meta || claim.meta.changes === 0) return { success: false, error: "ออเดอร์นี้ถูกดำเนินการไปแล้ว" };
+
+  try {
+    await syncOfflineOrders(env, [{
+      invoice, timestamp: now, total: row.total, paymentType: "QR", status: "completed",
+      note: `Online: ${row.location || ""} / ${row.customer_name || ""}`.trim(),
+      items,
+    }]);
+  } catch (e) {
+    // สร้างบิลไม่สำเร็จ คืนสถานะกลับเป็น pending ให้พนักงานกดยืนยันใหม่ได้
+    await env.DB.prepare(
+      "UPDATE pending_orders SET status = 'pending', confirmed_by = NULL, confirmed_at = NULL WHERE id = ?"
+    ).bind(id).run();
+    throw e;
+  }
 
   return { success: true, invoice };
 }

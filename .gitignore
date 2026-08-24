@@ -20,3 +20,6 @@ Thumbs.db
 *.log
 .vscode/
 .idea/
+
+# wrangler local dev secrets
+.dev.vars

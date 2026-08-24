@@ -37,7 +37,7 @@
         return;
       }
       var controller = new AbortController();
-      var timer = setTimeout(function () { controller.abort(); }, 15000);
+      var timer = setTimeout(function () { controller.abort(); }, 30000);
       fetch(c.url, {
         method: "POST",
         headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -4688,7 +4688,9 @@ renderReport(r) {
         async submitOrder() {
         const btn = document.getElementById('btn-submit-order');
         if(btn.disabled) return;
-        
+        // ตะกร้าว่างแปลว่ากดซ้ำตอนบิลก่อนหน้าเพิ่งปิดไป ไม่งั้นจะได้บิลผี 0 บาทและกินเลขคิวไปฟรีๆ
+        if(this.cart.length === 0) return;
+
         btn.disabled = true;
         btn.innerText = "Processing...";
         
@@ -4750,19 +4752,24 @@ renderReport(r) {
         this.cart = [];
         this.renderCart();
         this.closeModal('modal-checkout');
-        document.getElementById('btn-submit-order').disabled = false;
-        document.getElementById('btn-submit-order').innerText = "Confirm Order";
-        
+
         this.processSyncQueue();
-        
-        if (this.receiptSettings.autoPrint) {
-          this.printReceipt(orderData, qStr);
-        } else {
-          // ถามลูกค้าว่าจะพิมพ์บิลหรือไม่
-          const ok = await this.showConfirm('ต้องการพิมพ์ใบเสร็จสำหรับออเดอร์นี้หรือไม่?', '');
-          if (ok) {
+
+        // ปลดล็อกปุ่มหลังถามเรื่องพิมพ์บิลเสร็จแล้ว ไม่ใช่ก่อน
+        // เดิมปุ่มกลับมากดได้ทั้งที่ modal ยังปิดไม่สุด กดโดนอีกทีจะได้บิลเปล่าเพิ่มมาอีกใบ
+        try {
+          if (this.receiptSettings.autoPrint) {
             this.printReceipt(orderData, qStr);
+          } else {
+            // ถามลูกค้าว่าจะพิมพ์บิลหรือไม่
+            const ok = await this.showConfirm('ต้องการพิมพ์ใบเสร็จสำหรับออเดอร์นี้หรือไม่?', '');
+            if (ok) {
+              this.printReceipt(orderData, qStr);
+            }
           }
+        } finally {
+          document.getElementById('btn-submit-order').disabled = false;
+          document.getElementById('btn-submit-order').innerText = "Confirm Order";
         }
       },
 
@@ -5027,7 +5034,10 @@ renderReport(r) {
           .withSuccessHandler(res => {
             this.isSyncing = false;
             if(res.success) {
-              this.syncQueue = this.syncQueue.slice(queueSnapshot.length);
+              // ตัดออกตามเลขบิลที่ส่งไปจริง ไม่ใช่ตัดตามจำนวน
+              // ถ้าระหว่างรอเซิร์ฟเวอร์มีการแก้สถานะบิลที่ค้างคิวอยู่ การตัดตามจำนวนจะทิ้งของที่แก้ไปเงียบๆ
+              const syncedInvoices = new Set(queueSnapshot.map(o => o.invoice));
+              this.syncQueue = this.syncQueue.filter(o => !syncedInvoices.has(o.invoice));
               this.checkAndClearDailyCache();
               this.saveLocalState();
               this.updateSyncQueueBadge();

@@ -59,6 +59,7 @@ const OrderPage = {
   selectedAddons: [],
   location: '',
   currentOrderId: null,
+  isSubmittingOrder: false,
   pollTimer: null,
   _alertResolve: null,
 
@@ -277,9 +278,19 @@ const OrderPage = {
   },
 
   async submitOrder() {
+    // กันกดรัว เลข PEND- ถูกสร้างฝั่งเซิร์ฟเวอร์ กดสองทีได้ออเดอร์คนละใบ แล้วร้านยืนยันเป็นบิลจริงได้ทั้งคู่
+    if (this.isSubmittingOrder) return;
     const name = document.getElementById('customer-name-input').value.trim();
     if (!name) return this.showAlert('กรุณาระบุชื่อผู้สั่งก่อนครับ', '', 'warning');
     if (this.cart.length === 0) return this.showAlert('ยังไม่มีสินค้าในตะกร้าเลยครับ', '', 'warning');
+
+    this.isSubmittingOrder = true;
+    const submitBtn = document.getElementById('btn-place-order');
+    if (submitBtn) submitBtn.disabled = true;
+    const release = () => {
+      this.isSubmittingOrder = false;
+      if (submitBtn) submitBtn.disabled = false;
+    };
 
     this.showLoading();
     try {
@@ -287,13 +298,18 @@ const OrderPage = {
         location: this.location, customerName: name, items: this.cart,
       }]);
       this.hideLoading();
-      if (!result.success) return this.showAlert(result.error || 'ส่งออเดอร์ไม่สำเร็จ', '', 'warning');
+      if (!result.success) {
+        release();
+        return this.showAlert(result.error || 'ส่งออเดอร์ไม่สำเร็จ', '', 'warning');
+      }
       this.currentOrderId = result.id;
       this.closeModal('modal-cart');
       this.showSubmittedView();
       this.startPolling();
+      release();
     } catch (e) {
       this.hideLoading();
+      release();
       this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ: ' + e.message, '', 'warning');
     }
   },
