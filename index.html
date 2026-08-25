@@ -174,8 +174,10 @@
           </div>
         </div>
 
-        <div id="menu-categories" class="flex gap-2 mb-4 overflow-x-auto pb-2 hide-scroll scroll-fade at-start hidden" style="--fade-color:var(--color-cream)">
-          </div>
+        <div id="menu-categories" class="mb-4 overflow-x-auto pb-2 hide-scroll scroll-fade at-start hidden" style="--fade-color:var(--color-cream)">
+          <div id="menu-cat-indicator"></div>
+          <div id="menu-categories-track"></div>
+        </div>
 
         <div id="menu-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
           </div>
@@ -189,7 +191,7 @@
           <div class="lg:hidden absolute top-1.5 left-1/2 -translate-x-1/2 w-10 h-1.5 rounded-full bg-slate-300" aria-hidden="true"></div>
           <div class="font-bold text-lg lg:text-xl text-secondary flex items-center gap-2">
             Order
-            <span id="cart-badge-mobile" class="bg-primary text-white text-xs px-2 py-0.5 rounded-full hidden lg:hidden">0</span>
+            <span id="cart-badge-mobile" class="bg-primary text-white text-xs px-2 py-0.5 rounded-full lg:hidden">0</span>
             <button id="btn-show-held-orders" onclick="event.stopPropagation(); Controller.openHeldOrdersModal()" class="hidden ml-2 bg-amber-100 text-amber-600 text-xs px-2 py-1 rounded-lg font-bold hover:bg-amber-200 shadow-sm whitespace-nowrap shrink-0">
               พักไว้ (0)
             </button>

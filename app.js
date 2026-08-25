@@ -1157,17 +1157,30 @@
 
       //  วาดปุ่มหมวดหมู่
       renderCategories() {
-        const container = document.getElementById('menu-categories');
-        container.innerHTML = this.categories.map(cat => {
+        // ปุ่มลงใน track ด้านใน ตัวชี้ที่เลื่อนได้อยู่นอก track จะได้ไม่โดน innerHTML ล้างทุกครั้ง
+        const track = document.getElementById('menu-categories-track');
+        if (!track) return;
+        track.innerHTML = this.categories.map(cat => {
           const isActive = cat === this.activeCategory;
-          // เปลี่ยนสีปุ่มถ้าถูกเลือกอยู่
-          const btnStyle = isActive 
-            ? 'bg-gradient-to-b from-primary to-secondary text-white shadow-md shadow-primary/30'
+          // ปุ่มที่เลือกอยู่ทำพื้นใส ปล่อยให้ตัวชี้ที่เลื่อนมาเป็นพื้นหลังแทน
+          const btnStyle = isActive
+            ? 'is-active-cat text-white border border-transparent'
             : 'bg-white text-secondary border border-sand hover:bg-accent';
-            
+
           return `<button onclick="Controller.selectCategory('${cat}')" class="whitespace-nowrap px-5 min-h-[2.75rem] inline-flex items-center justify-center rounded-full font-bold text-sm transition-all active:scale-95 ${btnStyle}">${cat}</button>`;
         }).join('');
         this.initScrollFade('menu-categories');
+        this.moveCategoryIndicator();
+      },
+
+      // เลื่อนตัวชี้ไปใต้ปุ่มที่เลือก วิธีเดียวกับแถบแท็บใน Settings
+      moveCategoryIndicator() {
+        const ind = document.getElementById('menu-cat-indicator');
+        const active = document.querySelector('#menu-categories-track button.is-active-cat');
+        if (!ind || !active) return;
+        ind.style.width = active.offsetWidth + 'px';
+        ind.style.transform = `translateX(${active.offsetLeft}px)`;
+        ind.classList.add('is-ready');
       },
 
       //  ฟังก์ชันเมื่อคลิกเลือกหมวดหมู่
@@ -1175,7 +1188,9 @@
         this.activeCategory = catName;
         this.renderCategories(); // อัปเดตสีปุ่ม
         this.renderMenu();       // อัปเดตตารางสินค้า
-        const activeBtn = document.querySelector('#menu-categories button.bg-primary');
+        // เดิมหาปุ่มด้วย .bg-primary ซึ่งไม่เคยตรงเลย (ปุ่มที่เลือกใช้ไล่สี from-primary)
+        // activeBtn จึงเป็น null ตลอด และ scrollIntoView ไม่เคยทำงาน
+        const activeBtn = document.querySelector('#menu-categories-track button.is-active-cat');
         if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
       },
 
@@ -4288,8 +4303,11 @@ renderReport(r) {
           ? this.menuData
           : this.menuData.filter(item => (item.category || 'อื่นๆ') === this.activeCategory);
 
-        grid.innerHTML = filteredItems.map((item) => {
+        grid.innerHTML = filteredItems.map((item, gridIdx) => {
           const originalIdx = this.menuData.indexOf(item);
+          // หน่วงเวลาไล่ทีละใบ แต่หยุดเพิ่มที่ใบที่ 12
+          // ไม่งั้นหมวดที่มีของเยอะ ใบท้ายๆ จะโผล่ช้ากว่าใบแรกเกินวินาทีครึ่ง
+          const staggerIdx = Math.min(gridIdx, 12);
           const isSoldOut = this.soldOutItems.includes(item.name);
           
           let cardStyle = "bg-white rounded-3xl shadow-md border border-sand cursor-pointer overflow-hidden flex flex-col relative group transition-all duration-200 ";
@@ -4311,7 +4329,7 @@ renderReport(r) {
             : ``;
 
           return `
-            <div onclick="Controller.selectProduct(${originalIdx})" class="${cardStyle}">
+            <div onclick="Controller.selectProduct(${originalIdx})" class="${cardStyle}" style="--i:${staggerIdx}" data-menu-idx="${originalIdx}">
               ${soldOutBadge}
               <div class="h-32 bg-gradient-to-br from-accent to-sand w-full relative overflow-hidden">
                 ${item.image
@@ -4333,6 +4351,11 @@ renderReport(r) {
             </div>
           `;
         }).join('');
+
+        // reflow ก่อนใส่คลาสใหม่ ไม่งั้นอนิเมชันเล่นแค่ครั้งแรกครั้งเดียว
+        grid.classList.remove('is-entering');
+        void grid.offsetWidth;
+        grid.classList.add('is-entering');
       },
 
       selectProduct(idx) {
@@ -4500,6 +4523,8 @@ renderReport(r) {
 
         const editIdx = this.editingCartIndex;
         const isEditing = (editIdx !== null && editIdx !== undefined && this.cart[editIdx]);
+        // บอก renderCart ว่าแถวไหนเพิ่งเปลี่ยน จะได้ใส่อนิเมชันเฉพาะแถวนั้น
+        let changed = {};
 
         if (isEditing) {
           const oldQty = this.cart[editIdx].qty || 1;
@@ -4525,6 +4550,7 @@ renderReport(r) {
 
           if (existingItem) {
             existingItem.qty += 1;
+            changed = { popIdx: this.cart.indexOf(existingItem), bump: true };
           } else {
             this.cart.push({
               ...this.activeProduct,
@@ -4535,11 +4561,55 @@ renderReport(r) {
               addonIds: addonIds,
               textNote: textNote
             });
+            changed = { newIdx: this.cart.length - 1, bump: true };
           }
         }
-        
-        this.renderCart();
+
+        // แก้ไขรายการเดิมไม่ต้องมีของลอย เพราะไม่ได้เพิ่มของใหม่เข้าตะกร้า
+        // จับตำแหน่งหน้าต่างไว้ก่อนปิด เพราะ closeModal ใช้ display:none แล้ววัดขนาดไม่ได้อีก
+        if (!isEditing) this.flyToCart(document.getElementById('modal-product'));
+
+        this.renderCart(changed);
         this.closeModal('modal-product');
+      },
+
+      // ของลอยจากหน้าต่างสินค้าไปที่ตะกร้า ยืนยันให้เห็นว่ากดติดแล้วโดยไม่ต้องละสายตาไปดูตะกร้า
+      // ใช้ transform กับ opacity ล้วน ไม่แตะ layout และลบทิ้งเมื่อจบ ไม่ทิ้ง layer ค้างไว้
+      flyToCart(sourceEl) {
+        if (!sourceEl) return;
+        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        // ตะกร้าบนจอเล็กคือตัวเลขบนหัวตะกร้า บนจอใหญ่ตัวเลขนั้นถูกซ่อน ใช้ยอดรวมแทน
+        const badge = document.getElementById('cart-badge-mobile');
+        const totalEl = document.getElementById('cart-total');
+        const pick = [badge, totalEl].find(el => el && el.getBoundingClientRect().width > 0);
+        if (!pick) return;
+
+        const from = sourceEl.getBoundingClientRect();
+        const to = pick.getBoundingClientRect();
+        if (!from.width || !to.width) return;
+
+        const size = Math.min(96, Math.max(48, from.width * 0.25));
+        const ghost = document.createElement('div');
+        ghost.className = 'cart-fly';
+        ghost.style.width = size + 'px';
+        ghost.style.height = size + 'px';
+        ghost.style.left = (from.left + from.width / 2 - size / 2) + 'px';
+        ghost.style.top = (from.top + from.height / 2 - size / 2) + 'px';
+        document.body.appendChild(ghost);
+
+        const dx = (to.left + to.width / 2) - (from.left + from.width / 2);
+        const dy = (to.top + to.height / 2) - (from.top + from.height / 2);
+
+        const done = () => ghost.remove();
+        if (typeof ghost.animate !== 'function') { done(); return; }
+        const anim = ghost.animate([
+          { transform: 'translate(0,0) scale(1)', opacity: 1 },
+          { transform: `translate(${dx * 0.55}px, ${dy * 0.35 - 40}px) scale(.7)`, opacity: .95, offset: .55 },
+          { transform: `translate(${dx}px, ${dy}px) scale(.18)`, opacity: 0 }
+        ], { duration: 300, easing: 'cubic-bezier(.35,.6,.3,1)' });
+        anim.onfinish = done;
+        anim.oncancel = done;
       },
 
       // อ่านตัวเลือกเดิมของรายการในตะกร้า (ความหวาน / ส่วนเสริม / โน้ต)
@@ -4620,7 +4690,11 @@ renderReport(r) {
         this.openModal('modal-product');
       },
 
-      renderCart() {
+      // opts บอกว่าแถวไหนเพิ่งเพิ่ม (newIdx) หรือแถวไหนจำนวนเพิ่งเปลี่ยน (popIdx)
+      // ใส่คลาสอนิเมชันลงไปใน HTML ที่วาดใหม่เลย จะได้เล่นตั้งแต่เฟรมแรก
+      // วิธีนี้ใช้ได้แม้จะวาดใหม่ทั้งก้อน เพราะเป็นอนิเมชัน "ตอนเข้า" ไม่ใช่สถานะที่ต้องอยู่ข้ามรอบ
+      renderCart(opts) {
+        const o = opts || {};
         const container = document.getElementById('cart-items');
         let total = 0;
         const btnHold = document.getElementById('btn-hold-order');
@@ -4639,8 +4713,10 @@ renderReport(r) {
         } else {
           container.innerHTML = this.cart.map((item, idx) => {
             total += item.price * item.qty;
+            const enterCls = idx === o.newIdx ? ' cart-line-in' : '';
+            const qtyCls = idx === o.popIdx ? ' cart-qty-pop' : '';
             return `
-              <div class="flex justify-between items-start bg-white p-3 rounded-2xl border border-sand shadow-sm gap-2">
+              <div data-cart-idx="${idx}" class="flex justify-between items-start bg-white p-3 rounded-2xl border border-sand shadow-sm gap-2${enterCls}">
                 <div class="flex-1 min-w-0">
                   <p class="font-bold text-sm text-secondary truncate">${escHtml(item.name)}</p>
                   <p class="text-xs text-slate-400 mt-0.5">${escHtml(item.note || '-')}</p>
@@ -4649,7 +4725,7 @@ renderReport(r) {
                 <div class="flex flex-col items-end gap-2 shrink-0">
                   <div class="flex items-center bg-slate-50 rounded-lg p-1 border border-slate-100">
                     <button onclick="Controller.updateQty(${idx}, -1)" class="w-9 h-9 flex items-center justify-center bg-white rounded-full hover:bg-slate-200 active:bg-slate-300 active:scale-95 font-bold text-slate-600 shadow-sm">-</button>
-                    <span class="w-6 text-center font-bold text-sm">${item.qty}</span>
+                    <span class="w-6 text-center font-bold text-sm"><span class="${qtyCls}">${item.qty}</span></span>
                     <button onclick="Controller.updateQty(${idx}, 1)" class="w-9 h-9 flex items-center justify-center bg-white rounded-full hover:bg-slate-200 active:bg-slate-300 active:scale-95 font-bold text-slate-600 shadow-sm">+</button>
                   </div>
                             <div class="flex items-center gap-1">
@@ -4674,9 +4750,14 @@ renderReport(r) {
         if (badge) {
           if (totalItems > 0) {
             badge.innerText = totalItems;
-            badge.classList.remove('hidden');
+            badge.classList.add('is-on');
+            if (o.bump) {
+              badge.classList.remove('is-bump');
+              void badge.offsetWidth;
+              badge.classList.add('is-bump');
+            }
           } else {
-            badge.classList.add('hidden');
+            badge.classList.remove('is-on', 'is-bump');
             if (this.isCartOpenMobile) this.toggleMobileCart();
           }
         }
@@ -4753,23 +4834,35 @@ renderReport(r) {
         if (newQty <= 0) {
           const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกจากตะกร้าใช่ไหม?', '');
           if (ok) {
+            await this.animateCartLineOut(idx);
             this.cart.splice(idx, 1);
+            this.renderCart();
           }
-        } 
-        else {
-          if (change > 0 && item.stock !== undefined && item.stock !== null && newQty > item.stock) {
-             await this.showAlert(' ไม่สามารถบวกเพิ่มได้ สต๊อกคงเหลือไม่เพียงพอครับ', '');
-             return;
-          }
-          item.qty = newQty;
+          return;
         }
-        
-        this.renderCart();
+
+        if (change > 0 && item.stock !== undefined && item.stock !== null && newQty > item.stock) {
+           await this.showAlert(' ไม่สามารถบวกเพิ่มได้ สต๊อกคงเหลือไม่เพียงพอครับ', '');
+           return;
+        }
+        item.qty = newQty;
+        this.renderCart({ popIdx: idx });
+      },
+
+      // ให้แถวเลื่อนออกก่อนแล้วค่อยวาดตะกร้าใหม่ ไม่งั้นแถวหายวับทันที
+      // ถ้าเครื่องตั้งค่าลดการเคลื่อนไหวไว้ ข้ามการรอไปเลย จะได้ไม่รู้สึกว่าค้าง
+      animateCartLineOut(idx) {
+        const row = document.querySelector(`#cart-items [data-cart-idx="${idx}"]`);
+        const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (!row || reduced) return Promise.resolve();
+        row.classList.add('cart-line-out');
+        return new Promise(resolve => setTimeout(resolve, 140));
       },
 
       async removeFromCart(idx) {
         const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกจากตะกร้าใช่ไหม?', '');
         if (ok) {
+          await this.animateCartLineOut(idx);
           this.cart.splice(idx, 1);
           this.renderCart();
         }

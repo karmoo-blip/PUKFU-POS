@@ -199,9 +199,99 @@
 
     /* เครื่องที่ตั้งค่าลดการเคลื่อนไหว ให้เห็นสถานะครบเหมือนเดิมแต่ไม่ต้องขยับ */
     @media (prefers-reduced-motion: reduce) {
+      #menu-grid.is-entering > *,
+      .card-added,
+      #cart-badge-mobile.is-bump,
+      .cart-line-in,
+      .cart-qty-pop { animation: none; }
+      .cart-line-out { animation: none; opacity: 0; }
+      #menu-cat-indicator { transition: none; }
+
       #pin-slots.is-dealing .pin-slot,
       .pin-slot.is-pop,
       .pin-slot.is-pop .pin-slot__char,
       #pin-slots.is-shaking { animation: none; }
       .pin-slot.is-active::after { animation: none; opacity: 1; }
+    }
+
+    /* ===== อนิเมชันหน้าขายหลัก =====
+       ค่าที่ใช้มาจากที่เจ้าของร้านเลือกไว้ในหน้าทดลอง:
+       กดสั่ง = กลาง, รายการในตะกร้า = เบา, เปลี่ยนหมวด = เต็ม
+       ทุกอันเป็น transform/opacity ล้วน ไม่แตะ layout จะได้ไม่ทำให้เครื่องหน่วง */
+
+    /* ---- เปลี่ยนหมวด: การ์ดไล่กันขึ้นมาทีละใบ ---- */
+    #menu-grid.is-entering > * {
+      animation: card-in .44s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+      animation-delay: calc(var(--i, 0) * 55ms);
+    }
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(26px) scale(.97); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* ---- แถบหมวด: ตัวชี้ที่เลื่อนตามปุ่มที่เลือก ----
+       ตัวชี้อยู่นอก track ที่ถูกวาดใหม่ ไม่งั้นโดน innerHTML ล้างทุกครั้งที่เปลี่ยนหมวด */
+    #menu-categories { position: relative; }
+    #menu-categories-track { display: flex; gap: .5rem; position: relative; z-index: 1; }
+    #menu-cat-indicator {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 2.75rem;
+      border-radius: 999px;
+      background: linear-gradient(to bottom, var(--color-primary), var(--color-secondary));
+      box-shadow: 0 6px 14px -6px rgba(21, 67, 96, .6);
+      transition: transform .44s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  width .44s cubic-bezier(0.34, 1.56, 0.64, 1);
+      pointer-events: none;
+      z-index: 0;
+      opacity: 0;
+    }
+    #menu-cat-indicator.is-ready { opacity: 1; }
+
+    /* ---- กดสั่ง: การ์ดเด้งรับ ---- */
+    .card-added { animation: card-added .3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes card-added {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.14) translateY(-6px); }
+      100% { transform: scale(1); }
+    }
+
+    /* ของที่ลอยจากหน้าต่างสินค้าไปตะกร้า สร้างชั่วคราวแล้วลบทิ้งเมื่อจบ */
+    .cart-fly {
+      position: fixed;
+      z-index: 200;
+      pointer-events: none;
+      border-radius: 1rem;
+      background: linear-gradient(135deg, var(--color-accent), var(--color-sand));
+      border: 1px solid var(--color-sand);
+      box-shadow: 0 12px 26px -12px rgba(21, 67, 96, .75);
+    }
+
+    /* ตัวเลขบนตะกร้าเด้งตอนของมาถึง
+       ใช้ visibility ไม่ใช่ display ไม่งั้นอนิเมชันเล่นไม่ได้ (แบบเดียวกับ #pin-lock-error) */
+    #cart-badge-mobile { visibility: hidden; }
+    #cart-badge-mobile.is-on { visibility: visible; }
+    #cart-badge-mobile.is-bump { animation: badge-bump .3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes badge-bump {
+      0%   { transform: scale(1); }
+      45%  { transform: scale(1.35); }
+      100% { transform: scale(1); }
+    }
+
+    /* ---- รายการในตะกร้า: เบาที่สุดในสามอย่าง เพราะเปลี่ยนทุกครั้งที่กด ---- */
+    .cart-line-in { animation: cart-line-in .14s ease-out; }
+    @keyframes cart-line-in {
+      from { opacity: 0; transform: translateX(8px); }
+      to   { opacity: 1; transform: none; }
+    }
+    .cart-line-out { animation: cart-line-out .14s ease-in forwards; pointer-events: none; }
+    @keyframes cart-line-out {
+      to { opacity: 0; transform: translateX(-8px); }
+    }
+    .cart-qty-pop { display: inline-block; animation: cart-qty-pop .14s ease-out; }
+    @keyframes cart-qty-pop {
+      0%   { transform: scale(1); }
+      45%  { transform: scale(1.25); }
+      100% { transform: scale(1); }
     }
