@@ -5715,7 +5715,16 @@ renderReport(r) {
         this.updateLoggedInUserLabel();
 
         // ปิดโมดัลที่ค้างอยู่ทั้งหมดก่อนล็อก กันหน้าจอซ้อนกัน
-        document.querySelectorAll('[id^="modal-"]').forEach(m => m.classList.add('hidden'));
+        // ต้องเจาะจงเฉพาะตัวกรอบ (.fixed) ไม่ใช่ทุก id ที่ขึ้นต้นด้วย modal-
+        // ของเดิมไปโดนชิ้นส่วนข้างในหน้าต่างสินค้าด้วย (modal-product-name / -sweetness-container /
+        // -addons-container / -note) แล้วไม่มีใครเอา hidden ออกให้เลย พอล็อกจอตอนเปิดหน้าต่างสินค้าค้างไว้
+        // ครั้งต่อไปที่เปิดจะได้หน้าต่างเปล่า ไม่มีชื่อ ไม่มีปุ่มความหวาน ไม่มีท็อปปิ้ง
+        document.querySelectorAll('[id^="modal-"].fixed').forEach(m => m.classList.add('hidden'));
+
+        // หน้าต่างที่สร้างสดด้วย JS ไม่ได้ใช้คลาส hidden แต่ใช้วิธีลบทิ้ง
+        // ถ้าไม่เก็บกวาดตรงนี้ พอปลดล็อกกลับมาจะเจอฟอร์มของคนก่อนหน้าค้างอยู่
+        ['modal-inv-item', 'modal-product-item', 'modal-recipe-form', 'modal-notification-form', 'modal-edit-bill']
+          .forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
 
         this.showPinLockScreen();
       },
