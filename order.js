@@ -515,8 +515,21 @@ const OrderPage = {
     }
   },
 
-  openModal(id) { document.getElementById(id).classList.remove('hidden'); },
-  closeModal(id) { document.getElementById(id).classList.add('hidden'); },
+  // อนิเมชันตอนเปิดใช้ CSS ชุดเดียวกับแอปพนักงาน (style.css) หน้านี้โหลดไฟล์เดียวกันอยู่แล้ว
+  openModal(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.classList.remove('modal-opening');
+    void el.offsetWidth;
+    el.classList.add('modal-opening');
+  },
+  closeModal(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.add('hidden');
+    el.classList.remove('modal-opening');
+  },
   showLoading() { document.getElementById('loading-overlay').classList.remove('hidden'); },
   hideLoading() { document.getElementById('loading-overlay').classList.add('hidden'); },
 
@@ -540,7 +553,7 @@ const OrderPage = {
         ? 'flex-1 py-2.5 bg-gradient-to-b from-primary to-secondary text-white rounded-xl font-bold active:scale-95 transition-all'
         : 'flex-1 py-2.5 border border-sand bg-white text-slate-500 rounded-xl font-bold active:scale-95 transition-all';
       b.onclick = () => {
-        document.getElementById('modal-alert').classList.add('hidden');
+        this.closeModal('modal-alert');
         if (this._alertResolve) { this._alertResolve(btn.value); this._alertResolve = null; }
       };
       btnContainer.appendChild(b);

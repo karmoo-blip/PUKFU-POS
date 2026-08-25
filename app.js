@@ -1252,8 +1252,24 @@
         document.getElementById(`view-${viewId}`).classList.remove('hidden');
       },
 
-      openModal(id) { document.getElementById(id).classList.remove('hidden'); },
-      closeModal(id) { document.getElementById(id).classList.add('hidden'); },
+      openModal(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.remove('hidden');
+        // reflow คั่นก่อนใส่คลาสใหม่ ไม่งั้นเปิดหน้าต่างเดิมซ้ำอนิเมชันจะไม่เล่น
+        el.classList.remove('modal-opening');
+        void el.offsetWidth;
+        el.classList.add('modal-opening');
+      },
+      // ตอนปิดไม่หน่วง ตั้งใจให้เหมือนเดิมเป๊ะ
+      // มีหลายที่ในแอปที่อ่านคลาส hidden เพื่อดูว่าหน้าต่างเปิดอยู่ไหม (เช่น checkPendingOrders ที่วนเช็คทุก 8 วิ)
+      // ถ้าหน่วงการใส่ hidden พวกนั้นจะอ่านค่าผิดช่วงที่กำลังเฟดออก
+      closeModal(id) {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.classList.add('hidden');
+        el.classList.remove('modal-opening');
+      },
       setIndicator(status) {
         const el = document.getElementById('sync-indicator');
         el.className = 'indicator w-3 h-3 rounded-full shadow-inner';
@@ -1344,7 +1360,9 @@
           inputEl.value = '';
           inputEl.type = cfg.inputType;
           inputEl.placeholder = cfg.placeholder;
-          setTimeout(() => inputEl.focus(), 100);
+          // รอให้อนิเมชันเปิดจบก่อนค่อยโฟกัส (320ms) ของเดิมรอ 100ms ซึ่งจะไปโฟกัสตอนหน้าต่างยังขยับอยู่
+          // บน iOS การโฟกัสช่องพิมพ์ที่อยู่ในกล่องที่กำลัง transform จะทำให้คีย์บอร์ดดันหน้าจอเพี้ยน
+          setTimeout(() => inputEl.focus(), 340);
         } else {
           inputWrap.classList.add('hidden');
         }
@@ -1359,13 +1377,13 @@
             : 'flex-1 py-2.5 border border-sand bg-white text-slate-500 rounded-xl font-bold hover:bg-accent transition';
           b.onclick = () => {
             const result = btn.value === '__INPUT__' ? inputEl.value : btn.value;
-            document.getElementById('modal-alert').classList.add('hidden');
+            this.closeModal('modal-alert');
             if (this._alertResolve) { this._alertResolve(result); this._alertResolve = null; }
           };
           btnContainer.appendChild(b);
         });
 
-        document.getElementById('modal-alert').classList.remove('hidden');
+        this.openModal('modal-alert');
       },
 
       updateSyncQueueBadge() {
@@ -3160,7 +3178,7 @@
           const q = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
           const wrap = document.createElement('div');
           wrap.id = 'modal-inv-item';
-          wrap.className = 'fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
+          wrap.className = 'modal-opening fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
           wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-xl">'
             + '<h3 class="font-bold text-lg text-secondary mb-4">' + (item ? 'แก้ไขวัตถุดิบ' : 'เพิ่มวัตถุดิบ') + '</h3>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อวัตถุดิบ</label>'
@@ -3362,7 +3380,7 @@
           const q = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
           const wrap = document.createElement('div');
           wrap.id = 'modal-product-item';
-          wrap.className = 'fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
+          wrap.className = 'modal-opening fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
           wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-xl max-h-[90vh] overflow-y-auto">'
             + '<h3 class="font-bold text-lg text-secondary mb-4">' + (item ? 'แก้ไขสินค้า' : 'เพิ่มสินค้า') + '</h3>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">รหัสสินค้า (SKU)</label>'
@@ -3536,7 +3554,7 @@
           const rows = (this.recipes || []).filter(r => r.menu_sku === sku);
           const wrap = document.createElement('div');
           wrap.id = 'modal-recipe-form';
-          wrap.className = 'fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
+          wrap.className = 'modal-opening fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
           wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-xl max-h-[90vh] overflow-y-auto">'
             + '<h3 class="font-bold text-lg text-secondary mb-1">สูตร: ' + escHtml(item.name) + '</h3>'
             + '<p class="text-xs text-slate-400 mb-4">เลือกวัตถุดิบและจำนวนที่ใช้ต่อสินค้า 1 ชิ้น ระบบจะหักสต๊อกอัตโนมัติเมื่อขาย</p>'
@@ -3653,7 +3671,7 @@
             .join('');
           const wrap = document.createElement('div');
           wrap.id = 'modal-notification-form';
-          wrap.className = 'fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
+          wrap.className = 'modal-opening fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
           wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-xl">'
             + '<h3 class="font-bold text-lg text-secondary mb-4">เพิ่มแจ้งเตือน</h3>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">วัตถุดิบ</label>'
@@ -3741,7 +3759,7 @@
             + '</div>').join('');
           const wrap = document.createElement('div');
           wrap.id = 'modal-edit-bill';
-          wrap.className = 'fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
+          wrap.className = 'modal-opening fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
           wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-xl max-h-[85vh] overflow-y-auto">'
             + '<h3 class="font-bold text-lg text-secondary mb-1">แก้ไขบิลย้อนหลัง</h3>'
             + '<p class="text-xs text-slate-400 mb-4">' + q(order.invoice) + '</p>'
