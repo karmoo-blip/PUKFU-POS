@@ -810,6 +810,11 @@
       paymentMethods: [],
       currentPaymentMethodId: null,
       pinBuffer: '',
+      pinRevealIndex: -1,    // ช่องที่กำลังโชว์ตัวเลขจริงอยู่ (ก่อนเปลี่ยนเป็นจุด)
+      pinRevealTimer: null,
+      pinInputLocked: false, // กันกดต่อระหว่างสั่นตอน PIN ผิด
+      pinErrorActive: false,
+      pinKeysBound: false,
       loggedInEmployee: null,
       autoLockTimer: null,
       autoLockMinutes: 10, // ล็อกอัตโนมัติเมื่อไม่มีการใช้งานกี่นาที (ตั้งค่าได้ในหน้า Settings)
@@ -5351,13 +5356,28 @@ renderReport(r) {
         }
       },
 
+      // เวลาที่โชว์ตัวเลขจริงก่อนเปลี่ยนเป็นจุด และเวลาสั่นตอน PIN ผิด
+      PIN_REVEAL_MS: 600,
+      PIN_SHAKE_MS: 480,
+
       showPinLockScreen() {
         const el = document.getElementById('pin-lock-screen');
         if (el) el.classList.remove('hidden');
+        this.clearPinRevealTimer();
         this.pinBuffer = '';
-        this.updatePinDots();
-        const err = document.getElementById('pin-lock-error');
-        if (err) err.classList.add('hidden');
+        this.pinErrorActive = false;
+        this.pinInputLocked = false;
+        this.updatePinSlots();
+        this.hidePinError();
+        this.bindPinKeyboard();
+
+        // เล่นอนิเมชันแจกช่องใหม่ทุกครั้งที่ล็อก ไม่ใช่แค่ตอนเปิดแอปครั้งแรก
+        const slots = document.getElementById('pin-slots');
+        if (slots) {
+          slots.classList.remove('is-dealing');
+          void slots.offsetWidth; // บังคับ reflow ไม่งั้นอนิเมชันไม่เล่นซ้ำ
+          slots.classList.add('is-dealing');
+        }
       },
 
       hidePinLockScreen() {
@@ -5365,35 +5385,98 @@ renderReport(r) {
         if (el) el.classList.add('hidden');
       },
 
+      clearPinRevealTimer() {
+        if (this.pinRevealTimer) clearTimeout(this.pinRevealTimer);
+        this.pinRevealTimer = null;
+        this.pinRevealIndex = -1;
+      },
+
+      hidePinError() {
+        this.pinErrorActive = false;
+        const err = document.getElementById('pin-lock-error');
+        if (err) err.classList.remove('is-shown');
+      },
+
       pinKeyPress(digit) {
+        if (this.pinInputLocked) return;
         if (this.pinBuffer.length >= 6) return;
+        this.hidePinError();
         this.pinBuffer += digit;
-        this.updatePinDots();
+
+        // โชว์ตัวเลขแวบนึงแล้วค่อยเปลี่ยนเป็นจุด แบบหน้าล็อกมือถือ
+        this.clearPinRevealTimer();
+        this.pinRevealIndex = this.pinBuffer.length - 1;
+        this.pinRevealTimer = setTimeout(() => {
+          this.pinRevealIndex = -1;
+          this.pinRevealTimer = null;
+          this.updatePinSlots();
+        }, this.PIN_REVEAL_MS);
+
+        this.updatePinSlots({ popIndex: this.pinBuffer.length - 1 });
         this.tryUnlockPin();
       },
 
       pinBackspace() {
+        if (this.pinInputLocked) return;
+        this.clearPinRevealTimer();
         this.pinBuffer = this.pinBuffer.slice(0, -1);
-        this.updatePinDots();
-        const err = document.getElementById('pin-lock-error');
-        if (err) err.classList.add('hidden');
+        this.hidePinError();
+        this.updatePinSlots();
       },
 
       pinClear() {
+        if (this.pinInputLocked) return;
+        this.clearPinRevealTimer();
         this.pinBuffer = '';
-        this.updatePinDots();
-        const err = document.getElementById('pin-lock-error');
-        if (err) err.classList.add('hidden');
+        this.hidePinError();
+        this.updatePinSlots();
       },
 
-      updatePinDots() {
+      // ตัวเดียวที่วาดช่อง PIN ทั้งหมด อ่านจาก state ล้วนๆ
+      // ใช้ classList.toggle ไม่เขียนทับ className ทั้งก้อน ไม่งั้นคลาสอนิเมชันหายทุกครั้งที่กด
+      updatePinSlots(opts) {
+        const popIndex = opts && typeof opts.popIndex === 'number' ? opts.popIndex : -1;
         for (let i = 0; i < 6; i++) {
-          const dot = document.getElementById(`pin-dot-${i}`);
-          if (!dot) continue;
-          dot.className = i < this.pinBuffer.length
-            ? 'w-4 h-4 rounded-full bg-primary border-2 border-primary'
-            : 'w-4 h-4 rounded-full border-2 border-primary/30';
+          const slot = document.getElementById(`pin-slot-${i}`);
+          if (!slot) continue;
+          const filled = i < this.pinBuffer.length;
+          const revealed = filled && i === this.pinRevealIndex;
+
+          slot.classList.toggle('is-filled', filled);
+          slot.classList.toggle('is-masked', filled && !revealed);
+          slot.classList.toggle('is-active', !this.pinErrorActive && i === this.pinBuffer.length);
+          slot.classList.toggle('is-error', this.pinErrorActive && filled);
+
+          const char = slot.querySelector('.pin-slot__char');
+          if (char) char.textContent = filled ? (revealed ? this.pinBuffer[i] : '•') : '';
+
+          if (i === popIndex) {
+            slot.classList.remove('is-pop');
+            void slot.offsetWidth;
+            slot.classList.add('is-pop');
+          }
         }
+      },
+
+      // คีย์บอร์ดจริง (USB/บลูทูธ) ไม่ใส่ input ซ่อน เพราะบนแท็บเล็ตคีย์บอร์ดบนจอจะเด้งมาบังแป้นตัวเลข
+      bindPinKeyboard() {
+        if (this.pinKeysBound) return;
+        this.pinKeysBound = true;
+        document.addEventListener('keydown', (e) => {
+          const screen = document.getElementById('pin-lock-screen');
+          if (!screen || screen.classList.contains('hidden')) return;
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+          if (e.key >= '0' && e.key <= '9' && e.key.length === 1) {
+            e.preventDefault();
+            this.pinKeyPress(e.key);
+          } else if (e.key === 'Backspace') {
+            e.preventDefault();
+            this.pinBackspace();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            this.pinClear();
+          }
+        });
       },
 
       async tryUnlockPin() {
@@ -5417,9 +5500,30 @@ renderReport(r) {
           if (this.pinBuffer.length >= 6) {
             this.logPinAttempt('เข้าใช้งานระบบ (Lock Screen)', false, null);
             const err = document.getElementById('pin-lock-error');
-            if (err) err.classList.remove('hidden');
-            this.pinBuffer = '';
-            this.updatePinDots();
+            if (err) err.classList.add('is-shown');
+
+            // ปล่อยตัวเลขค้างไว้ให้เห็นระหว่างสั่น แล้วค่อยล้างทีเดียวตอนสั่นจบ
+            this.pinErrorActive = true;
+            this.pinInputLocked = true;
+            this.clearPinRevealTimer();
+            this.updatePinSlots();
+
+            const slots = document.getElementById('pin-slots');
+            if (slots) {
+              slots.classList.remove('is-shaking');
+              void slots.offsetWidth;
+              slots.classList.add('is-shaking');
+            }
+
+            setTimeout(() => {
+              if (slots) slots.classList.remove('is-shaking');
+              this.pinBuffer = '';
+              this.pinInputLocked = false;
+              this.updatePinSlots();
+              // ข้อความ error ค้างไว้จนกว่าจะกดปุ่มถัดไป
+              this.pinErrorActive = true;
+              if (err) err.classList.add('is-shown');
+            }, this.PIN_SHAKE_MS);
           }
         }
       },

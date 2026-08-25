@@ -127,3 +127,81 @@
     label:has(> input[type="checkbox"][id^="rs-show"]):active,
     label:has(> input.emp-perm-checkbox):active { transform: scale(0.96); }
 
+
+    /* ===== หน้าจอล็อก PIN: ช่องกรอกแบบมีอนิเมชัน ===== */
+    /* เดิมเป็นจุดกลมธรรมดา 6 จุด เปลี่ยนเป็นช่องสี่เหลี่ยมที่บอกสถานะได้ว่ากำลังรอหลักไหน
+       และตอบสนองตอนกด/ตอนผิด ตัวเลขจริงจะโชว์แวบนึงแล้วเปลี่ยนเป็นจุด เหมือนหน้าล็อกมือถือ */
+    #pin-slots { display: flex; justify-content: center; gap: .5rem; margin: 0 0 1.5rem; }
+
+    .pin-slot {
+      position: relative;
+      width: 3rem; height: 3.25rem;
+      border-radius: 1rem;
+      background: #fff;
+      border: 2px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+      display: flex; align-items: center; justify-content: center;
+      transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease, transform .12s ease;
+    }
+
+    /* ช่องที่กำลังรอรับตัวเลข: ขอบเข้ม + เรืองแสงรอบๆ */
+    .pin-slot.is-active {
+      border-color: var(--color-primary);
+      box-shadow:
+        0 0 0 4px color-mix(in srgb, var(--color-primary) 12%, transparent),
+        0 6px 18px -6px color-mix(in srgb, var(--color-primary) 45%, transparent);
+    }
+
+    /* เคอร์เซอร์กะพริบในช่องที่กำลังรอ ไม่ต้องเพิ่ม element */
+    .pin-slot.is-active::after {
+      content: '';
+      position: absolute;
+      width: 2px; height: 1.5rem;
+      border-radius: 1px;
+      background: var(--color-primary);
+      animation: pin-caret-blink 1s step-end infinite;
+    }
+    .pin-slot.is-filled::after { display: none; }
+    .pin-slot.is-filled { border-color: var(--color-primary); background: #fff; }
+
+    .pin-slot__char { font-size: 1.375rem; font-weight: 700; line-height: 1; color: var(--color-primary); }
+    .pin-slot.is-masked .pin-slot__char { font-size: 1.75rem; }
+
+    .pin-slot.is-pop { animation: pin-slot-pop .22s ease-out; }
+    .pin-slot.is-pop .pin-slot__char { animation: pin-char-in .18s ease-out; }
+
+    /* ไพ่แจกลงโต๊ะ: ช่องไล่กันเข้ามาทีละใบตอนหน้าล็อกโผล่ */
+    #pin-slots.is-dealing .pin-slot {
+      animation: pin-deal .42s cubic-bezier(.2, .8, .3, 1) backwards;
+      animation-delay: calc(var(--i) * .045s);
+    }
+
+    #pin-slots.is-shaking { animation: pin-shake .48s ease-in-out; }
+    .pin-slot.is-error { border-color: #ef4444; background: #fef2f2; box-shadow: none; }
+    .pin-slot.is-error .pin-slot__char { color: #ef4444; }
+
+    @keyframes pin-caret-blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
+    @keyframes pin-slot-pop { 0% { transform: scale(1); } 45% { transform: scale(1.12); } 100% { transform: scale(1); } }
+    @keyframes pin-char-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes pin-deal { from { opacity: 0; transform: translateY(14px) rotate(-6deg); } to { opacity: 1; transform: translateY(0) rotate(0); } }
+    @keyframes pin-shake {
+      0%, 100% { transform: translateX(0); }
+      15% { transform: translateX(-8px); }
+      30% { transform: translateX(8px); }
+      45% { transform: translateX(-6px); }
+      60% { transform: translateX(6px); }
+      75% { transform: translateX(-3px); }
+      90% { transform: translateX(3px); }
+    }
+
+    /* กันแป้นตัวเลขกระโดดตอนข้อความ error โผล่: จองที่ไว้ตลอด ซ่อนด้วย visibility ไม่ใช่ display */
+    #pin-lock-error { min-height: 1.25rem; visibility: hidden; }
+    #pin-lock-error.is-shown { visibility: visible; }
+
+    /* เครื่องที่ตั้งค่าลดการเคลื่อนไหว ให้เห็นสถานะครบเหมือนเดิมแต่ไม่ต้องขยับ */
+    @media (prefers-reduced-motion: reduce) {
+      #pin-slots.is-dealing .pin-slot,
+      .pin-slot.is-pop,
+      .pin-slot.is-pop .pin-slot__char,
+      #pin-slots.is-shaking { animation: none; }
+      .pin-slot.is-active::after { animation: none; opacity: 1; }
+    }
