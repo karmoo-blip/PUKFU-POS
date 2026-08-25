@@ -92,6 +92,26 @@ const OrderPage = {
       this.showAlert('โหลดเมนูไม่สำเร็จ กรุณาลองรีเฟรชหน้าใหม่: ' + e.message, '', 'warning');
     }
     this.hideLoading();
+    this.restoreSavedOrder();
+  },
+
+  // ลูกค้ารีเฟรชหรือปิดแล้วเปิดใหม่ ให้กลับมาดูสถานะออเดอร์เดิมต่อได้
+  async restoreSavedOrder() {
+    let saved;
+    try { saved = localStorage.getItem('pukfu_order_id'); } catch (e) { return; }
+    if (!saved) return;
+    try {
+      const r = await callApi('getPendingOrderStatus', [saved]);
+      // ออเดอร์จบไปแล้วหรือหาไม่เจอ ลืมมันไปเลย ไม่ต้องเด้งหน้าสถานะเก่าค้างไว้
+      if (!r.success || ['rejected', 'cancelled', 'ready'].includes(r.status)) {
+        this.clearSavedOrder();
+        return;
+      }
+      this.currentOrderId = saved;
+      this.showSubmittedView();
+      this.applyStatus(r.status, r.rejectReason, r);
+      this.startPolling();
+    } catch (e) { /* เน็ตไม่ดี ไว้รอบหน้า */ }
   },
 
   extractCategories() {
@@ -303,6 +323,7 @@ const OrderPage = {
         return this.showAlert(result.error || 'ส่งออเดอร์ไม่สำเร็จ', '', 'warning');
       }
       this.currentOrderId = result.id;
+      this.saveOrderId(result.id);
       this.closeModal('modal-cart');
       this.showSubmittedView();
       this.startPolling();
@@ -329,8 +350,16 @@ const OrderPage = {
     uploadBtn.innerText = 'อัพโหลดสลิปโอนเงิน';
     document.getElementById('submitted-payment-box').classList.add('hidden');
 
+    // กลับเข้ามาใหม่หลังรีเฟรช ตะกร้าว่างแล้ว ซ่อนกล่องสรุปไปเลยดีกว่าโชว์กล่องเปล่า
+    const summaryBox = document.getElementById('submitted-order-summary');
+    if (this.cart.length === 0) {
+      summaryBox.classList.add('hidden');
+    } else {
+      summaryBox.classList.remove('hidden');
+    }
+
     const total = this.cart.reduce((s, i) => s + i.qty * i.price, 0);
-    document.getElementById('submitted-order-summary').innerHTML = `
+    summaryBox.innerHTML = `
       <p class="font-bold text-secondary mb-3">สรุปออเดอร์</p>
       ${this.cart.map(i => `
         <div class="flex justify-between text-sm mb-2">
@@ -351,6 +380,7 @@ const OrderPage = {
   backToMenu() {
     if (this.pollTimer) clearInterval(this.pollTimer);
     this.currentOrderId = null;
+    this.clearSavedOrder();
     this.cart = [];
     this.renderCartBar();
     document.getElementById('view-submitted').classList.add('hidden');
@@ -365,12 +395,17 @@ const OrderPage = {
     if (!this.currentOrderId) return;
     try {
       const r = await callApi('getPendingOrderStatus', [this.currentOrderId]);
-      if (!r.success) return;
-      this.applyStatus(r.status, r.rejectReason);
+      if (!r.success) {
+        // ออเดอร์หายไปจากระบบแล้ว (เช่นถูกล้างข้อมูล) เลิกตามต่อ
+        this.clearSavedOrder();
+        clearInterval(this.pollTimer);
+        return;
+      }
+      this.applyStatus(r.status, r.rejectReason, r);
     } catch (e) { /* เงียบไว้ ลองใหม่รอบหน้า */ }
   },
 
-  applyStatus(status, rejectReason) {
+  applyStatus(status, rejectReason, queue) {
     const icon = document.getElementById('submitted-status-icon');
     const text = document.getElementById('submitted-status-text');
     const sub = document.getElementById('submitted-status-sub');
@@ -381,8 +416,19 @@ const OrderPage = {
       icon.className = 'w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-emerald-100 text-emerald-500';
       icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:2rem;height:2rem"><path d="M20 6L9 17l-5-5"/></svg>';
       text.innerText = 'ร้านยืนยันออเดอร์แล้ว!';
-      sub.innerText = 'ขอบคุณที่สั่งกับเราครับ';
+      sub.innerText = 'กำลังเตรียมเครื่องดื่มให้ครับ';
       cancelBtn.classList.add('hidden'); uploadBtn.classList.add('hidden');
+      // ไม่หยุด poll ตรงนี้ ช่วงนี้แหละที่ลูกค้าอยากรู้ว่าเหลืออีกกี่คิว
+      // ของเดิมหยุดตั้งแต่ร้านกดรับ ทำให้หน้าจอค้างอยู่แบบนั้นจนกว่าจะปิดหน้า
+      this.renderQueue(queue);
+    } else if (status === 'ready') {
+      icon.className = 'w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-emerald-100 text-emerald-500';
+      icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:2rem;height:2rem"><path d="M20 6L9 17l-5-5"/></svg>';
+      text.innerText = 'เครื่องดื่มพร้อมรับแล้ว';
+      sub.innerText = 'รับที่เคาน์เตอร์ได้เลยครับ';
+      cancelBtn.classList.add('hidden'); uploadBtn.classList.add('hidden');
+      this.renderQueue(null);
+      this.clearSavedOrder();
       clearInterval(this.pollTimer);
     } else if (status === 'rejected') {
       icon.className = 'w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-red-100 text-red-500';
@@ -390,6 +436,8 @@ const OrderPage = {
       text.innerText = 'ร้านไม่สามารถรับออเดอร์นี้ได้';
       sub.innerText = rejectReason || '';
       cancelBtn.classList.add('hidden'); uploadBtn.classList.add('hidden');
+      this.renderQueue(null);
+      this.clearSavedOrder();
       clearInterval(this.pollTimer);
     } else if (status === 'cancelled') {
       icon.className = 'w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-slate-100 text-slate-400';
@@ -397,8 +445,42 @@ const OrderPage = {
       text.innerText = 'ยกเลิกออเดอร์แล้ว';
       sub.innerText = '';
       cancelBtn.classList.add('hidden'); uploadBtn.classList.add('hidden');
+      this.renderQueue(null);
+      this.clearSavedOrder();
       clearInterval(this.pollTimer);
     }
+  },
+
+  // แสดงจำนวนคิวก่อนหน้า + เวลาโดยประมาณ
+  // ไม่มีคิวก่อนหน้า = บอกว่ากำลังทำอยู่ ไม่ขึ้น "0 คิว" หรือ "0 นาที" ซึ่งอ่านแล้วงง
+  renderQueue(queue) {
+    const box = document.getElementById('submitted-queue-box');
+    const line = document.getElementById('submitted-queue-line');
+    const eta = document.getElementById('submitted-queue-eta');
+    if (!box || !line || !eta) return;
+    if (!queue) { box.classList.add('hidden'); return; }
+
+    const ahead = Number(queue.queueAhead) || 0;
+    const low = Number(queue.etaLow) || 0;
+    const high = Number(queue.etaHigh) || 0;
+    if (ahead <= 0) {
+      line.innerText = 'ถึงคิวคุณแล้ว กำลังทำให้อยู่ครับ';
+      eta.innerText = '';
+    } else {
+      line.innerText = 'มีอีก ' + ahead + ' คิวก่อนหน้าคุณ';
+      eta.innerText = low > 0 ? 'รออีกประมาณ ' + low + '-' + high + ' นาที' : '';
+    }
+    box.classList.remove('hidden');
+  },
+
+  // จำเลขออเดอร์ไว้ในเครื่อง เผื่อลูกค้ารีเฟรชหรือสลับแอป
+  // ของเดิมเก็บไว้ใน memory อย่างเดียว รีเฟรชทีเดียวก็ตามออเดอร์ตัวเองไม่ได้อีกเลย
+  saveOrderId(id) {
+    try { localStorage.setItem('pukfu_order_id', id); } catch (e) { /* โหมดส่วนตัวเขียนไม่ได้ ไม่เป็นไร */ }
+  },
+
+  clearSavedOrder() {
+    try { localStorage.removeItem('pukfu_order_id'); } catch (e) { /* ไม่เป็นไร */ }
   },
 
   async handleSlipUpload(event) {

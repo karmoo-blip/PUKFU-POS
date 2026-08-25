@@ -839,6 +839,17 @@
         </div>
 
         <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 mb-4">
+          <h3 class="font-bold text-lg text-secondary mb-2">คิวและเวลารอของลูกค้า</h3>
+          <p class="text-sm text-slate-400 mb-4">หลังร้านกดยืนยันออเดอร์ ลูกค้าจะเห็นว่ามีกี่คิวก่อนหน้าและต้องรอประมาณกี่นาที นับทั้งออเดอร์ออนไลน์และบิลหน้าร้าน</p>
+          <label class="text-sm font-bold text-slate-500 mb-1 block">เวลาชงต่อ 1 แก้ว (นาที)</label>
+          <input type="number" min="0" step="0.5" id="queue-minutes-per-drink" class="w-full border border-sand rounded-xl p-2.5 mb-3 focus:outline-none focus:border-primary bg-cream" placeholder="3">
+          <label class="text-sm font-bold text-slate-500 mb-1 block">นับคิวย้อนหลังกี่นาที</label>
+          <input type="number" min="1" step="1" id="queue-window-minutes" class="w-full border border-sand rounded-xl p-2.5 mb-1 focus:outline-none focus:border-primary bg-cream" placeholder="20">
+          <p class="text-xs text-slate-400 mb-4">ออเดอร์ที่เก่ากว่านี้จะถูกตัดออกจากคิวอัตโนมัติ เผื่อกรณีลืมกดปุ่ม &quot;เสร็จแล้ว&quot; ตั้งสั้นไปคิวจะหายทั้งที่ลูกค้ายังรออยู่ ตั้งยาวไปบิลที่ทำเสร็จแล้วจะยังค้างในคิว</p>
+          <button onclick="Controller.saveQueueSettings(this)" class="w-full bg-gradient-to-b from-primary to-secondary text-white py-2.5 rounded-2xl font-bold active:scale-95 transition-all">บันทึกการตั้งค่าคิว</button>
+        </div>
+
+        <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 mb-4">
           <h3 class="font-bold text-lg text-secondary mb-2">สร้าง QR โต๊ะ/จุดรับสินค้า</h3>
           <p class="text-sm text-slate-400 mb-4">ระบุชื่อโต๊ะหรือจุดรับสินค้า แล้วกดสร้าง QR ให้ลูกค้าสแกนเพื่อสั่งอาหารออนไลน์ — พิมพ์หรือแคปหน้าจอไปแปะที่โต๊ะได้เลย ทำทีละโต๊ะ</p>
           <div class="flex gap-2 mb-4">

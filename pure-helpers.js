@@ -67,6 +67,20 @@ function recipeCost(recipeRows, inventoryById) {
   return { total: missingPrice.length > 0 ? null : sum, lines, missingPrice };
 }
 
+// ---- คิวออเดอร์ออนไลน์ ----
+// ประเมินเวลารอจากจำนวน "แก้ว" ที่อยู่คิวก่อนหน้า ไม่ใช่จำนวนออเดอร์
+// ออเดอร์เดียวสั่ง 5 แก้วใช้เวลานานกว่าออเดอร์เดียวสั่งแก้วเดียว นับเป็นแก้วจึงตรงกว่า
+// คืน null เมื่อไม่มีคิวก่อนหน้าเลย ให้หน้าจอบอกว่า "กำลังทำให้แล้ว" แทนที่จะขึ้น "0 นาที"
+function queueEtaRange(drinksAhead, minutesPerDrink) {
+  const drinks = Number(drinksAhead) || 0;
+  const perDrink = Number(minutesPerDrink) || 0;
+  if (drinks <= 0 || perDrink <= 0) return null;
+  const low = Math.round(drinks * perDrink);
+  if (low <= 0) return null;
+  // ช่วงบน = เผื่ออีกหนึ่งแก้ว กันบอกเวลาเป๊ะเกินจริงทั้งที่ไม่มีข้อมูลเวลาชงจริงสักตัว
+  return { low: low, high: low + Math.round(perDrink) };
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { escAttr, escHtml, bufToHex, sha256Hex, hashPinWithSalt, calcVatBreakdown, unitCost, recipeCost };
+  module.exports = { escAttr, escHtml, bufToHex, sha256Hex, hashPinWithSalt, calcVatBreakdown, unitCost, recipeCost, queueEtaRange };
 }

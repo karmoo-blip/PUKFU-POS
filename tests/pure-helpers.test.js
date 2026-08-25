@@ -10,6 +10,7 @@ const {
   calcVatBreakdown,
   unitCost,
   recipeCost,
+  queueEtaRange,
 } = require('../pure-helpers.js');
 
 function assertClose(actual, expected, epsilon = 1e-9) {
@@ -121,4 +122,28 @@ test('recipeCost on an empty recipe is zero, not null', () => {
 test('recipeCost accepts the camelCase key the recipe form sends', () => {
   const r = recipeCost([{ inventoryItemId: 'INV13', qty: 2 }], { INV13: CUP });
   assertClose(r.total, 6);
+});
+
+// ---- queue ETA ----
+
+test('queueEtaRange scales with the number of drinks ahead', () => {
+  assert.deepEqual(queueEtaRange(1, 3), { low: 3, high: 6 });
+  assert.deepEqual(queueEtaRange(2, 3), { low: 6, high: 9 });
+  assert.deepEqual(queueEtaRange(5, 4), { low: 20, high: 24 });
+});
+
+test('queueEtaRange returns null when nothing is ahead', () => {
+  assert.equal(queueEtaRange(0, 3), null, 'must not render "0 minutes"');
+  assert.equal(queueEtaRange(-1, 3), null);
+  assert.equal(queueEtaRange(null, 3), null);
+});
+
+test('queueEtaRange returns null when the shop set no prep time', () => {
+  assert.equal(queueEtaRange(3, 0), null);
+  assert.equal(queueEtaRange(3, null), null);
+  assert.equal(queueEtaRange(3, 'abc'), null);
+});
+
+test('queueEtaRange handles fractional drink counts', () => {
+  assert.deepEqual(queueEtaRange(1.5, 3), { low: 5, high: 8 });
 });

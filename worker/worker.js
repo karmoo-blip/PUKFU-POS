@@ -826,25 +826,105 @@ async function cancelPendingOrder(env, args) {
   return { success: true };
 }
 
+// ค่าตั้งคิว เก็บใน shop_info (ตาราง key/value ที่มีอยู่แล้ว) ไม่ต้องเพิ่มตารางใหม่
+const QUEUE_DEFAULT_MINUTES_PER_DRINK = 3;
+const QUEUE_DEFAULT_WINDOW_MINUTES = 20;
+
+async function getQueueSettings(env) {
+  const rows = await env.DB.prepare(
+    "SELECT key, value FROM shop_info WHERE key IN ('queueMinutesPerDrink','queueWindowMinutes')"
+  ).all();
+  const map = {};
+  for (const r of rows.results) map[r.key] = r.value;
+  const perDrink = Number(map.queueMinutesPerDrink);
+  const windowMin = Number(map.queueWindowMinutes);
+  return {
+    minutesPerDrink: perDrink > 0 ? perDrink : QUEUE_DEFAULT_MINUTES_PER_DRINK,
+    windowMinutes: windowMin > 0 ? windowMin : QUEUE_DEFAULT_WINDOW_MINUTES,
+  };
+}
+
+// นับว่ามีกี่แก้วที่ต้องทำก่อนออเดอร์นี้
+// "ก่อนหน้า" = สั่งเข้ามาก่อน + ยังไม่เสร็จ + ยังอยู่ในกรอบเวลา
+// กรอบเวลาทำสองหน้าที่ เป็นตัวปล่อยคิวอัตโนมัติเผื่อพนักงานลืมกดเสร็จ
+// และเป็นเส้นแบ่งว่าบิลหน้าร้านใบไหน "น่าจะยังทำอยู่" เพราะบิลหน้าร้านไม่มีสถานะเสร็จให้ดูเลย
+async function countQueueAhead(env, createdAt) {
+  const { minutesPerDrink, windowMinutes } = await getQueueSettings(env);
+  const windowStart = new Date(Date.now() - windowMinutes * 60 * 1000).toISOString();
+
+  // ออเดอร์ออนไลน์ที่ร้านรับแล้วแต่ยังไม่กดเสร็จ
+  const online = await env.DB.prepare(
+    "SELECT items_json FROM pending_orders WHERE status = 'confirmed' AND created_at < ? AND created_at >= ?"
+  ).bind(createdAt, windowStart).all();
+
+  let drinks = 0;
+  let orders = online.results.length;
+  for (const row of online.results) {
+    try {
+      for (const it of JSON.parse(row.items_json || "[]")) drinks += Number(it.qty) || 0;
+    } catch (e) { drinks += 1; }
+  }
+
+  // บิลหน้าร้านในกรอบเวลาเดียวกัน
+  // ต้องตัด ONL- ออก เพราะออเดอร์ออนไลน์ที่ร้านรับแล้วก็เขียนลง payments ด้วย ถ้าไม่ตัดจะนับซ้ำสองรอบ
+  const walkIn = await env.DB.prepare(
+    "SELECT IFNULL(SUM(s.qty), 0) AS drinks, COUNT(DISTINCT p.invoice) AS orders FROM payments p LEFT JOIN sales s ON s.invoice = p.invoice WHERE p.timestamp < ? AND p.timestamp >= ? AND IFNULL(p.status,'') != 'cancelled' AND p.invoice NOT LIKE 'ONL-%'"
+  ).bind(createdAt, windowStart).first();
+
+  drinks += Number(walkIn && walkIn.drinks) || 0;
+  orders += Number(walkIn && walkIn.orders) || 0;
+  return { orders, drinks, minutesPerDrink };
+}
+
 async function getPendingOrderStatus(env, args) {
   await ensureExtraTables(env);
   const a0 = args && args[0];
   const id = a0 && typeof a0 === "object" ? a0.id : a0;
   const row = await env.DB.prepare(
-    "SELECT status, reject_reason, slip_uploaded_at FROM pending_orders WHERE id = ?"
+    "SELECT status, reject_reason, slip_uploaded_at, created_at FROM pending_orders WHERE id = ?"
   ).bind(id).first();
   if (!row) return { success: false, error: "ไม่พบออเดอร์นี้" };
-  return { success: true, status: row.status, rejectReason: row.reject_reason || "", hasSlip: !!row.slip_uploaded_at };
+
+  const out = {
+    success: true,
+    status: row.status,
+    rejectReason: row.reject_reason || "",
+    hasSlip: !!row.slip_uploaded_at,
+    queueAhead: 0,
+    drinksAhead: 0,
+    etaLow: 0,
+    etaHigh: 0,
+  };
+
+  // คิดคิวเฉพาะตอนที่ร้านรับออเดอร์แล้วและยังทำไม่เสร็จ ช่วงอื่นลูกค้าไม่ได้รออะไรอยู่
+  if (row.status === "confirmed") {
+    const q = await countQueueAhead(env, row.created_at);
+    out.queueAhead = q.orders;
+    out.drinksAhead = q.drinks;
+    const low = q.drinks > 0 && q.minutesPerDrink > 0 ? Math.round(q.drinks * q.minutesPerDrink) : 0;
+    out.etaLow = low;
+    out.etaHigh = low > 0 ? low + Math.round(q.minutesPerDrink) : 0;
+  }
+  return out;
 }
 
-async function getPendingOrders(env) {
+async function getPendingOrders(env, args) {
   await ensureExtraTables(env);
+  await ensureColumn(env, "pending_orders", "ready_at", "TEXT");
+  await ensureColumn(env, "pending_orders", "ready_by", "TEXT");
+  // ที่ยืนยันแล้วแต่ยังไม่กดเสร็จ ส่งให้เฉพาะเครื่องที่ขอมาเท่านั้น
+  // เครื่องที่ยังใช้ app.js เวอร์ชันเก่า (แคชไว้) ไม่รู้จักสถานะ confirmed
+  // ถ้าส่งไปด้วยมันจะเอาไปนับในกระดิ่งและโชว์ปุ่ม "ยืนยันออเดอร์" ให้กดซ้ำทั้งที่รับไปแล้ว
+  const a = (args && args[0]) || {};
+  const statuses = a.includeConfirmed ? "('pending','confirmed')" : "('pending')";
   const r = await env.DB.prepare(
-    "SELECT * FROM pending_orders WHERE status = 'pending' ORDER BY created_at ASC"
+    "SELECT * FROM pending_orders WHERE status IN " + statuses + " ORDER BY created_at ASC"
   ).all();
   return r.results.map((row) => ({
     id: row.id,
+    status: row.status,
     createdAt: row.created_at,
+    confirmedAt: row.confirmed_at || "",
     location: row.location,
     customerName: row.customer_name,
     items: JSON.parse(row.items_json || "[]"),
@@ -853,6 +933,21 @@ async function getPendingOrders(env) {
     paymentSlipImage: row.payment_slip_image || "",
     slipUploadedAt: row.slip_uploaded_at || "",
   }));
+}
+
+// พนักงานกดเมื่อส่งเครื่องดื่มให้ลูกค้าแล้ว ออเดอร์จะหลุดออกจากคิวทันที
+async function markPendingOrderReady(env, args) {
+  await ensureExtraTables(env);
+  await ensureColumn(env, "pending_orders", "ready_at", "TEXT");
+  await ensureColumn(env, "pending_orders", "ready_by", "TEXT");
+  const a = (args && args[0]) || {};
+  if (!a.id) return { success: false, error: "missing id" };
+  // เช็คแล้วอัปเดตในคำสั่งเดียว กันกดพร้อมกันสองเครื่องแบบเดียวกับตอนยืนยันออเดอร์
+  const claim = await env.DB.prepare(
+    "UPDATE pending_orders SET status = 'ready', ready_at = ?, ready_by = ? WHERE id = ? AND status = 'confirmed'"
+  ).bind(nowIso(), a.user || "", a.id).run();
+  if (!claim.meta || claim.meta.changes === 0) return { success: false, error: "ออเดอร์นี้ถูกดำเนินการไปแล้ว" };
+  return { success: true };
 }
 
 async function getOnlineOrderHistory(env) {
@@ -1526,6 +1621,7 @@ handlers.getPendingOrders = getPendingOrders;
 handlers.getOnlineOrderHistory = getOnlineOrderHistory;
 handlers.confirmPendingOrder = confirmPendingOrder;
 handlers.rejectPendingOrder = rejectPendingOrder;
+handlers.markPendingOrderReady = markPendingOrderReady;
 
 
 handlers.saveInventoryItem = async (env, args) => {

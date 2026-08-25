@@ -1549,13 +1549,16 @@
         google.script.run
           .withSuccessHandler(rows => {
             this.pendingOrders = rows || [];
-            const count = this.pendingOrders.length;
+            // ตัวเลขบนกระดิ่ง = เฉพาะที่ยังไม่ได้กดยืนยัน แปลว่า "ต้องไปจัดการ"
+            // ของที่รับแล้วกำลังทำอยู่ไม่ควรนับ ไม่งั้นตัวเลขค้างเตือนทั้งที่ไม่มีอะไรต้องทำ
+            const waiting = this.pendingOrders.filter(o => (o.status || 'pending') === 'pending');
+            const count = waiting.length;
             const badge = document.getElementById('pending-order-badge');
             if (badge) {
               badge.innerText = count;
               badge.classList.toggle('hidden', count === 0);
             }
-            const newlyArrived = this.pendingOrders.filter(o => !this._alertedPendingOrderIds.has(o.id));
+            const newlyArrived = waiting.filter(o => !this._alertedPendingOrderIds.has(o.id));
             if (newlyArrived.length > 0) {
               newlyArrived.forEach(o => this._alertedPendingOrderIds.add(o.id));
               this.showAlert(`มีออเดอร์ออนไลน์ใหม่: ${newlyArrived.map(o => o.customerName).join(', ')}`, '', 'warning');
@@ -1565,7 +1568,7 @@
             }
           })
           .withFailureHandler(() => console.warn("เช็คออเดอร์ออนไลน์ไม่สำเร็จ"))
-          .getPendingOrders();
+          .getPendingOrders({ includeConfirmed: true });
       },
 
       openPendingOrdersModal() {
@@ -1580,33 +1583,72 @@
           list.innerHTML = '<div class="text-center text-slate-400 font-bold py-8">ไม่มีออเดอร์ออนไลน์รอยืนยัน</div>';
           return;
         }
-        list.innerHTML = this.pendingOrders.map((o, idx) => {
-          const time = o.createdAt ? new Date(o.createdAt).toLocaleString('th-TH') : '';
-          const itemsSummary = (o.items || []).map(i => `${i.qty}x ${i.name}`).join(', ');
-          const slipHtml = o.paymentSlipImage
-            ? `<button onclick="Controller.viewPendingOrderSlip(${idx})" class="flex items-center gap-2 mb-2 active:scale-95 transition-all">
-                <img src="${o.paymentSlipImage}" class="w-20 h-20 object-cover rounded-lg border border-sand" alt="สลิปโอนเงิน">
-                <span class="text-xs text-primary font-bold underline">แตะเพื่อดูสลิปเต็มจอ</span>
-              </button>`
-            : `<p class="text-xs text-amber-500 font-bold mb-2">ยังไม่ได้แนบสลิปโอนเงิน</p>`;
-          return `
-            <div class="py-4">
-              <div class="flex justify-between items-start gap-3 mb-2">
-                <div class="min-w-0">
-                  <p class="font-bold text-secondary truncate">${escHtml(o.customerName)}${o.location ? ' · ' + escHtml(o.location) : ''}</p>
-                  <p class="text-xs text-slate-400">${escHtml(time)}</p>
-                </div>
-                <p class="font-black text-primary shrink-0">฿${Number(o.total).toFixed(2)}</p>
+        // แยกสองกลุ่ม ที่ยังไม่ได้ยืนยัน กับที่รับแล้วกำลังทำ
+        // กลุ่มหลังต้องมีที่ให้กด "เสร็จแล้ว" ไม่งั้นคิวฝั่งลูกค้าไม่มีวันลด
+        const waitingIdx = [];
+        const makingIdx = [];
+        this.pendingOrders.forEach((o, idx) => {
+          if ((o.status || 'pending') === 'confirmed') makingIdx.push(idx);
+          else waitingIdx.push(idx);
+        });
+
+        const section = (title, idxList, extra) => idxList.length === 0 ? '' :
+          `<p class="text-xs font-bold text-slate-400 pt-3 pb-1">${title} (${idxList.length})</p>`
+          + idxList.map(i => this._pendingOrderRowHtml(this.pendingOrders[i], i, extra)).join('');
+
+        list.innerHTML = section('รอยืนยัน', waitingIdx, 'waiting') + section('กำลังทำ', makingIdx, 'making');
+      },
+
+      _pendingOrderRowHtml(o, idx, mode) {
+        const time = o.createdAt ? new Date(o.createdAt).toLocaleString('th-TH') : '';
+        const itemsSummary = (o.items || []).map(i => `${i.qty}x ${i.name}`).join(', ');
+        const slipHtml = o.paymentSlipImage
+          ? `<button onclick="Controller.viewPendingOrderSlip(${idx})" class="flex items-center gap-2 mb-2 active:scale-95 transition-all">
+              <img src="${o.paymentSlipImage}" class="w-20 h-20 object-cover rounded-lg border border-sand" alt="สลิปโอนเงิน">
+              <span class="text-xs text-primary font-bold underline">แตะเพื่อดูสลิปเต็มจอ</span>
+            </button>`
+          : `<p class="text-xs text-amber-500 font-bold mb-2">ยังไม่ได้แนบสลิปโอนเงิน</p>`;
+        const actions = mode === 'making'
+          ? `<button onclick="Controller.markOrderReadyAction(${idx})" class="w-full bg-gradient-to-b from-emerald-500 to-emerald-600 text-white px-3 py-2 rounded-lg font-bold text-sm active:scale-95 transition-all">เสร็จแล้ว ส่งให้ลูกค้า</button>`
+          : `<button onclick="Controller.rejectPendingOrderAction(${idx})" class="flex-1 bg-red-50 text-red-400 px-3 py-2 rounded-lg font-bold text-sm hover:bg-red-400 hover:text-white transition-all">ปฏิเสธ</button>
+             <button onclick="Controller.confirmPendingOrderAction(${idx})" class="flex-1 bg-gradient-to-b from-primary to-secondary text-white px-3 py-2 rounded-lg font-bold text-sm active:scale-95 transition-all">ยืนยันออเดอร์</button>`;
+        return `
+          <div class="py-4">
+            <div class="flex justify-between items-start gap-3 mb-2">
+              <div class="min-w-0">
+                <p class="font-bold text-secondary truncate">${escHtml(o.customerName)}${o.location ? ' · ' + escHtml(o.location) : ''}</p>
+                <p class="text-xs text-slate-400">${escHtml(time)}</p>
               </div>
-              <p class="text-sm text-slate-500 mb-2">${escHtml(itemsSummary)}</p>
-              ${slipHtml}
-              <div class="flex gap-2">
-                <button onclick="Controller.rejectPendingOrderAction(${idx})" class="flex-1 bg-red-50 text-red-400 px-3 py-2 rounded-lg font-bold text-sm hover:bg-red-400 hover:text-white transition-all">ปฏิเสธ</button>
-                <button onclick="Controller.confirmPendingOrderAction(${idx})" class="flex-1 bg-gradient-to-b from-primary to-secondary text-white px-3 py-2 rounded-lg font-bold text-sm active:scale-95 transition-all">ยืนยันออเดอร์</button>
-              </div>
+              <p class="font-black text-primary shrink-0">฿${Number(o.total).toFixed(2)}</p>
             </div>
-          `;
-        }).join('');
+            <p class="text-sm text-slate-500 mb-2">${escHtml(itemsSummary)}</p>
+            ${mode === 'making' ? '' : slipHtml}
+            <div class="flex gap-2">${actions}</div>
+          </div>
+        `;
+      },
+
+      // ปิดคิว: กดตอนส่งเครื่องดื่มให้ลูกค้าแล้ว ลูกค้าที่รออยู่คิวถัดไปจะเห็นตัวเลขลดลงทันที
+      async markOrderReadyAction(idx) {
+        const o = this.pendingOrders[idx];
+        if (!o) return;
+        const ok = await this.showConfirm(`ยืนยันว่าเครื่องดื่มของ ${o.customerName} เสร็จและส่งให้ลูกค้าแล้ว?`, '');
+        if (!ok) return;
+        this.showLoading();
+        google.script.run
+          .withSuccessHandler(res => {
+            this.hideLoading();
+            if (res && res.success) {
+              this.pendingOrders = this.pendingOrders.filter(x => x.id !== o.id);
+              this.renderPendingOrdersList();
+              this.checkPendingOrders();
+            } else {
+              this.showAlert((res && res.error) || 'ปิดคิวไม่สำเร็จ', '');
+              this.checkPendingOrders();
+            }
+          })
+          .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+          .markPendingOrderReady({ id: o.id, user: this.loggedInEmployee ? this.loggedInEmployee.name : '' });
       },
 
       // เดิมใช้ window.open() เปิดแท็บใหม่ แต่ใช้งานไม่ได้แน่นอนตอนแอปติดตั้งเป็น PWA แบบ standalone (ไม่มีแท็บให้เปิด)
@@ -1939,7 +1981,7 @@
         if (tab === 'report') this.initReportTab();
         if (tab === 'calendar') this.initCalendarTab();
         if (tab === 'backup') { this.fetchBackupList(); this.fetchArchiveList(); }
-        if (tab === 'onlineorder') { this.renderPaymentQrPreview(); this.loadOnlineOrderHistory(); this.restoreTableQr(); }
+        if (tab === 'onlineorder') { this.renderPaymentQrPreview(); this.renderQueueSettings(); this.loadOnlineOrderHistory(); this.restoreTableQr(); }
       },
 
       // ---- แท็บต้นทุน ----
@@ -2028,6 +2070,31 @@
         if (summary) summary.innerText = `คิดต้นทุนได้ ${pricedCount} เมนู จากทั้งหมด ${(this.menuData || []).length} เมนู`;
       },
 
+      // ค่าตั้งคิว เก็บใน shop_info เหมือน QR ชำระเงิน ใช้ saveShopInfo ตัวเดิม
+      renderQueueSettings() {
+        const perDrink = document.getElementById('queue-minutes-per-drink');
+        const windowMin = document.getElementById('queue-window-minutes');
+        if (perDrink) perDrink.value = Number(this.shopInfo.queueMinutesPerDrink) || '';
+        if (windowMin) windowMin.value = Number(this.shopInfo.queueWindowMinutes) || '';
+      },
+
+      saveQueueSettings(btn) {
+        const perDrink = Number(document.getElementById('queue-minutes-per-drink').value) || 0;
+        const windowMin = Number(document.getElementById('queue-window-minutes').value) || 0;
+        if (perDrink < 0 || windowMin < 0) return this.showAlert('ใส่ตัวเลขติดลบไม่ได้', '');
+        this.setBtnLoading(btn, true);
+        this.shopInfo.queueMinutesPerDrink = perDrink;
+        this.shopInfo.queueWindowMinutes = windowMin;
+        localStorage.setItem('pos_shopInfo', JSON.stringify(this.shopInfo));
+        google.script.run
+          .withSuccessHandler(() => {
+            this.setBtnLoading(btn, false);
+            this.showAlert('บันทึกการตั้งค่าคิวแล้ว', '');
+          })
+          .withFailureHandler(() => { this.setBtnLoading(btn, false); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+          .saveShopInfo({ queueMinutesPerDrink: perDrink, queueWindowMinutes: windowMin });
+      },
+
       renderPaymentQrPreview() {
         const img = document.getElementById('payment-qr-preview');
         if (!img) return;
@@ -2113,7 +2180,8 @@
           return;
         }
         const statusMap = {
-          confirmed: { label: 'ยืนยันแล้ว', cls: 'bg-emerald-100 text-emerald-600' },
+          confirmed: { label: 'กำลังทำ', cls: 'bg-amber-100 text-amber-600' },
+          ready: { label: 'ส่งให้ลูกค้าแล้ว', cls: 'bg-emerald-100 text-emerald-600' },
           rejected: { label: 'ปฏิเสธ', cls: 'bg-red-100 text-red-500' },
           cancelled: { label: 'ยกเลิกโดยลูกค้า', cls: 'bg-slate-100 text-slate-500' },
         };
