@@ -221,6 +221,19 @@
       .status-lift,
       .status-rise,
       .queue-num-pop { animation: none; }
+
+      /* หน้าเครื่องขาย รอบที่สี่ */
+      .view-entering,
+      .sum-cards.is-entering > *,
+      #cart-queue-chip.is-pop,
+      #cart-paid-mark.is-pop,
+      #cart-container.is-paid,
+      .cart-line-sweep,
+      .badge-alert,
+      .icon-shake { animation: none; }
+      .cart-line-sweep { opacity: 0; }
+      #cart-paid-mark.is-pop::before,
+      #cart-paid-mark.is-pop::after { display: none; }
       /* วงแหวนไม่มีความหมายถ้าไม่ขยาย ซ่อนไปเลยดีกว่าค้างเป็นวงนิ่งๆ */
       .status-ring::before,
       .status-ring::after { display: none; }
@@ -441,4 +454,87 @@
       0%   { transform: scale(1); }
       40%  { transform: scale(1.45); }
       100% { transform: scale(1); }
+    }
+
+    /* ===== หน้าเครื่องขาย: จังหวะที่เหลือ =====
+       ระดับ "เต็ม" สำหรับตอนปิดบิล ตามที่เจ้าของร้านเลือกจากหน้าทดลอง
+       ข้อห้ามเดิมยังอยู่: ห้ามหน่วงการใส่คลาส hidden เพราะมีโค้ดอ่านคลาสนี้เป็นสถานะจริงอยู่สามที่ */
+
+    /* ---- สลับหน้า ขาย/ตั้งค่า ---- */
+    .view-entering { animation: view-in .26s cubic-bezier(0.2, 0.8, 0.3, 1); }
+    @keyframes view-in {
+      from { opacity: 0; transform: translateY(10px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* ---- การ์ดตัวเลขหน้าสรุป: ใช้ keyframes card-in ตัวเดียวกับตารางเมนู ---- */
+    .sum-cards.is-entering > * {
+      animation: card-in .44s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+    }
+    .sum-cards.is-entering > *:nth-child(1) { animation-delay: 0ms; }
+    .sum-cards.is-entering > *:nth-child(2) { animation-delay: 60ms; }
+    .sum-cards.is-entering > *:nth-child(3) { animation-delay: 120ms; }
+    .sum-cards.is-entering > *:nth-child(4) { animation-delay: 180ms; }
+
+    /* ---- ออเดอร์ออนไลน์เข้าใหม่ ----
+       ปุ่มสั่นครั้งเดียวตอนตัวเลข "เพิ่มขึ้น" เท่านั้น
+       หน้านี้ถามเซิร์ฟเวอร์ทุก 8 วินาที ถ้าไม่กันไว้ปุ่มจะสั่นทั้งวันโดยไม่มีอะไรใหม่เลย */
+    .icon-shake { animation: icon-shake .7s cubic-bezier(.36, .07, .19, .97); }
+    @keyframes icon-shake {
+      0%, 100% { transform: rotate(0); }
+      12% { transform: rotate(-13deg); }
+      26% { transform: rotate(11deg); }
+      40% { transform: rotate(-8deg); }
+      54% { transform: rotate(6deg); }
+      68% { transform: rotate(-3deg); }
+      82% { transform: rotate(2deg); }
+    }
+    /* ใช้ keyframes badge-bump ตัวเดียวกับตัวเลขบนตะกร้า ไม่ต้องเขียนใหม่ */
+    .badge-alert { display: inline-block; animation: badge-bump .42s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+    /* ---- ปิดบิล ----
+       ทุกอย่างอยู่ในคอลัมน์ตะกร้า ไม่ใช่กลางจอ เพราะหน้าต่างถามพิมพ์ใบเสร็จเด้งทับกลางจอในจังหวะเดียวกัน */
+    .cart-line-sweep {
+      animation: cart-line-sweep .26s ease-in forwards;
+      animation-delay: calc(var(--k, 0) * 45ms);
+      pointer-events: none;
+    }
+    @keyframes cart-line-sweep {
+      to { opacity: 0; transform: translateX(26px); }
+    }
+
+    #cart-queue-chip.is-pop { animation: chip-pop .5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes chip-pop {
+      0%   { opacity: 0; transform: scale(.5) translateY(-6px); }
+      55%  { opacity: 1; transform: scale(1.14); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    #cart-container.is-paid { animation: cart-paid-flash .6s ease-out; }
+    @keyframes cart-paid-flash {
+      0%   { background-color: #ffffff; }
+      25%  { background-color: #ecfdf5; }
+      100% { background-color: #ffffff; }
+    }
+
+    #cart-paid-mark.is-pop { animation: paid-pop .5s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes paid-pop {
+      0%   { opacity: 0; transform: translate(-50%, -50%) scale(.5); }
+      55%  { opacity: 1; transform: translate(-50%, -50%) scale(1.16); }
+      100% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+    }
+    /* วงแหวนสองวงกระจายออก ระดับ "เต็ม" ชุดเดียวกับหน้าลูกค้าตอนเครื่องดื่มเสร็จ */
+    #cart-paid-mark.is-pop::before,
+    #cart-paid-mark.is-pop::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 3px solid currentColor;
+      animation: paid-ring .85s cubic-bezier(.2, .7, .3, 1) backwards;
+    }
+    #cart-paid-mark.is-pop::after { animation-delay: .14s; }
+    @keyframes paid-ring {
+      from { opacity: .65; transform: scale(1); }
+      to   { opacity: 0;   transform: scale(2.3); }
     }

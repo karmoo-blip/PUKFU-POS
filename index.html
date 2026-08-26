@@ -184,7 +184,7 @@
       </div>
 
             <!-- ส่วนของตะกร้าสินค้า (Cart Section) -->
-      <div id="cart-container" class="w-full lg:w-[400px] bg-white lg:shadow-sm shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] flex flex-col h-[72px] lg:h-full border-t lg:border-t-0 lg:border-l border-sand shrink-0 transition-all duration-300 z-30">
+      <div id="cart-container" class="relative w-full lg:w-[400px] bg-white lg:shadow-sm shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] flex flex-col h-[72px] lg:h-full border-t lg:border-t-0 lg:border-l border-sand shrink-0 transition-all duration-300 z-30">
         
         <!-- Cart Header -->
         <div id="cart-mobile-header" class="p-4 lg:p-5 bg-white border-b border-sand flex justify-between items-center cursor-pointer lg:cursor-default h-[72px] shrink-0 relative" onclick="Controller.toggleMobileCart()">
@@ -195,6 +195,8 @@
             <button id="btn-show-held-orders" onclick="event.stopPropagation(); Controller.openHeldOrdersModal()" class="hidden ml-2 bg-amber-100 text-amber-600 text-xs px-2 py-1 rounded-lg font-bold hover:bg-amber-200 shadow-sm whitespace-nowrap shrink-0">
               พักไว้ (0)
             </button>
+            <!-- เลขคิวของบิลที่เพิ่งปิด เดิมมีแต่บนใบเสร็จที่พิมพ์ออกมา บนจอไม่เคยโชว์เลย -->
+            <span id="cart-queue-chip" class="hidden ml-2 bg-mustard text-secondary text-xs px-2.5 py-1 rounded-full font-black border border-amber-300 whitespace-nowrap shrink-0"></span>
           </div>
           <div class="flex items-center gap-3">
             <span id="cart-total-mobile" class="text-primary font-bold lg:hidden">฿0.00</span>
@@ -205,6 +207,11 @@
         
         <!-- Cart Items -->
         <div id="cart-items" class="flex-1 overflow-y-auto p-5 flex flex-col gap-3 bg-cream">
+        </div>
+
+        <!-- เครื่องหมายถูกตอนปิดบิล วางทับกลางคอลัมน์ตะกร้า ไม่ใช่กลางจอ เพราะหน้าต่างถามพิมพ์บิลเด้งทับกลางจอทันที -->
+        <div id="cart-paid-mark" class="hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-emerald-100 text-emerald-500 flex items-center justify-center z-40 pointer-events-none">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem"><path d="M20 6L9 17l-5-5"/></svg>
         </div>
         
         <!-- Cart Footer -->
@@ -285,7 +292,7 @@
       </div>
 
       <div id="settings-panel-summary" class="settings-panel hidden">
-        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6">
+        <div class="sum-cards grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6">
           <div class="bg-white p-4 lg:p-6 rounded-3xl border border-sand shadow-sm">
             <div class="w-9 h-9 lg:w-11 lg:h-11 bg-primary/15 rounded-2xl flex items-center justify-center text-primary mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg></div>
             <p class="text-slate-400 font-bold text-xs lg:text-sm">Total Sales</p>
@@ -308,7 +315,7 @@
             <p id="sum-cups" class="text-xl lg:text-3xl font-black text-secondary mt-1">0</p>
           </div>
         </div>
-        <div class="grid grid-cols-2 gap-3 lg:gap-6 mt-3 lg:mt-6">
+        <div class="sum-cards grid grid-cols-2 gap-3 lg:gap-6 mt-3 lg:mt-6">
           <div class="bg-white p-4 lg:p-6 rounded-3xl border border-sand shadow-sm">
             <div class="w-9 h-9 lg:w-11 lg:h-11 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M3 3v18h18"/><path d="M7 9l4 5 3-3 5 7"/></svg></div>
             <p class="text-slate-400 font-bold text-xs lg:text-sm">ต้นทุนรวม (Cost)</p>

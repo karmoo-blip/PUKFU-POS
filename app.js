@@ -1232,8 +1232,10 @@
         
         const displayCups = this.serverCupCount + offlineCups;
         
+        // จำนวนแก้ววิ่งขึ้นตอนค่าเปลี่ยน ถ้าค่าเท่าเดิม countTo จะเขียนตัวเลขเฉยๆ ไม่เล่นอนิเมชัน
+        // (ฟังก์ชันนี้ถูกเรียกซ้ำทุกครั้งที่ซิงก์ ซึ่งส่วนใหญ่ค่าไม่เปลี่ยน)
         const el = document.getElementById('sum-cups');
-        if (el) el.innerText = displayCups;
+        if (el) this.countTo(el, this.readMoney(el), Number(displayCups) || 0, 600, {});
       },
 
       // เพิ่มฟังก์ชันสำหรับปุ่ม Reset ยอดแก้ว
@@ -1248,8 +1250,67 @@
       },
 
       switchView(viewId) {
-        document.querySelectorAll('.view').forEach(v => v.classList.add('hidden'));
-        document.getElementById(`view-${viewId}`).classList.remove('hidden');
+        document.querySelectorAll('.view').forEach(v => { v.classList.add('hidden'); v.classList.remove('view-entering'); });
+        const el = document.getElementById(`view-${viewId}`);
+        el.classList.remove('hidden');
+        // ใส่คลาสอนิเมชันเฉพาะฝั่ง "โผล่" เท่านั้น ไม่หน่วงการใส่ hidden
+        // เพราะมีโค้ดอ่านคลาส hidden เป็นสถานะจริงอยู่หลายที่ (ดูคอมเมนต์ที่ closeModal)
+        void el.offsetWidth;
+        el.classList.add('view-entering');
+      },
+
+      // เครื่องที่ตั้งค่าลดการเคลื่อนไหวไว้ ต้องเช็คเองสำหรับอนิเมชันที่สั่งจาก JS
+      // ตัวที่เขียนด้วย CSS ล้วนมี @media คุมให้อยู่แล้ว
+      reducedMotion() {
+        return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      },
+
+      // ใส่คลาสอนิเมชันแบบเล่นซ้ำได้ (ต้อง reflow คั่น ไม่งั้นเล่นแค่ครั้งแรก)
+      replayClass(el, ...classes) {
+        if (!el || this.reducedMotion()) return;
+        el.classList.remove(...classes);
+        void el.offsetWidth;
+        el.classList.add(...classes);
+      },
+
+      // นับตัวเลขวิ่งจากค่าเดิมไปค่าใหม่ ยกเลิกของเดิมก่อนเสมอ
+      // กันสองอนิเมชันแย่งกันเขียนช่องเดียวกันตอนกดเปลี่ยนวันรัวๆ
+      countTo(el, from, to, ms, opts) {
+        if (!el) return;
+        const o = opts || {};
+        const fmt = (v) => (o.money
+          ? '฿' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          : String(Math.round(v)));
+        if (!this._counters) this._counters = new Map();
+        const prev = this._counters.get(el);
+        if (prev) cancelAnimationFrame(prev);
+        this._counters.delete(el);
+        if (this.reducedMotion() || typeof requestAnimationFrame !== 'function' || from === to) {
+          el.innerText = fmt(to);
+          return;
+        }
+        const start = performance.now();
+        const step = (now) => {
+          const t = Math.min(1, (now - start) / ms);
+          const eased = 1 - Math.pow(1 - t, 3);
+          el.innerText = fmt(from + (to - from) * eased);
+          if (t < 1) this._counters.set(el, requestAnimationFrame(step));
+          else { this._counters.delete(el); el.innerText = fmt(to); }
+        };
+        this._counters.set(el, requestAnimationFrame(step));
+      },
+
+      // อ่านตัวเลขที่แสดงอยู่กลับออกมา ใช้เป็นจุดตั้งต้นของการนับ
+      readMoney(el) {
+        if (!el) return 0;
+        const n = parseFloat(String(el.innerText).replace(/[^0-9.-]/g, ''));
+        return Number.isFinite(n) ? n : 0;
+      },
+
+      countMoney(id, value) {
+        const el = typeof id === 'string' ? document.getElementById(id) : id;
+        if (!el) return;
+        this.countTo(el, this.readMoney(el), Number(value) || 0, 700, { money: true });
       },
 
       openModal(id) {
@@ -1567,9 +1628,13 @@
         const { expired: expiredList, soon: soonList } = this._getActiveNotifications();
 
         const count = expiredList.length + soonList.length;
+        // ฟังก์ชันนี้ถูกเรียกทุก 60 วินาที ส่วนใหญ่ได้เลขเดิม เด้งเฉพาะตอนเพิ่มขึ้นจริง
+        const rose = count > (this._lastNotifCount || 0);
+        this._lastNotifCount = count;
         document.querySelectorAll('.notification-badge').forEach(badge => {
           badge.innerText = count;
           badge.classList.toggle('hidden', count === 0);
+          if (rose) this.replayClass(badge, 'badge-alert');
         });
 
         const newlyExpired = expiredList.filter(n => !this._alertedNotificationIds.has(n.id));
@@ -1592,9 +1657,16 @@
             const waiting = this.pendingOrders.filter(o => (o.status || 'pending') === 'pending');
             const count = waiting.length;
             const badge = document.getElementById('pending-order-badge');
+            // เช็คทุก 8 วินาที = 450 ครั้งต่อชั่วโมง ถ้าไม่กันไว้ปุ่มจะสั่นทั้งวันโดยไม่มีอะไรใหม่
+            const rose = count > (this._lastPendingCount || 0);
+            this._lastPendingCount = count;
             if (badge) {
               badge.innerText = count;
               badge.classList.toggle('hidden', count === 0);
+              if (rose) {
+                this.replayClass(badge, 'badge-alert');
+                this.replayClass(badge.parentElement, 'icon-shake');
+              }
             }
             const newlyArrived = waiting.filter(o => !this._alertedPendingOrderIds.has(o.id));
             if (newlyArrived.length > 0) {
@@ -4371,7 +4443,8 @@ renderReport(r) {
           .archiveOldData({ employeeId: auth.employeeId, pin: auth.pin });
       },
 
-      renderMenu() {
+      renderMenu(opts) {
+        const _o = opts || {};
         const grid = document.getElementById('menu-grid');
         
         const filteredItems = this.activeCategory === 'All'
@@ -4428,7 +4501,9 @@ renderReport(r) {
         }).join('');
 
         // reflow ก่อนใส่คลาสใหม่ ไม่งั้นอนิเมชันเล่นแค่ครั้งแรกครั้งเดียว
+        // ข้ามได้เมื่อวาดใหม่เพราะเหตุเล็กๆ เช่นกดสินค้าหมดหนึ่งชิ้น ไม่ใช่เพราะเปลี่ยนหมวด
         grid.classList.remove('is-entering');
+        if (_o.noStagger) return;
         void grid.offsetWidth;
         grid.classList.add('is-entering');
       },
@@ -4451,7 +4526,8 @@ renderReport(r) {
                   this.soldOutItems = this.soldOutItems.filter(name => name !== item.name);
                 }
                 localStorage.setItem('pos_soldOut', JSON.stringify(this.soldOutItems));
-                this.renderMenu();
+                // เดิมเรียก renderMenu() เฉยๆ ทำให้การ์ดทั้ง 12 ใบไล่กันขึ้นมาใหม่หมด เพราะป้าย "หมด" ใบเดียวเปลี่ยน
+                this.renderMenu({ noStagger: true });
                 this.setIndicator('synced');
               } else {
                 this.setIndicator('error');
@@ -4642,7 +4718,12 @@ renderReport(r) {
 
         // แก้ไขรายการเดิมไม่ต้องมีของลอย เพราะไม่ได้เพิ่มของใหม่เข้าตะกร้า
         // จับตำแหน่งหน้าต่างไว้ก่อนปิด เพราะ closeModal ใช้ display:none แล้ววัดขนาดไม่ได้อีก
-        if (!isEditing) this.flyToCart(document.getElementById('modal-product'));
+        if (!isEditing) {
+          this.flyToCart(document.getElementById('modal-product'));
+          // การ์ดที่กดสั่งเด้งรับ คู่กับของที่ลอยไปตะกร้า
+          const srcIdx = this.menuData.indexOf(this.activeProduct);
+          if (srcIdx !== -1) this.replayClass(document.querySelector(`#menu-grid [data-menu-idx="${srcIdx}"]`), 'card-added');
+        }
 
         this.renderCart(changed);
         this.closeModal('modal-product');
@@ -4815,6 +4896,8 @@ renderReport(r) {
           if(btnPrintSlip) btnPrintSlip.classList.remove('hidden');
           if(btnCheckout) { btnCheckout.classList.remove('flex-1'); btnCheckout.classList.add('flex-[2]'); }
         }
+        if (this.cart.length > 0) this.clearQueueChip();
+
         document.getElementById('cart-total').innerText = `฿${total.toFixed(2)}`;
         
         const totalMobileEl = document.getElementById('cart-total-mobile');
@@ -5166,8 +5249,13 @@ renderReport(r) {
         this.renderHistory();
         this.updateCupUI();
 
+        // จังหวะปิดบิล เล่นแบบยิงแล้วลืม ห้ามมี await ในเส้นทางนี้เด็ดขาด
+        // เพราะข้างล่างต้องปลดล็อกปุ่ม Confirm Order ให้ทันและต้องเด้งถามพิมพ์บิลต่อทันที
+        this.playBillDone(total, qStr);
+
         this.cart = [];
-        this.renderCart();
+        if (this.reducedMotion()) this.renderCart();
+        else setTimeout(() => this.renderCart(), 300);
         this.closeModal('modal-checkout');
 
         this.processSyncQueue();
@@ -5188,6 +5276,46 @@ renderReport(r) {
           document.getElementById('btn-submit-order').disabled = false;
           document.getElementById('btn-submit-order').innerText = "Confirm Order";
         }
+      },
+
+      // ยืนยันสายตาว่าบิลปิดแล้ว: แถวกวาดออก ยอดนับลงศูนย์ ป้ายเลขคิวโผล่ และเครื่องหมายถูกพร้อมวงแหวน
+      // ทุกอย่างอยู่ในคอลัมน์ตะกร้า เพราะหน้าต่างถามพิมพ์ใบเสร็จเด้งทับกลางจอในจังหวะเดียวกัน
+      playBillDone(total, queueStr) {
+        const chip = document.getElementById('cart-queue-chip');
+        if (chip && queueStr) {
+          chip.innerText = 'คิว ' + queueStr;
+          chip.classList.remove('hidden');
+          this.replayClass(chip, 'is-pop');
+        }
+        if (this.reducedMotion()) return;
+
+        document.querySelectorAll('#cart-items [data-cart-idx]').forEach((row, k) => {
+          row.style.setProperty('--k', k);
+          row.classList.add('cart-line-sweep');
+        });
+
+        const totalEl = document.getElementById('cart-total');
+        const totalMobileEl = document.getElementById('cart-total-mobile');
+        this.countTo(totalEl, Number(total) || 0, 0, 420, { money: true });
+        this.countTo(totalMobileEl, Number(total) || 0, 0, 420, { money: true });
+
+        this.replayClass(document.getElementById('cart-container'), 'is-paid');
+
+        // บนมือถือแถบตะกร้าย่ออยู่แค่ 72px เครื่องหมายถูกจะโดนบีบจนดูไม่ออก โชว์เฉพาะตอนที่เห็นตัวตะกร้าจริงๆ
+        const cartBodyVisible = window.innerWidth >= 1024 || this.isCartOpenMobile;
+        const mark = document.getElementById('cart-paid-mark');
+        if (mark && cartBodyVisible) {
+          mark.classList.remove('hidden');
+          this.replayClass(mark, 'is-pop');
+          clearTimeout(this._paidMarkTimer);
+          this._paidMarkTimer = setTimeout(() => mark.classList.add('hidden'), 1300);
+        }
+      },
+
+      // ป้ายเลขคิวค้างไว้จนกว่าจะเริ่มบิลใหม่ พนักงานจะได้ยังเรียกคิวได้หลังหน้าต่างพิมพ์บิลปิดไปแล้ว
+      clearQueueChip() {
+        const chip = document.getElementById('cart-queue-chip');
+        if (chip) { chip.classList.add('hidden'); chip.classList.remove('is-pop'); }
       },
 
       getQueueNumber() {
@@ -6230,16 +6358,14 @@ renderReport(r) {
           .withSuccessHandler(stats => {
             this.setBtnLoading(btn, false);
             const floatCash = stats.floatCash || 0;
-            const expectedDrawer = stats.cash + floatCash; 
-            document.getElementById('sum-total').innerText = `฿${stats.total.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-            document.getElementById('sum-cash').innerText = `฿${stats.cash.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-            document.getElementById('sum-qr').innerText = `฿${stats.qr.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-            
-            const sumFloatEl = document.getElementById('sum-float');
-            if (sumFloatEl) sumFloatEl.innerText = `฿${floatCash.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-            
-            const expectedDrawerEl = document.getElementById('sum-expected-drawer');
-            if (expectedDrawerEl) expectedDrawerEl.innerText = `฿${expectedDrawer.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            const expectedDrawer = stats.cash + floatCash;
+            // ตัวเลขวิ่งขึ้นแทนที่จะโผล่มาเต็มจำนวน หน้านี้เปิดเฉพาะตอนกดแท็บ ไม่ได้อยู่บน timer จึงไม่วิ่งซ้ำเอง
+            this.countMoney('sum-total', stats.total);
+            this.countMoney('sum-cash', stats.cash);
+            this.countMoney('sum-qr', stats.qr);
+            this.countMoney('sum-float', floatCash);
+            this.countMoney('sum-expected-drawer', expectedDrawer);
+            document.querySelectorAll('.sum-cards').forEach(g => this.replayClass(g, 'is-entering'));
             
             // --- คำนวณต้นทุนและกำไรจาก History ภายในแอป ---
             const todayStr = new Date().toLocaleDateString();
@@ -6275,19 +6401,15 @@ renderReport(r) {
             totalProfit -= wasteCost;
             totalProfit -= refundedTotal;
 
-            const costEl = document.getElementById('sum-cost');
-            const profitEl = document.getElementById('sum-profit');
-            if (costEl) costEl.innerText = `฿${totalCost.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
-            if (profitEl) profitEl.innerText = `฿${totalProfit.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            this.countMoney('sum-cost', totalCost);
+            this.countMoney('sum-profit', totalProfit);
 
             const wasteBanner = document.getElementById('sum-waste-banner');
-            const wasteCostEl = document.getElementById('sum-waste-cost');
-            if (wasteCostEl) wasteCostEl.innerText = `฿${wasteCost.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            this.countMoney('sum-waste-cost', wasteCost);
             if (wasteBanner) wasteBanner.classList.toggle('hidden', wasteCost <= 0);
 
             const refundBanner = document.getElementById('sum-refund-banner');
-            const refundTotalEl = document.getElementById('sum-refund-total');
-            if (refundTotalEl) refundTotalEl.innerText = `฿${refundedTotal.toLocaleString(undefined, {minimumFractionDigits: 2})}`;
+            this.countMoney('sum-refund-total', refundedTotal);
             if (refundBanner) refundBanner.classList.toggle('hidden', refundedTotal <= 0);
             // ------------------------------------------
 
