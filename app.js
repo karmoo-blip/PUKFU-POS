@@ -1095,7 +1095,7 @@
             data.vatEnabled = (data.vatEnabled === true || data.vatEnabled === 'true');
             data.vatRate = Number(data.vatRate) || 7;
             this.shopInfo = data;
-            localStorage.setItem('pos_shopInfo', JSON.stringify(data));
+            this.cacheShopInfo();
 
             // ดึงการตั้งค่าเครื่องพิมพ์ที่ซิงก์มาจาก shop_info ก้อนเดียวกัน (ไม่มีตารางแยก เก็บรวมกันไว้)
             // merge ทับของเดิมในเครื่อง ไม่ replace ทั้งก้อน กันกรณีเครื่องนี้ยังไม่เคยซิงก์ค่าพวกนี้ขึ้นไปเลย
@@ -2123,7 +2123,7 @@
         this.setBtnLoading(btn, true);
         this.shopInfo.queueMinutesPerDrink = perDrink;
         this.shopInfo.queueWindowMinutes = windowMin;
-        localStorage.setItem('pos_shopInfo', JSON.stringify(this.shopInfo));
+        this.cacheShopInfo();
         google.script.run
           .withSuccessHandler(() => {
             this.setBtnLoading(btn, false);
@@ -2131,6 +2131,41 @@
           })
           .withFailureHandler(() => { this.setBtnLoading(btn, false); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
           .saveShopInfo({ queueMinutesPerDrink: perDrink, queueWindowMinutes: windowMin });
+      },
+
+      // เก็บสำเนาข้อมูลร้านไว้ในเครื่องเผื่อออฟไลน์ ตัวจริงอยู่ที่เซิร์ฟเวอร์เสมอ
+      // ห้ามโยน error ออกไปเด็ดขาด พื้นที่ในเครื่องเต็มไม่ควรทำให้ค่าที่เก็บบนเซิร์ฟเวอร์พังตาม
+      cacheShopInfo() {
+        try {
+          localStorage.setItem('pos_shopInfo', JSON.stringify(this.shopInfo));
+          return true;
+        } catch (e) {
+          // รูป QR เป็นก้อนใหญ่ที่สุดในนี้ ตัดออกแล้วลองใหม่ ค่าอื่นจะได้ยังแคชได้อยู่
+          try {
+            const { paymentQrImage, ...rest } = this.shopInfo;
+            localStorage.setItem('pos_shopInfo', JSON.stringify(rest));
+          } catch (e2) { /* เต็มจริงๆ ปล่อยไป รอบหน้าโหลดจากเซิร์ฟเวอร์ได้ */ }
+          return false;
+        }
+      },
+
+      // หุ้ม google.script.run ให้ await ได้ จะได้รู้ผลจริงก่อนบอกผู้ใช้ว่าสำเร็จ
+      saveShopInfoRemote(patch) {
+        return new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .saveShopInfo(patch);
+        });
+      },
+
+      getShopInfoRemote() {
+        return new Promise((resolve, reject) => {
+          google.script.run
+            .withSuccessHandler(resolve)
+            .withFailureHandler(reject)
+            .getShopInfo();
+        });
       },
 
       renderPaymentQrPreview() {
@@ -2144,35 +2179,57 @@
         }
       },
 
+      // ลำดับสำคัญมาก: ส่งขึ้นเซิร์ฟเวอร์ให้สำเร็จก่อน แล้วค่อยอัปเดตหน้าจอกับแคชในเครื่อง
+      // ของเดิมเขียน localStorage ก่อนยิง API พอพื้นที่ในเครื่องเต็ม setItem โยน error
+      // บรรทัดที่ส่งรูปขึ้นเซิร์ฟเวอร์จึงไม่เคยได้ทำงาน รูปเลยไม่เคยไปถึงลูกค้าสักครั้ง
       async handlePaymentQrUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
         this.showLoading();
         try {
-          const base64 = await resizeImageBase64(file, 600, 'image/jpeg', 0.85);
-          this.shopInfo.paymentQrImage = base64;
+          let base64;
+          try {
+            // เก็บเป็น PNG ไม่ใช่ JPEG: QR ถูกบีบแบบมีสูญเสียแล้วขอบช่องจะเบลอ กล้องลูกค้าอ่านยากขึ้น
+            base64 = await resizeImageBase64(file, 600, 'image/png');
+            if (base64.length > 400000) base64 = await resizeImageBase64(file, 400, 'image/png');
+          } catch (imgErr) {
+            throw new Error('ไฟล์รูปนี้เปิดไม่ได้ ลองบันทึกเป็น JPG หรือ PNG แล้วอัพโหลดใหม่', { cause: imgErr });
+          }
+
+          await this.saveShopInfoRemote({ paymentQrImage: base64 });
+
+          // อ่านกลับจากเซิร์ฟเวอร์ก่อนบอกว่าสำเร็จ จะได้ไม่ขึ้นว่าเรียบร้อยทั้งที่ยังไม่ได้เก็บ
+          const info = await this.getShopInfoRemote();
+          if (!info || !info.paymentQrImage) {
+            throw new Error('เซิร์ฟเวอร์ยังไม่ได้เก็บรูปไว้ กรุณาลองใหม่อีกครั้ง');
+          }
+
+          this.shopInfo.paymentQrImage = info.paymentQrImage;
+          this.cacheShopInfo();
           this.renderPaymentQrPreview();
-          localStorage.setItem('pos_shopInfo', JSON.stringify(this.shopInfo));
-          google.script.run
-            .withSuccessHandler(() => {})
-            .withFailureHandler(() => this.showAlert('บันทึกรูป QR ไม่สำเร็จ กรุณาลองใหม่', ''))
-            .saveShopInfo({ paymentQrImage: base64 });
           this.hideLoading();
-          this.showAlert('อัพโหลดรูป QR ชำระเงินเรียบร้อยแล้ว', '');
+          this.showAlert('อัพโหลดรูป QR ชำระเงินเรียบร้อยแล้ว ลูกค้าจะเห็นรูปนี้ตอนสั่งออนไลน์', '');
         } catch (e) {
           this.hideLoading();
-          this.showAlert('อัพโหลดรูปไม่สำเร็จ: ' + e.message, '');
+          this.showAlert('อัพโหลดรูป QR ไม่สำเร็จ: ' + ((e && e.message) || 'ไม่ทราบสาเหตุ'), '');
+        } finally {
+          // ล้างค่าในช่องเลือกไฟล์ ไม่งั้นเลือกไฟล์เดิมซ้ำอีกครั้งจะไม่เกิด event
+          event.target.value = '';
         }
       },
 
-      removePaymentQr() {
-        this.shopInfo.paymentQrImage = '';
-        this.renderPaymentQrPreview();
-        localStorage.setItem('pos_shopInfo', JSON.stringify(this.shopInfo));
-        google.script.run
-          .withSuccessHandler(() => {})
-          .withFailureHandler(() => {})
-          .saveShopInfo({ paymentQrImage: '' });
+      async removePaymentQr() {
+        this.showLoading();
+        try {
+          await this.saveShopInfoRemote({ paymentQrImage: '' });
+          this.shopInfo.paymentQrImage = '';
+          this.cacheShopInfo();
+          this.renderPaymentQrPreview();
+          this.hideLoading();
+        } catch (e) {
+          this.hideLoading();
+          this.showAlert('ลบรูป QR ไม่สำเร็จ: ' + ((e && e.message) || 'ไม่ทราบสาเหตุ'), '');
+        }
       },
 
       generateTableQr() {
@@ -5216,7 +5273,7 @@ renderReport(r) {
           vatEnabled: document.getElementById('vat-enabled').checked,
           vatRate: Number(document.getElementById('vat-rate').value) || 7
         };
-        localStorage.setItem('pos_shopInfo', JSON.stringify(this.shopInfo));
+        this.cacheShopInfo();
 
         // ส่งทั้งข้อมูลร้านและการตั้งค่าเครื่องพิมพ์ไปเก็บที่ backend ไปพร้อมกัน (shop_info เป็น key-value เก็บได้ทุกอย่าง)
         // เครื่องอื่นที่ล็อกอินจะได้เห็นค่าเดียวกัน ไม่ต้องตั้งใหม่ทีละเครื่อง
