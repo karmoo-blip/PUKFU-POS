@@ -204,12 +204,26 @@
       .modal-sheet.modal-opening > *,
       .modal-sheet-mobile.modal-opening > *,
       #menu-grid.is-entering > *,
+      #order-menu-grid.is-entering > *,
       .card-added,
       #cart-badge-mobile.is-bump,
       .cart-line-in,
       .cart-qty-pop { animation: none; }
       .cart-line-out { animation: none; opacity: 0; }
-      #menu-cat-indicator { transition: none; }
+      #menu-cat-indicator,
+      #order-cat-indicator { transition: none; }
+
+      /* หน้าสั่งของลูกค้า */
+      #order-cart-bar.is-rising,
+      #view-submitted.view-enter,
+      #view-submitted.view-enter > * > *,
+      .status-pop,
+      .status-lift,
+      .status-rise,
+      .queue-num-pop { animation: none; }
+      /* วงแหวนไม่มีความหมายถ้าไม่ขยาย ซ่อนไปเลยดีกว่าค้างเป็นวงนิ่งๆ */
+      .status-ring::before,
+      .status-ring::after { display: none; }
 
       #pin-slots.is-dealing .pin-slot,
       .pin-slot.is-pop,
@@ -224,7 +238,8 @@
        ทุกอันเป็น transform/opacity ล้วน ไม่แตะ layout จะได้ไม่ทำให้เครื่องหน่วง */
 
     /* ---- เปลี่ยนหมวด: การ์ดไล่กันขึ้นมาทีละใบ ---- */
-    #menu-grid.is-entering > * {
+    #menu-grid.is-entering > *,
+    #order-menu-grid.is-entering > * {
       animation: card-in .44s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
       animation-delay: calc(var(--i, 0) * 55ms);
     }
@@ -235,9 +250,12 @@
 
     /* ---- แถบหมวด: ตัวชี้ที่เลื่อนตามปุ่มที่เลือก ----
        ตัวชี้อยู่นอก track ที่ถูกวาดใหม่ ไม่งั้นโดน innerHTML ล้างทุกครั้งที่เปลี่ยนหมวด */
-    #menu-categories { position: relative; }
-    #menu-categories-track { display: flex; gap: .5rem; position: relative; z-index: 1; }
-    #menu-cat-indicator {
+    #menu-categories,
+    #order-categories { position: relative; }
+    #menu-categories-track,
+    #order-categories-track { display: flex; gap: .5rem; position: relative; z-index: 1; }
+    #menu-cat-indicator,
+    #order-cat-indicator {
       position: absolute;
       top: 0;
       left: 0;
@@ -251,7 +269,8 @@
       z-index: 0;
       opacity: 0;
     }
-    #menu-cat-indicator.is-ready { opacity: 1; }
+    #menu-cat-indicator.is-ready,
+    #order-cat-indicator.is-ready { opacity: 1; }
 
     /* ---- กดสั่ง: การ์ดเด้งรับ ---- */
     .card-added { animation: card-added .3s cubic-bezier(0.34, 1.56, 0.64, 1); }
@@ -339,4 +358,87 @@
       .modal-sheet-mobile.modal-opening > * {
         animation: modal-sheet-in .32s cubic-bezier(0.34, 1.56, 0.64, 1);
       }
+    }
+
+    /* ===== หน้าสั่งของลูกค้า (order.html) =====
+       ใช้ระดับเดียวกับหน้าขายของพนักงานทุกอย่าง ยกเว้นจังหวะเปลี่ยนสถานะที่เลือกไว้ระดับ "เต็ม"
+       ข้อควรระวังที่สำคัญที่สุด: หน้านี้ถามเซิร์ฟเวอร์ทุก 12 วินาที ได้คำตอบเดิมเป็นส่วนใหญ่
+       อนิเมชันทุกตัวในกลุ่มสถานะจึงต้องถูกสั่งจาก order.js เฉพาะตอนค่าเปลี่ยนจริงเท่านั้น */
+
+    /* ---- แถบตะกร้าล่างโผล่ครั้งแรก ----
+       แถบนี้เป็นลูกของ body แบบ flex (ไม่ได้ fixed เหมือนฝั่งพนักงาน) การโชว์จึงดันเนื้อหาเมนูขึ้น
+       ขยับด้วย transform อย่างเดียว ตำแหน่งจริงเลยไม่เปลี่ยน ไม่มีอาการเนื้อหากระตุกตาม */
+    #order-cart-bar.is-rising { animation: order-bar-in .32s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes order-bar-in {
+      from { opacity: 0; transform: translateY(100%); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* ---- หน้าสถานะหลังส่งออเดอร์: ทั้งหน้าจางขึ้นมา แล้วการ์ดไล่กันทีละใบ ---- */
+    #view-submitted.view-enter { animation: order-view-in .34s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes order-view-in {
+      from { opacity: 0; transform: translateY(18px); }
+      to   { opacity: 1; transform: none; }
+    }
+    #view-submitted.view-enter > div > * {
+      animation: order-box-in .42s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+    }
+    #view-submitted.view-enter > div > *:nth-child(1) { animation-delay: 0ms; }
+    #view-submitted.view-enter > div > *:nth-child(2) { animation-delay: 70ms; }
+    #view-submitted.view-enter > div > *:nth-child(3) { animation-delay: 140ms; }
+    #view-submitted.view-enter > div > *:nth-child(4) { animation-delay: 210ms; }
+    #view-submitted.view-enter > div > *:nth-child(5) { animation-delay: 280ms; }
+    @keyframes order-box-in {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* ---- จังหวะเปลี่ยนสถานะ ----
+       ไอคอนเด้งใช้ทุกสถานะ ส่วนวงแหวนกับการ์ดยกตัวใส่เฉพาะข่าวดี (ร้านรับออเดอร์ / เครื่องดื่มเสร็จ)
+       ข่าวร้ายอย่างถูกปฏิเสธหรือยกเลิก ได้แค่ไอคอนเด้ง จะได้ไม่ดูเหมือนกำลังฉลอง */
+    #submitted-status-icon { position: relative; }
+
+    .status-pop { animation: status-pop .46s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes status-pop {
+      0%   { opacity: 0; transform: scale(.55); }
+      55%  { opacity: 1; transform: scale(1.16); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+
+    /* วงแหวนสองวงกระจายออกจากไอคอน ใช้ pseudo-element จะได้ไม่ต้องเพิ่ม element ใน HTML
+       (ไอคอนถูกเขียนทับ innerHTML ทุกครั้งที่สถานะเปลี่ยน element ที่ใส่เองจะหายอยู่ดี) */
+    .status-ring::before,
+    .status-ring::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 50%;
+      border: 3px solid currentColor;
+      animation: status-ring .85s cubic-bezier(.2, .7, .3, 1) backwards;
+    }
+    .status-ring::after { animation-delay: .14s; }
+    @keyframes status-ring {
+      from { opacity: .7; transform: scale(1); }
+      to   { opacity: 0;  transform: scale(2.35); }
+    }
+
+    .status-lift { animation: status-lift .55s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes status-lift {
+      0%   { transform: none; }
+      38%  { transform: translateY(-7px); }
+      100% { transform: none; }
+    }
+
+    .status-rise { animation: status-rise .34s ease-out; }
+    @keyframes status-rise {
+      from { opacity: 0; transform: translateY(7px); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* ตัวเลขคิวตอนลดลง ให้ลูกค้าจับได้ว่าขยับแล้วโดยไม่ต้องจ้อง */
+    .queue-num-pop { display: inline-block; animation: queue-num-pop .34s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes queue-num-pop {
+      0%   { transform: scale(1); }
+      40%  { transform: scale(1.45); }
+      100% { transform: scale(1); }
     }

@@ -46,8 +46,11 @@
       <input id="customer-name-input" type="text" placeholder="เช่น คุณเอ" class="w-full min-h-[2.75rem] border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream">
     </div>
 
-    <!-- หมวดหมู่สินค้า -->
-    <div id="order-categories" class="flex gap-2 mb-4 overflow-x-auto pb-2 hide-scroll scroll-fade at-start hidden" style="--fade-color:#fffdf5"></div>
+    <!-- หมวดหมู่สินค้า: ตัวชี้ต้องอยู่นอก track เพราะ track ถูกวาดใหม่ทุกครั้งที่เปลี่ยนหมวด -->
+    <div id="order-categories" class="mb-4 overflow-x-auto pb-2 hide-scroll scroll-fade at-start hidden" style="--fade-color:#fffdf5">
+      <div id="order-cat-indicator"></div>
+      <div id="order-categories-track"></div>
+    </div>
 
     <!-- เมนู -->
     <div id="order-menu-grid" class="grid grid-cols-2 gap-4"></div>
@@ -116,7 +119,7 @@
   <!-- หน้าหลังส่งออเดอร์: สรุป + QR ชำระเงิน + สถานะ -->
   <div id="view-submitted" class="hidden fixed inset-0 z-40 bg-cream overflow-y-auto">
     <div class="max-w-lg mx-auto p-4" style="padding-top: max(1rem, env(safe-area-inset-top)); padding-bottom: max(2rem, env(safe-area-inset-bottom))">
-      <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 text-center mb-4">
+      <div id="submitted-status-card" class="bg-white rounded-3xl border border-sand shadow-sm p-6 text-center mb-4">
         <div id="submitted-status-icon" class="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-amber-100 text-amber-500">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:2rem;height:2rem"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
         </div>

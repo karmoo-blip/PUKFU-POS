@@ -62,6 +62,10 @@ const OrderPage = {
   isSubmittingOrder: false,
   pollTimer: null,
   _alertResolve: null,
+  // จำสถานะ/จำนวนคิวล่าสุดที่แสดงไปแล้ว หน้านี้ถามเซิร์ฟเวอร์ทุก 12 วินาที
+  // ถ้าไม่จำไว้ อนิเมชันตอนเปลี่ยนสถานะจะเล่นซ้ำทุกรอบที่ถาม ทั้งที่ไม่มีอะไรเปลี่ยน
+  _lastStatus: null,
+  _lastQueue: null,
 
   async init() {
     const params = new URLSearchParams(location.search);
@@ -109,6 +113,8 @@ const OrderPage = {
       }
       this.currentOrderId = saved;
       this.showSubmittedView();
+      // กลับเข้ามาดูของเดิม ไม่ใช่ข่าวใหม่ ปิดอนิเมชันฉลองรอบนี้ไว้ก่อน
+      this._lastStatus = r.status;
       this.applyStatus(r.status, r.rejectReason, r);
       this.startPolling();
     } catch (e) { /* เน็ตไม่ดี ไว้รอบหน้า */ }
@@ -121,21 +127,36 @@ const OrderPage = {
 
   renderCategories() {
     const container = document.getElementById('order-categories');
+    const track = document.getElementById('order-categories-track');
     if (this.categories.length <= 2) { container.classList.add('hidden'); return; }
     container.classList.remove('hidden');
-    container.innerHTML = this.categories.map(cat => {
+    track.innerHTML = this.categories.map(cat => {
       const isActive = cat === this.activeCategory;
+      // ปุ่มที่เลือกอยู่ทำพื้นใส ปล่อยให้ตัวชี้ที่เลื่อนมาเป็นพื้นหลังแทน (วิธีเดียวกับหน้าขายของพนักงาน)
       const style = isActive
-        ? 'bg-gradient-to-b from-primary to-secondary text-white shadow-md shadow-primary/30'
+        ? 'is-active-cat text-white border border-transparent'
         : 'bg-white text-secondary border border-sand';
       return `<button onclick="OrderPage.selectCategory('${escAttr(cat)}')" class="whitespace-nowrap px-5 min-h-[2.75rem] inline-flex items-center justify-center rounded-full font-bold text-sm active:scale-95 transition-all ${style}">${escHtml(cat)}</button>`;
     }).join('');
+    this.moveCatIndicator();
+  },
+
+  // เลื่อนตัวชี้ไปใต้ปุ่มที่เลือก ตัวชี้อยู่นอก track จึงไม่โดน innerHTML ข้างบนล้างทิ้ง
+  moveCatIndicator() {
+    const ind = document.getElementById('order-cat-indicator');
+    const active = document.querySelector('#order-categories-track button.is-active-cat');
+    if (!ind || !active) return;
+    ind.style.width = active.offsetWidth + 'px';
+    ind.style.transform = `translateX(${active.offsetLeft}px)`;
+    ind.classList.add('is-ready');
   },
 
   selectCategory(cat) {
     this.activeCategory = cat;
     this.renderCategories();
     this.renderMenu();
+    const activeBtn = document.querySelector('#order-categories-track button.is-active-cat');
+    if (activeBtn) activeBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
   },
 
   renderMenu() {
@@ -148,10 +169,12 @@ const OrderPage = {
       return;
     }
     empty.classList.add('hidden');
-    grid.innerHTML = items.map((item) => {
+    grid.innerHTML = items.map((item, gridIdx) => {
       const idx = this.menuData.indexOf(item);
+      // หยุดหน่วงที่ใบที่ 13 ไม่งั้นเมนูยาวๆ ใบท้ายรอนานเกินจนดูเหมือนค้าง
+      const stagger = Math.min(gridIdx, 12);
       return `
-        <div onclick="OrderPage.selectProduct(${idx})" class="bg-white rounded-3xl shadow-md border border-sand cursor-pointer overflow-hidden flex flex-col active:scale-[0.98] transition-all">
+        <div onclick="OrderPage.selectProduct(${idx})" style="--i:${stagger}" class="bg-white rounded-3xl shadow-md border border-sand cursor-pointer overflow-hidden flex flex-col active:scale-[0.98] transition-all">
           <div class="h-28 bg-gradient-to-br from-accent to-sand w-full relative overflow-hidden">
             ${item.image
               ? `<div class="absolute inset-0 bg-cover bg-center" style="background-image: url('${item.image}');"></div>`
@@ -168,6 +191,11 @@ const OrderPage = {
         </div>
       `;
     }).join('');
+
+    // reflow ก่อนใส่คลาสใหม่ ไม่งั้นอนิเมชันเล่นแค่ครั้งแรกครั้งเดียว
+    grid.classList.remove('is-entering');
+    void grid.offsetWidth;
+    grid.classList.add('is-entering');
   },
 
   selectProduct(idx) {
@@ -244,18 +272,74 @@ const OrderPage = {
       sku: this.activeProduct.sku, name: this.activeProduct.name,
       price: finalPrice, qty: 1, note: finalNote,
     });
+    // ลำดับสำคัญ: โชว์แถบตะกร้าก่อน (ไม่งั้นวัดตำแหน่งปลายทางไม่ได้)
+    // แล้วค่อยยิงของลอยตอนหน้าต่างสินค้ายังเปิดอยู่ (closeModal ใช้ display:none วัดขนาดไม่ได้อีก)
+    this.renderCartBar({ bump: true });
+    this.flyToCart(document.getElementById('modal-product'));
     this.closeModal('modal-product');
-    this.renderCartBar();
   },
 
-  renderCartBar() {
+  // เครื่องที่ตั้งค่าลดการเคลื่อนไหวไว้ ต้องเช็คเองสำหรับอนิเมชันที่สั่งจาก JS
+  // ตัวที่เขียนด้วย CSS ล้วนมี @media คุมให้อยู่แล้ว
+  reducedMotion() {
+    return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  },
+
+  // ของลอยจากหน้าต่างสินค้าไปที่แถบตะกร้า ยืนยันให้เห็นว่ากดติดแล้วโดยไม่ต้องละสายตา
+  // ใช้ transform กับ opacity ล้วน ไม่แตะ layout และลบทิ้งเมื่อจบ
+  flyToCart(sourceEl) {
+    if (!sourceEl) return;
+    if (this.reducedMotion()) return;
+
+    const target = document.getElementById('order-cart-total');
+    if (!target) return;
+
+    const from = sourceEl.getBoundingClientRect();
+    const to = target.getBoundingClientRect();
+    if (!from.width || !to.width) return;
+
+    const size = Math.min(96, Math.max(48, from.width * 0.25));
+    const ghost = document.createElement('div');
+    ghost.className = 'cart-fly';
+    ghost.style.width = size + 'px';
+    ghost.style.height = size + 'px';
+    ghost.style.left = (from.left + from.width / 2 - size / 2) + 'px';
+    ghost.style.top = (from.top + from.height / 2 - size / 2) + 'px';
+    document.body.appendChild(ghost);
+
+    const dx = (to.left + to.width / 2) - (from.left + from.width / 2);
+    const dy = (to.top + to.height / 2) - (from.top + from.height / 2);
+
+    const done = () => ghost.remove();
+    if (typeof ghost.animate !== 'function') { done(); return; }
+    const anim = ghost.animate([
+      { transform: 'translate(0,0) scale(1)', opacity: 1 },
+      { transform: `translate(${dx * 0.55}px, ${dy * 0.35 - 40}px) scale(.7)`, opacity: .95, offset: .55 },
+      { transform: `translate(${dx}px, ${dy}px) scale(.18)`, opacity: 0 }
+    ], { duration: 300, easing: 'cubic-bezier(.35,.6,.3,1)' });
+    anim.onfinish = done;
+    anim.oncancel = done;
+  },
+
+  renderCartBar(opts) {
+    const o = opts || {};
     const bar = document.getElementById('order-cart-bar');
     const count = this.cart.reduce((s, i) => s + i.qty, 0);
     const total = this.cart.reduce((s, i) => s + i.qty * i.price, 0);
     if (count === 0) { bar.classList.add('hidden'); return; }
+
+    // แถบนี้เป็นลูกของ body แบบ flex การโชว์ครั้งแรกจึงดันเนื้อหาขึ้น ให้มันเลื่อนขึ้นมาแทนที่จะโผล่ตูม
+    const wasHidden = bar.classList.contains('hidden');
     bar.classList.remove('hidden');
-    document.getElementById('order-cart-count').innerText = count + ' รายการ';
-    document.getElementById('order-cart-total').innerText = '฿' + total.toFixed(2);
+    if (wasHidden && !this.reducedMotion()) {
+      bar.classList.remove('is-rising');
+      void bar.offsetWidth;
+      bar.classList.add('is-rising');
+    }
+
+    const bumpCls = o.bump ? ' class="cart-qty-pop"' : '';
+    document.getElementById('order-cart-count').innerHTML = `<span${bumpCls}>${count}</span> รายการ`;
+    document.getElementById('order-cart-total').innerHTML = `<span${bumpCls}>฿${total.toFixed(2)}</span>`;
   },
 
   openCartReview() {
@@ -263,14 +347,17 @@ const OrderPage = {
     this.openModal('modal-cart');
   },
 
-  renderCartItems() {
+  // o.popIdx = แถวที่จำนวนเพิ่งเปลี่ยน ทำแบบเจาะจงแถว
+  // ไม่งั้นทั้งรายการกระพริบใหม่ทุกครั้งที่กดบวกลบ
+  renderCartItems(opts) {
+    const o = opts || {};
     const container = document.getElementById('order-cart-items');
     const total = this.cart.reduce((s, i) => s + i.qty * i.price, 0);
     if (this.cart.length === 0) {
       container.innerHTML = '<p class="text-center text-slate-400 py-6">ยังไม่มีสินค้าในตะกร้า</p>';
     } else {
       container.innerHTML = this.cart.map((item, idx) => `
-        <div class="flex justify-between items-start bg-white p-3 rounded-2xl border border-sand shadow-sm gap-2">
+        <div data-cart-idx="${idx}" class="flex justify-between items-start bg-white p-3 rounded-2xl border border-sand shadow-sm gap-2">
           <div class="flex-1 min-w-0">
             <p class="font-bold text-sm text-secondary truncate">${escHtml(item.name)}</p>
             <p class="text-xs text-slate-400 mt-0.5">${escHtml(item.note || '-')}</p>
@@ -279,7 +366,7 @@ const OrderPage = {
           <div class="flex flex-col items-end gap-2 shrink-0">
             <div class="flex items-center bg-slate-50 rounded-lg p-1 border border-slate-100">
               <button onclick="OrderPage.updateQty(${idx}, -1)" class="w-9 h-9 flex items-center justify-center bg-white rounded-full active:scale-95 font-bold text-slate-600 shadow-sm">-</button>
-              <span class="w-6 text-center font-bold text-sm">${item.qty}</span>
+              <span class="w-6 text-center font-bold text-sm"><span class="${idx === o.popIdx ? 'cart-qty-pop' : ''}">${item.qty}</span></span>
               <button onclick="OrderPage.updateQty(${idx}, 1)" class="w-9 h-9 flex items-center justify-center bg-white rounded-full active:scale-95 font-bold text-slate-600 shadow-sm">+</button>
             </div>
           </div>
@@ -289,11 +376,26 @@ const OrderPage = {
     document.getElementById('order-cart-modal-total').innerText = '฿' + total.toFixed(2);
   },
 
-  updateQty(idx, delta) {
+  // ให้แถวเลื่อนออกก่อนแล้วค่อยวาดใหม่ ไม่งั้นแถวหายวับทันที
+  animateCartLineOut(idx) {
+    const row = document.querySelector(`#order-cart-items [data-cart-idx="${idx}"]`);
+    if (!row || this.reducedMotion()) return Promise.resolve();
+    row.classList.add('cart-line-out');
+    return new Promise(resolve => setTimeout(resolve, 140));
+  },
+
+  async updateQty(idx, delta) {
     const item = this.cart[idx];
+    if (!item) return;
+    if (item.qty + delta <= 0) {
+      await this.animateCartLineOut(idx);
+      this.cart.splice(idx, 1);
+      this.renderCartItems();
+      this.renderCartBar();
+      return;
+    }
     item.qty += delta;
-    if (item.qty <= 0) this.cart.splice(idx, 1);
-    this.renderCartItems();
+    this.renderCartItems({ popIdx: idx });
     this.renderCartBar();
   },
 
@@ -336,7 +438,11 @@ const OrderPage = {
   },
 
   showSubmittedView() {
-    document.getElementById('view-submitted').classList.remove('hidden');
+    const view = document.getElementById('view-submitted');
+    view.classList.remove('hidden');
+    // เริ่มนับสถานะใหม่ทุกครั้งที่เข้าหน้านี้ ออเดอร์ใบใหม่ต้องได้เห็นจังหวะร้านกดรับเหมือนกัน
+    this._lastStatus = null;
+    this._lastQueue = null;
     // รีเซ็ตสถานะ UI กลับเป็นค่าเริ่มต้น เผื่อเป็นการสั่งออเดอร์รอบใหม่ต่อจากออเดอร์ก่อนหน้าที่ยืนยัน/ปฏิเสธ/ยกเลิกไปแล้ว
     const icon = document.getElementById('submitted-status-icon');
     icon.className = 'w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-amber-100 text-amber-500';
@@ -375,6 +481,11 @@ const OrderPage = {
       document.getElementById('submitted-payment-qr').src = this.shopInfo.paymentQrImage;
       document.getElementById('submitted-payment-box').classList.remove('hidden');
     }
+
+    // ใส่คลาสหลังจัดเนื้อหาครบแล้ว การ์ดจะได้ไล่กันขึ้นมาตามที่ตั้งไว้ใน style.css
+    view.classList.remove('view-enter');
+    void view.offsetWidth;
+    view.classList.add('view-enter');
   },
 
   backToMenu() {
@@ -382,8 +493,12 @@ const OrderPage = {
     this.currentOrderId = null;
     this.clearSavedOrder();
     this.cart = [];
+    this._lastStatus = null;
+    this._lastQueue = null;
     this.renderCartBar();
-    document.getElementById('view-submitted').classList.add('hidden');
+    const view = document.getElementById('view-submitted');
+    view.classList.add('hidden');
+    view.classList.remove('view-enter');
   },
 
   startPolling() {
@@ -406,6 +521,11 @@ const OrderPage = {
   },
 
   applyStatus(status, rejectReason, queue) {
+    // หน้านี้ถามเซิร์ฟเวอร์ทุก 12 วินาที และได้คำตอบเดิมเป็นส่วนใหญ่
+    // ถ้าไม่เทียบกับของเดิมก่อน อนิเมชันจะเล่นซ้ำทุก 12 วินาทีตลอดเวลาที่ลูกค้ารอ
+    const changed = status !== this._lastStatus;
+    this._lastStatus = status;
+
     const icon = document.getElementById('submitted-status-icon');
     const text = document.getElementById('submitted-status-text');
     const sub = document.getElementById('submitted-status-sub');
@@ -449,6 +569,26 @@ const OrderPage = {
       this.clearSavedOrder();
       clearInterval(this.pollTimer);
     }
+
+    if (changed) this.animateStatusChange(status);
+  },
+
+  // ไอคอนเด้งใช้ทุกสถานะ ส่วนวงแหวนกับการ์ดยกตัวใส่เฉพาะข่าวดี
+  // ถูกปฏิเสธหรือยกเลิกจะได้ไม่ดูเหมือนกำลังฉลองให้ลูกค้า
+  animateStatusChange(status) {
+    if (this.reducedMotion()) return;
+    if (!['confirmed', 'ready', 'rejected', 'cancelled'].includes(status)) return;
+
+    const good = status === 'confirmed' || status === 'ready';
+    const play = (el, classes) => {
+      if (!el) return;
+      el.classList.remove(...classes);
+      void el.offsetWidth;
+      el.classList.add(...classes);
+    };
+    play(document.getElementById('submitted-status-icon'), good ? ['status-pop', 'status-ring'] : ['status-pop']);
+    play(document.getElementById('submitted-status-text'), ['status-rise']);
+    if (good) play(document.getElementById('submitted-status-card'), ['status-lift']);
   },
 
   // แสดงจำนวนคิวก่อนหน้า + เวลาโดยประมาณ
@@ -458,16 +598,20 @@ const OrderPage = {
     const line = document.getElementById('submitted-queue-line');
     const eta = document.getElementById('submitted-queue-eta');
     if (!box || !line || !eta) return;
-    if (!queue) { box.classList.add('hidden'); return; }
+    if (!queue) { box.classList.add('hidden'); this._lastQueue = null; return; }
 
     const ahead = Number(queue.queueAhead) || 0;
     const low = Number(queue.etaLow) || 0;
     const high = Number(queue.etaHigh) || 0;
+    // เหมือนกับสถานะ: ตัวเลขคิวถูกวาดใหม่ทุกรอบที่ถามเซิร์ฟเวอร์ ให้เด้งเฉพาะตอนที่เลขเปลี่ยนจริง
+    const moved = ahead !== this._lastQueue;
+    this._lastQueue = ahead;
     if (ahead <= 0) {
       line.innerText = 'ถึงคิวคุณแล้ว กำลังทำให้อยู่ครับ';
       eta.innerText = '';
     } else {
-      line.innerText = 'มีอีก ' + ahead + ' คิวก่อนหน้าคุณ';
+      const popCls = moved && !this.reducedMotion() ? ' class="queue-num-pop"' : '';
+      line.innerHTML = 'มีอีก <span' + popCls + '>' + ahead + '</span> คิวก่อนหน้าคุณ';
       eta.innerText = low > 0 ? 'รออีกประมาณ ' + low + '-' + high + ' นาที' : '';
     }
     box.classList.remove('hidden');
