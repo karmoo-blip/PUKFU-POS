@@ -364,3 +364,83 @@ test('a reduced-motion machine still gets the bills, just without the entrance',
   assert.ok(list.innerHTML.includes('INV-A'), 'ต้องเห็นบิลครบ');
   assert.ok(!list.classList.contains('is-entering'), 'เครื่องที่ลดการเคลื่อนไหวต้องไม่เล่นจังหวะโผล่');
 });
+
+// ---- กระดิ่ง: รวมสี่ทางไว้ที่เดียว ----
+function bellController(opts) {
+  const o = opts || {};
+  const ctx = loadController(o.harness || {});
+  const { C } = ctx;
+  C.notifications = o.notifications || [];
+  C.pendingOrders = o.pendingOrders || [];
+  C.syncQueue = o.syncQueue || [];
+  C._updateAvailable = !!o.updateAvailable;
+  C.dismissedNotificationIds = new Set();
+  return ctx;
+}
+
+const HOUR = 3600 * 1000;
+const EXPIRED_ITEM = { id: 'n1', item_name: 'นมสด', expires_at: new Date(Date.now() - HOUR).toISOString() };
+const SOON_ITEM = { id: 'n2', item_name: 'วิปครีม', expires_at: new Date(Date.now() + HOUR).toISOString() };
+
+test('the bell counts every source that needs attention, in one number', () => {
+  const { C, el } = bellController({
+    notifications: [EXPIRED_ITEM, SOON_ITEM],
+    pendingOrders: [{ id: 'o1', status: 'pending', customerName: 'เบส' }, { id: 'o2', status: 'confirmed', customerName: 'ฝน' }],
+    syncQueue: [{ invoice: 'INV-1' }],
+    updateAvailable: true,
+  });
+
+  C.updateBellBadge();
+
+  // หมดอายุ 1 + ใกล้หมดอายุ 1 + ออเดอร์ที่ยังไม่ยืนยัน 1 + บิลค้าง 1 + เวอร์ชันใหม่ 1
+  assert.equal(C.bellCounts().total, 5, 'ได้ ' + C.bellCounts().total);
+  assert.equal(el('bell-badge').innerText, 5);
+  assert.ok(!el('bell-badge').classList.contains('hidden'), 'มีของค้างต้องเห็นตัวเลข');
+});
+
+test('an order already confirmed is not something to go and do', () => {
+  const { C } = bellController({ pendingOrders: [{ id: 'o1', status: 'confirmed', customerName: 'ฝน' }] });
+  assert.equal(C.bellCounts().total, 0, 'ออเดอร์ที่รับแล้วไม่ควรนับ ไม่งั้นตัวเลขค้างเตือนทั้งที่ไม่มีอะไรต้องทำ');
+});
+
+test('the bell badge hides at zero and pulses only when the number rises', () => {
+  const { C, el } = bellController({ syncQueue: [{ invoice: 'INV-1' }] });
+  const badge = el('bell-badge');
+
+  C.updateBellBadge();
+  assert.ok(badge.classList.contains('badge-alert'), 'ขึ้นจาก 0 เป็น 1 ต้องเด้ง');
+
+  badge.classList.remove('badge-alert');
+  C.updateBellBadge();
+  assert.ok(!badge.classList.contains('badge-alert'), 'เลขเท่าเดิมต้องไม่เด้งซ้ำ ฟังก์ชันนี้ถูกเรียกทุกไม่กี่วินาที');
+
+  C.syncQueue = [];
+  C.updateBellBadge();
+  assert.ok(badge.classList.contains('hidden'), 'ไม่มีอะไรค้างต้องซ่อนตัวเลข');
+});
+
+test('the bell window lists a group per source, and says so when there is nothing', () => {
+  const empty = bellController({});
+  empty.C.renderBellList();
+  assert.ok(empty.el('bell-list').innerHTML.includes('ไม่มีอะไรต้องจัดการ'));
+
+  const { C, el } = bellController({
+    notifications: [EXPIRED_ITEM],
+    pendingOrders: [{ id: 'o1', status: 'pending', customerName: 'เบส', items: [{ qty: 2 }] }],
+    syncQueue: [{ invoice: 'INV-1' }],
+    updateAvailable: true,
+  });
+  C.renderBellList();
+  const html = el('bell-list').innerHTML;
+
+  assert.ok(html.includes('ออเดอร์ออนไลน์') && html.includes('เบส'), 'ต้องมีกลุ่มออเดอร์ออนไลน์');
+  assert.ok(html.includes('ของหมดอายุ') && html.includes('นมสด'), 'ต้องมีกลุ่มของหมดอายุ');
+  assert.ok(html.includes('เวอร์ชันใหม่') && html.includes('ข้อมูลค้างซิงก์ 1 รายการ'), 'ต้องมีกลุ่มระบบ');
+});
+
+test('a reduced-motion machine still gets the right number, without the pulse', () => {
+  const { C, el } = bellController({ harness: { reducedMotion: true }, syncQueue: [{ invoice: 'INV-1' }] });
+  C.updateBellBadge();
+  assert.equal(el('bell-badge').innerText, 1);
+  assert.ok(!el('bell-badge').classList.contains('badge-alert'), 'เครื่องที่ลดการเคลื่อนไหวต้องไม่เด้ง');
+});
