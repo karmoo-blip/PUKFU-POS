@@ -2268,7 +2268,7 @@
         if (tab === 'cost') this.initCostTab();
         if (tab === 'employees') this.fetchEmployeeList();
         if (tab === 'stock') { this.renderStockPanel(); this.renderProductList(); }
-        if (tab === 'log') { this.fetchAccessLog(); this.fetchErrorLogs(); this.fetchChangeLog(); }
+        if (tab === 'log') { this.switchLogView(this.currentLogView || 'access'); this.fetchAccessLog(); this.fetchErrorLogs(); this.fetchChangeLog(); }
         if (tab === 'addons') { this.renderAddonList(); this.fetchAddons(); }
         if (tab === 'sweetness') { this.renderSweetnessList(); this.fetchSweetnessLevels(); }
         if (tab === 'notifications') { this.renderNotificationList(); this.fetchNotifications(); }
@@ -2622,29 +2622,48 @@
         
         list.innerHTML = visibleEmployees.map(emp => {
           const canManage = this.canManageEmployee(emp);
-          const pinStatus = emp.hasPin ? '•••• (ตั้งไว้แล้ว)' : 'ยังไม่ได้ตั้ง PIN';
+          const isBoss = emp.role === 'Owner' || emp.role === 'Admin';
+          // สิทธิ์เดิมเป็นข้อความยาวคั่นด้วยจุลภาค อ่านยากว่าตกลงเขาเห็นอะไรบ้าง เปลี่ยนเป็นป้ายทีละหน้า
+          const perms = isBoss
+            ? '<span class="set-tag set-tag-ok">เข้าถึงทุกอย่าง</span>'
+            : (emp.permissions || '').split(',').filter(Boolean)
+                .map(tab => `<span class="set-tag set-tag-mute">${escHtml(this.settingsTabLabel(tab.trim()))}</span>`).join('')
+              || '<span class="set-tag set-tag-off">ยังไม่ได้ให้สิทธิ์หน้าไหนเลย</span>';
           return `
-          <div class="p-4 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-            <div class="flex items-center gap-3 min-w-0">
-              ${emp.photo ? `<img src="${escHtml(emp.photo)}" class="w-10 h-10 rounded-full object-cover shrink-0">` : ''}
-              <div class="min-w-0 flex-1">
-                <p class="font-bold text-secondary truncate">${escHtml(emp.name)} ${!emp.active ? '<span class="text-xs text-red-400 font-bold">(ปิดใช้งาน)</span>' : ''}</p>
-                <p class="text-xs text-slate-400 break-words">
-                  ${escHtml(emp.role)} • PIN: ${pinStatus}
-                </p>
-                <p class="text-xs text-slate-400 break-words mt-0.5">
-                  ${(emp.role === 'Owner' || emp.role === 'Admin') ? 'เข้าถึงทุกอย่าง' : `เข้าถึง: ${escHtml((emp.permissions || 'ยังไม่กำหนด').split(',').join(', '))}`}
-                </p>
-              </div>
+          <div class="set-row">
+            ${emp.photo ? `<img src="${escAttr(emp.photo)}" class="set-avatar" alt="">` : ''}
+            <div class="set-row-body">
+              <p class="set-row-t">${escHtml(emp.name)} <span class="set-tag ${isBoss ? 'set-tag-ok' : 'set-tag-info'}">${escHtml(emp.role)}</span>${emp.active ? '' : ' <span class="set-tag set-tag-mute">ปิดใช้งาน</span>'}</p>
+              <p class="set-row-s">${emp.hasPin ? 'ตั้ง PIN ไว้แล้ว' : 'ยังไม่ได้ตั้ง PIN เข้าระบบไม่ได้'}</p>
+              <div class="set-chiprow">${perms}</div>
             </div>
-            <div class="flex gap-2 shrink-0">
+            <div class="set-row-acts">
               ${canManage ? `
-                <button onclick="Controller.openEmployeeForm('${emp.id}')" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-primary bg-primary/10 rounded-full active:scale-95 transition-all whitespace-nowrap">แก้ไข</button>
-                <button onclick="Controller.deleteEmployeeConfirm('${emp.id}', '${escAttr(emp.name)}')" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-red-500 bg-red-50 rounded-full active:scale-95 transition-all whitespace-nowrap">ลบ</button>
-              ` : `<span class="text-xs text-slate-300 font-bold"> ดูได้อย่างเดียว</span>`}
+                <button onclick="Controller.openEmployeeForm('${escAttr(emp.id)}')" class="set-btn set-btn-sm set-btn-soft">แก้ไข</button>
+                <button onclick="Controller.deleteEmployeeConfirm('${escAttr(emp.id)}', '${escAttr(emp.name)}')" class="set-btn set-btn-sm set-btn-danger">ลบ</button>
+              ` : '<span class="set-row-s">ดูได้อย่างเดียว</span>'}
             </div>
-          </div>
-        `}).join('');
+          </div>`;
+        }).join('');
+      },
+
+      // ---- สลับสามลิสต์ในหน้าประวัติการใช้งาน ----
+      switchLogView(which) {
+        this.currentLogView = which;
+        ['access', 'error', 'change'].forEach(name => {
+          const view = document.getElementById('log-view-' + name);
+          if (view) view.classList.toggle('hidden', name !== which);
+        });
+        document.querySelectorAll('#log-switch .set-seg-btn').forEach(btn => {
+          btn.classList.toggle('is-on', btn.dataset.log === which);
+        });
+      },
+
+      refreshCurrentLog(btn) {
+        const which = this.currentLogView || 'access';
+        if (which === 'error') this.fetchErrorLogs(btn);
+        else if (which === 'change') this.fetchChangeLog(btn);
+        else this.fetchAccessLog(btn);
       },
 
       isCurrentUserTopLevel() {

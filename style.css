@@ -1154,3 +1154,27 @@
       .cost-mobile-line { display: none; }
       .cal-cell { min-height: 76px; padding: 8px; }
     }
+
+    /* ---------- ปุ่มสลับมุมมองในหน้าเดียว (ประวัติการใช้งาน) ---------- */
+    .set-seg { display: flex; gap: 6px; flex: 1 1 100%; overflow-x: auto; }
+    .set-seg-btn {
+      min-height: 40px;
+      padding: 0 14px;
+      border: 1px solid var(--color-sand);
+      background: #ffffff;
+      border-radius: 999px;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 700;
+      color: #64748b;
+      white-space: nowrap;
+    }
+    .set-seg-btn.is-on { background: linear-gradient(to bottom, var(--color-primary), var(--color-secondary)); border-color: var(--color-primary); color: #ffffff; }
+
+    /* ---------- ป้ายสิทธิ์ในหน้าพนักงาน ---------- */
+    .set-chiprow { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+    .set-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; flex: none; }
+
+    @media (min-width: 1024px) {
+      .set-seg { flex: 0 1 auto; }
+    }

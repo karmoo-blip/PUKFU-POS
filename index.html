@@ -648,41 +648,46 @@
       </div>
 
       <div id="settings-panel-employees" class="settings-panel hidden">
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-          <p class="text-sm text-slate-400">จัดการพนักงานและสิทธิ์การเข้าถึง</p>
-          <button onclick="Controller.openEmployeeForm()" class="w-full sm:w-auto justify-center items-center flex bg-gradient-to-b from-primary to-secondary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-110 transition">+ เพิ่มพนักงาน</button>
+        <div class="set-toolbar">
+          <p class="set-card-sub" style="margin:0;flex:1 1 200px">ใครเข้าใช้ได้บ้าง และเห็นหน้าไหนได้บ้าง</p>
+          <button onclick="Controller.fetchEmployeeList(this)" class="set-btn set-btn-ghost">รีเฟรช</button>
+          <button onclick="Controller.openEmployeeForm()" class="set-btn set-btn-go">+ เพิ่มพนักงาน</button>
         </div>
-        <div id="employee-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand"></div>
+        <div class="set-card"><div id="employee-list"></div></div>
       </div>
 
       <div id="settings-panel-log" class="settings-panel hidden">
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-          <p class="text-sm text-slate-400">ประวัติการใส่ PIN ล่าสุด 100 รายการ</p>
-          <div class="flex gap-2 w-full sm:w-auto">
-            <button onclick="Controller.fetchAccessLog(this)" class="flex-1 sm:flex-none justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
-            <button onclick="Controller.clearAccessLog()" class="flex-1 sm:flex-none justify-center items-center flex bg-red-50 text-red-500 hover:bg-red-100 px-4 py-2 rounded-2xl font-bold transition">ล้างประวัติ</button>
+        <!-- สามลิสต์นี้เดิมต่อกันลงมาหน้าเดียว ต้องเลื่อนผ่านร้อยแถวกว่าจะถึงอันถัดไป เปลี่ยนเป็นสลับด้วยปุ่มด้านบน -->
+        <div class="set-toolbar">
+          <div id="log-switch" class="set-seg">
+            <button data-log="access" onclick="Controller.switchLogView('access')" class="set-seg-btn is-on">การใส่ PIN</button>
+            <button data-log="error" onclick="Controller.switchLogView('error')" class="set-seg-btn">ข้อผิดพลาดระบบ</button>
+            <button data-log="change" onclick="Controller.switchLogView('change')" class="set-seg-btn">การแก้ไขข้อมูล</button>
           </div>
+          <button id="log-refresh" onclick="Controller.refreshCurrentLog(this)" class="set-btn set-btn-ghost">รีเฟรช</button>
         </div>
-        <div id="access-log-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
 
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 mt-6">
-          <p class="text-sm text-slate-400">ข้อผิดพลาดของระบบล่าสุด 100 รายการ</p>
-          <div class="flex gap-2 w-full sm:w-auto">
-            <button onclick="Controller.fetchErrorLogs(this)" class="flex-1 sm:flex-none justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
-            <button onclick="Controller.clearErrorLog()" class="flex-1 sm:flex-none justify-center items-center flex bg-red-50 text-red-500 hover:bg-red-100 px-4 py-2 rounded-2xl font-bold transition">ล้างประวัติ</button>
-          </div>
+        <div id="log-view-access" class="log-view">
+          <div class="set-card"><p class="set-card-sub" style="margin:0 0 10px">ล่าสุด 100 รายการ รวมทั้งที่ผ่านและไม่ผ่าน</p><div id="access-log-list"></div></div>
         </div>
-        <div id="error-log-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
+        <div id="log-view-error" class="log-view hidden">
+          <div class="set-card"><p class="set-card-sub" style="margin:0 0 10px">ข้อผิดพลาดของระบบล่าสุด 100 รายการ</p><div id="error-log-list"></div></div>
+        </div>
+        <div id="log-view-change" class="log-view hidden">
+          <div class="set-card"><p class="set-card-sub" style="margin:0 0 10px">การเปลี่ยนแปลงเมนู/พนักงาน/วิธีชำระเงิน ล่าสุด 200 รายการ</p><div id="change-log-list"></div></div>
+        </div>
 
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4 mt-6">
-          <p class="text-sm text-slate-400">ประวัติการเปลี่ยนแปลงเมนู/พนักงาน/วิธีชำระเงิน ล่าสุด 200 รายการ</p>
-          <div class="flex gap-2 w-full sm:w-auto">
-            <button onclick="Controller.fetchChangeLog(this)" class="flex-1 sm:flex-none justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
-            <button onclick="Controller.clearChangeLog()" class="flex-1 sm:flex-none justify-center items-center flex bg-red-50 text-red-500 hover:bg-red-100 px-4 py-2 rounded-2xl font-bold transition">ล้างประวัติ</button>
+        <div class="set-card set-danger" style="margin-top:14px">
+          <p class="set-card-t" style="color:#ef4444">ล้างประวัติ</p>
+          <p class="set-card-sub">กู้คืนไม่ได้ ต้องใส่ PIN ยืนยันก่อนทุกครั้ง</p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            <button onclick="Controller.clearAccessLog()" class="set-btn set-btn-danger">ล้างประวัติการใส่ PIN</button>
+            <button onclick="Controller.clearErrorLog()" class="set-btn set-btn-danger">ล้างข้อผิดพลาดระบบ</button>
+            <button onclick="Controller.clearChangeLog()" class="set-btn set-btn-danger">ล้างประวัติการแก้ไข</button>
           </div>
         </div>
-        <div id="change-log-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
       </div>
+
       <div id="settings-panel-addons" class="settings-panel hidden">
         <div class="set-toolbar">
           <p class="set-card-sub" style="margin:0;flex:1 1 200px">ของที่ลูกค้าเลือกเพิ่มตอนสั่ง เช่น เพิ่มช็อต ไข่มุก</p>
@@ -725,30 +730,35 @@
       </div>
 
       <div id="settings-panel-backup" class="settings-panel hidden">
-        <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 mb-4">
-          <h3 class="font-bold text-lg text-secondary mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 13h8v6H8z"/></svg> สำรองข้อมูล</h3>
-          <p class="text-sm text-slate-400 mb-4">ระบบสำรองข้อมูลทั้งหมดอัตโนมัติทุก 30 วัน และเก็บไว้ 180 วันย้อนหลัง (เก่ากว่านั้นจะถูกลบทิ้งอัตโนมัติ) แต่ backup พวกนี้เก็บอยู่ในฐานข้อมูลเดียวกับข้อมูลจริง — <b>แนะนำให้กดปุ่มด้านล่างเป็นประจำ</b> (เช่น สัปดาห์ละครั้ง) เพื่อดาวน์โหลดไฟล์เก็บไว้นอกระบบด้วย เช่น ใน Google Drive หรืออีเมลตัวเอง</p>
-          <button id="btn-manual-backup" onclick="Controller.manualBackupNow(this)" class="w-full sm:w-auto bg-gradient-to-b from-primary to-secondary text-white px-6 py-3 rounded-2xl font-bold hover:brightness-110 transition shadow-md shadow-primary/30">สำรองข้อมูล + ดาวน์โหลดทันที</button>
+        <div class="set-card">
+          <p class="set-card-t">สำรองข้อมูลตอนนี้</p>
+          <p class="set-card-sub">ระบบสำรองอัตโนมัติทุก 30 วันและเก็บย้อนหลัง 180 วัน แต่ไฟล์พวกนั้นอยู่ในฐานข้อมูลเดียวกับข้อมูลจริง แนะนำให้กดปุ่มนี้สัปดาห์ละครั้งเพื่อเก็บไฟล์ไว้นอกระบบด้วย</p>
+          <button id="btn-manual-backup" onclick="Controller.manualBackupNow(this)" class="set-btn set-btn-go">สำรองข้อมูล + ดาวน์โหลดทันที</button>
         </div>
 
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-          <p class="text-sm text-slate-400">รายการสำรองข้อมูลทั้งหมดที่เก็บไว้ (เก็บย้อนหลัง 180 วัน)</p>
-          <button onclick="Controller.fetchBackupList(this)" class="w-full sm:w-auto justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
-        </div>
-        <div id="backup-stale-warning" class="hidden bg-amber-50 border border-amber-300 text-amber-700 text-sm font-bold rounded-2xl p-4 mb-4"></div>
-        <div id="backup-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[50vh] overflow-y-auto mb-6"></div>
+        <div id="backup-stale-warning" class="hidden set-card set-danger" style="margin-top:14px"></div>
 
-        <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 mb-4">
-          <h3 class="font-bold text-lg text-secondary mb-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> เก็บข้อมูลปีต่อปี (Archive)</h3>
-          <p class="text-sm text-slate-400 mb-4">ย้ายข้อมูล Sales และ Payments ของปีเก่ากว่าปีปัจจุบัน ไปเก็บไว้ในตารางแยกตามปี ช่วยให้ตารางหลักไม่บวมและระบบทำงานเร็วขึ้น ต้องกดเองเมื่อต้องการ ระบบไม่ได้ตั้งเวลาให้อัตโนมัติ</p>
-          <button id="btn-manual-archive" onclick="Controller.manualArchiveNow(this)" class="w-full sm:w-auto bg-gradient-to-b from-amber-500 to-amber-600 text-white px-6 py-3 rounded-2xl font-bold hover:brightness-110 transition shadow-md shadow-amber-500/30">เก็บข้อมูลปีเก่าเดี๋ยวนี้</button>
+        <div class="set-card">
+          <div class="set-toolbar" style="margin-bottom:10px">
+            <p class="set-card-sub" style="margin:0;flex:1 1 200px">ไฟล์สำรองที่เก็บไว้ (ย้อนหลัง 180 วัน)</p>
+            <button onclick="Controller.fetchBackupList(this)" class="set-btn set-btn-ghost set-btn-sm">รีเฟรช</button>
+          </div>
+          <div id="backup-list"></div>
         </div>
 
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-          <p class="text-sm text-slate-400">ไฟล์ archive ที่มีอยู่ (แยกตามปี)</p>
-          <button onclick="Controller.fetchArchiveList(this)" class="w-full sm:w-auto justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
+        <div class="set-card">
+          <p class="set-card-t">เก็บข้อมูลปีต่อปี (Archive)</p>
+          <p class="set-card-sub">ย้ายบิลกับการชำระเงินของปีเก่าไปเก็บตารางแยกตามปี ตารางหลักจะได้ไม่บวมและระบบทำงานเร็วขึ้น ต้องกดเอง ระบบไม่ได้ตั้งเวลาไว้</p>
+          <button id="btn-manual-archive" onclick="Controller.manualArchiveNow(this)" class="set-btn set-btn-warn">เก็บข้อมูลปีเก่าเดี๋ยวนี้</button>
         </div>
-        <div id="archive-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[50vh] overflow-y-auto"></div>
+
+        <div class="set-card">
+          <div class="set-toolbar" style="margin-bottom:10px">
+            <p class="set-card-sub" style="margin:0;flex:1 1 200px">ไฟล์ archive ที่มีอยู่ (แยกตามปี)</p>
+            <button onclick="Controller.fetchArchiveList(this)" class="set-btn set-btn-ghost set-btn-sm">รีเฟรช</button>
+          </div>
+          <div id="archive-list"></div>
+        </div>
       </div>
 
       <div id="settings-panel-onlineorder" class="settings-panel hidden">

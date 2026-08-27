@@ -643,3 +643,45 @@ test('the calendar marks the days that beat the month average', () => {
   assert.equal((html.match(/is-strong/g) || []).length, 1, 'วันที่ขายดีกว่าค่าเฉลี่ยต้องถูกทำเครื่องหมายไว้วันเดียว');
   assert.ok(el('cal-month-summary').innerText.includes('2 วันที่มีขาย'));
 });
+
+// ---- หน้ากลุ่มคนและระบบ ----
+test('an employee row says what they can actually open, one page per chip', () => {
+  const { C, el } = loadController({});
+  C.currentSettingsUser = { id: 'e1', name: 'บอส', role: 'Owner', active: true };
+  C.employeeList = [
+    { id: 'e1', name: 'บอส', role: 'Owner', active: true, hasPin: true, permissions: '' },
+    { id: 'e2', name: 'เบส', role: 'Staff', active: true, hasPin: true, permissions: 'history,inventory' },
+    { id: 'e3', name: 'ฝน', role: 'Staff', active: true, hasPin: false, permissions: '' }
+  ];
+  C.renderEmployeeList();
+  const html = el('employee-list').innerHTML;
+
+  assert.ok(html.includes('เข้าถึงทุกอย่าง'), 'เจ้าของร้านต้องบอกว่าเข้าได้หมด');
+  assert.ok(html.includes('ประวัติบิล') && html.includes('วัตถุดิบ'), 'สิทธิ์ต้องอ่านเป็นชื่อหน้า ไม่ใช่รหัสแท็บ');
+  assert.ok(html.includes('ยังไม่ได้ให้สิทธิ์หน้าไหนเลย'), 'คนที่ยังไม่มีสิทธิ์ต้องเห็นชัด');
+  assert.ok(html.includes('ยังไม่ได้ตั้ง PIN เข้าระบบไม่ได้'), 'คนที่ยังไม่ตั้ง PIN ต้องบอกว่าเข้าระบบไม่ได้');
+});
+
+test('the three logs are one page with a switcher, not three stacked lists', () => {
+  const { C, el } = loadController({});
+
+  C.switchLogView('error');
+  assert.ok(el('log-view-access').classList.contains('hidden'), 'อันที่ไม่ได้เลือกต้องซ่อน');
+  assert.ok(!el('log-view-error').classList.contains('hidden'), 'อันที่เลือกต้องโชว์');
+
+  C.switchLogView('change');
+  assert.ok(el('log-view-error').classList.contains('hidden'));
+  assert.ok(!el('log-view-change').classList.contains('hidden'));
+});
+
+test('the refresh button fetches whichever log is on screen', () => {
+  const { C } = loadController({});
+  const hit = [];
+  C.fetchAccessLog = () => hit.push('access');
+  C.fetchErrorLogs = () => hit.push('error');
+  C.fetchChangeLog = () => hit.push('change');
+
+  C.switchLogView('change');
+  C.refreshCurrentLog();
+  assert.deepEqual(hit, ['change'], 'ต้องดึงเฉพาะอันที่เปิดอยู่ ไม่ใช่ยิงทั้งสามชุด');
+});
