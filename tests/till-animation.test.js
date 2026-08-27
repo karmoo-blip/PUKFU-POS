@@ -444,3 +444,61 @@ test('a reduced-motion machine still gets the right number, without the pulse', 
   assert.equal(el('bell-badge').innerText, 1);
   assert.ok(!el('bell-badge').classList.contains('badge-alert'), 'เครื่องที่ลดการเคลื่อนไหวต้องไม่เด้ง');
 });
+
+// ---- หน้ายอดขาย (รวม Summary + Report) ----
+test('the drawer only shows for today, and the daily chart only for a range', () => {
+  const { C, el } = loadController({});
+  C.fetchSummary = () => {};
+  C.setReportPreset = () => {};
+
+  C.setSalesPeriod('today');
+  assert.ok(!el('sales-drawer-sec').classList.contains('hidden'), 'เงินในลิ้นชักต้องขึ้นตอนดูวันนี้');
+  assert.ok(el('sales-daily-sec').classList.contains('hidden'), 'วันเดียวไม่มีกราฟรายวันให้ดู');
+  assert.ok(el('sales-weekday-sec').classList.contains('hidden'), 'วันเดียวไม่มีค่าเฉลี่ยรายวันในสัปดาห์');
+
+  C.setSalesPeriod('7d');
+  assert.ok(el('sales-drawer-sec').classList.contains('hidden'), 'เงินในลิ้นชักไม่มีความหมายเมื่อดูย้อนหลัง');
+  assert.ok(!el('sales-daily-sec').classList.contains('hidden'), 'ช่วงหลายวันต้องมีกราฟรายวัน');
+});
+
+test('an employee whose saved permission still says summary can open the sales tab', () => {
+  const { C } = loadController({});
+  const allowed = C.getAllowedTabs({ role: 'Staff', permissions: 'history,summary' });
+  assert.ok(allowed.includes('sales'), 'สิทธิ์เก่าที่บันทึกไว้ในชีตต้องยังเข้าหน้ายอดขายได้ ได้ ' + allowed.join(','));
+  assert.ok(!C.getAllowedTabs({ role: 'Staff', permissions: 'history' }).includes('sales'), 'คนที่ไม่เคยมีสิทธิ์ต้องยังเข้าไม่ได้');
+});
+
+test('an empty report renders empty states instead of throwing', () => {
+  const { C, el } = loadController({});
+  C.renderReport({ total: 0, totalProfit: 0, totalCost: 0, billCount: 0, cupCount: 0, avgPerBill: 0, wasteCost: 0, refundedTotal: 0, cash: 0, other: 0, byType: {}, topSellers: [], byWeekday: [], byHour: [], daily: [] });
+
+  assert.ok(el('sales-paybar').innerHTML.includes('ไม่มีข้อมูล'));
+  assert.ok(el('sales-hours').innerHTML.includes('ไม่มีข้อมูล'));
+  assert.ok(el('sales-daily').innerHTML.includes('ไม่มีข้อมูล'));
+  assert.equal(el('sales-margin').innerText, '-', 'ยังไม่มียอดขายก็คิดอัตรากำไรไม่ได้');
+});
+
+test('the report paints the figures, the peak hours and the margin caveat', () => {
+  const { C, el, frames } = loadController({});
+  C.renderReport({
+    total: 4820, totalProfit: 2610, totalCost: 2210, billCount: 63, cupCount: 78, avgPerBill: 76.5,
+    wasteCost: 180, refundedTotal: 120, cash: 2120, other: 2700,
+    byType: { 'เงินสด': 2120, 'พร้อมเพย์': 2300 },
+    topSellers: [
+      { name: 'ลาเต้', qty: 26, amount: 1430, hasCost: true, marginPct: 58 },
+      { name: 'โกโก้', qty: 6, amount: 530, hasCost: false, marginPct: 0 }
+    ],
+    byWeekday: [{ label: 'จันทร์', avgPerDay: 3180 }],
+    byHour: [{ hour: 11, bills: 20, label: '11' }, { hour: 12, bills: 25, label: '12' }, { hour: 20, bills: 2, label: '20' }],
+    daily: [{ date: '2026-08-26', total: 4180 }, { date: '2026-08-27', total: 4820 }]
+  });
+  runFrames(frames);
+
+  assert.equal(el('sales-bills').innerText, '63');
+  assert.equal(el('sales-margin').innerText, '54%');
+  assert.ok(el('sales-hours').innerHTML.includes('พีค'), 'ชั่วโมงพีคต้องมีข้อความกำกับ ไม่ใช่บอกด้วยสีอย่างเดียว');
+  assert.ok(el('sales-hours').innerHTML.includes('#d97706'), 'และทำสีต่างด้วย');
+  assert.ok(!el('sales-cost-note').classList.contains('hidden'), 'มีเมนูที่ยังไม่ระบุต้นทุน ต้องบอกว่ากำไรเป็นค่าประมาณ');
+  assert.ok(!el('sales-waste-wrap').classList.contains('hidden'), 'มีของเสียต้องโชว์');
+  assert.ok(el('sales-paylegend').innerHTML.includes('เงินสด'), 'ทุกก้อนในแถบต้องมีป้ายกำกับ');
+});
