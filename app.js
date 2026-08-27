@@ -2132,33 +2132,91 @@
 
         document.getElementById('settings-user-label').innerText = `เข้าสู่ระบบในฐานะ: ${user.name} (${user.role})`;
 
-        document.querySelectorAll('button[id^="settings-tab-"]').forEach(btn => {
-          const tabKey = btn.id.replace('settings-tab-', '');
-          btn.classList.toggle('hidden', !allowedTabs.includes(tabKey));
-        });
-
         this.switchView('settings');
-        this.switchSettingsTab(allowedTabs[0]);
-        this.initScrollFade('settings-tabs-scroll');
+
+        // จอเล็กเปิดมาเจอรายการหัวข้อก่อน แล้วค่อยเลือกเข้าไปทีละหน้า
+        // จอใหญ่มีเมนูค้างอยู่ข้างซ้ายอยู่แล้ว เปิดหน้าแรกที่มีสิทธิ์ให้เลย จะได้ไม่เจอพื้นที่ว่างเปล่า
+        // เปิดหน้าแรกตามลำดับในเมนู ไม่ใช่ลำดับที่บังเอิญอยู่ในลิสต์สิทธิ์ คนละอันกัน
+        const firstInNav = this.SETTINGS_GROUPS
+          .flatMap(g => g.items.map(i => i.tab))
+          .find(t => allowedTabs.includes(t)) || allowedTabs[0];
+        if (window.innerWidth >= 1024) this.switchSettingsTab(firstInNav);
+        else this.backToSettingsHome();
       },
 
-      // เปิดเมนูตั้งค่าแบบ bottom sheet บนมือถือ (โคลนปุ่มแท็บจริงที่ไม่ถูกซ่อนไว้ ทำให้เคารพสิทธิ์การเข้าถึงตาม role อัตโนมัติ)
-      openSettingsTabMenu() {
-        const list = document.getElementById('settings-tab-menu-list');
-        if (!list) return;
-        const buttons = Array.from(document.querySelectorAll('#settings-tabs-scroll button[id^="settings-tab-"]'))
-          .filter(btn => !btn.classList.contains('hidden'));
-        list.innerHTML = buttons.map(btn => {
-          const tab = btn.id.replace('settings-tab-', '');
-          const active = tab === this.currentSettingsTab;
-          return `<button onclick="Controller.selectSettingsTabFromMenu('${tab}')" class="w-full flex items-center gap-3 px-4 min-h-[3rem] rounded-xl font-bold text-sm text-left active:scale-[0.98] transition-all ${active ? 'bg-gradient-to-b from-primary to-secondary text-white' : 'text-slate-600 hover:bg-accent'}">${btn.innerHTML}</button>`;
-        }).join('');
-        this.openModal('modal-settings-tab-menu');
+      // ===== เมนูตั้งค่าแบบจัดกลุ่ม =====
+      // แหล่งข้อมูลเดียวของทั้งสองจอ จอใหญ่วาดเป็นคอลัมน์ซ้าย จอเล็กวาดเป็นหน้ารายการ
+      // ลำดับในนี้คือลำดับที่ผู้ใช้เห็นจริง จัดตามงานที่ทำ ไม่ใช่ตามลำดับที่เขียนโค้ด
+      SETTINGS_GROUPS: [
+        { title: 'ขายหน้าร้าน', items: [
+          { tab: 'stock', label: 'สินค้าในเมนู', icon: '<rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/>' },
+          { tab: 'addons', label: 'ส่วนเสริม', icon: '<rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/>' },
+          { tab: 'sweetness', label: 'ระดับความหวาน', icon: '<path d="M12 2s7 8 7 13a7 7 0 0 1-14 0c0-5 7-13 7-13z"/>' },
+          { tab: 'payment', label: 'วิธีชำระเงิน', icon: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/>' }
+        ]},
+        { title: 'ตัวเลข', items: [
+          { tab: 'sales', label: 'ยอดขาย', icon: '<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>' },
+          { tab: 'history', label: 'ประวัติบิล', icon: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/>' },
+          { tab: 'calendar', label: 'ปฏิทินยอดขาย', icon: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>' },
+          { tab: 'cost', label: 'ต้นทุนเมนู', icon: '<path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>' }
+        ]},
+        { title: 'ของในร้าน', items: [
+          { tab: 'inventory', label: 'วัตถุดิบ', icon: '<path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/>' },
+          { tab: 'notifications', label: 'แจ้งเตือนหมดอายุ', icon: '<path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>' }
+        ]},
+        { title: 'คนและระบบ', items: [
+          { tab: 'employees', label: 'พนักงาน', icon: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>' },
+          { tab: 'log', label: 'ประวัติการใช้งาน', icon: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/>' },
+          { tab: 'backup', label: 'สำรองข้อมูล', icon: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 13h8v6H8z"/>' },
+          { tab: 'printer', label: 'เครื่องพิมพ์', icon: '<path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>' },
+          { tab: 'onlineorder', label: 'สั่งอาหารออนไลน์', icon: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 14v3M14 19h3M19 19h2"/>' }
+        ]}
+      ],
+
+      settingsTabLabel(tab) {
+        for (const group of this.SETTINGS_GROUPS) {
+          const found = group.items.find(i => i.tab === tab);
+          if (found) return found.label;
+        }
+        return 'ตั้งค่า';
       },
 
-      selectSettingsTabFromMenu(tab) {
-        this.closeModal('modal-settings-tab-menu');
-        this.switchSettingsTab(tab);
+      // กลุ่มที่พนักงานคนนี้ไม่มีสิทธิ์เลยสักรายการ ให้หายไปทั้งกลุ่ม ไม่ใช่โชว์หัวข้อว่างๆ ไว้
+      renderSettingsNav() {
+        const nav = document.getElementById('settings-nav');
+        if (!nav) return;
+        const allowed = this.currentSettingsUser ? this.getAllowedTabs(this.currentSettingsUser) : null;
+        const counts = { notifications: this.bellCounts ? this.bellCounts().expired.length + this.bellCounts().soon.length : 0 };
+
+        let html = '';
+        for (const group of this.SETTINGS_GROUPS) {
+          const items = group.items.filter(i => !allowed || allowed.includes(i.tab));
+          if (items.length === 0) continue;
+          html += `<div class="set-nav-group"><p class="set-nav-title">${escHtml(group.title)}</p>`;
+          for (const item of items) {
+            const on = item.tab === this.currentSettingsTab ? ' is-on' : '';
+            const count = counts[item.tab];
+            html += `<button type="button" data-tab="${escAttr(item.tab)}" onclick="Controller.switchSettingsTab('${item.tab}')" class="set-nav-item${on}">`
+              + `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="set-nav-ic">${item.icon}</svg>`
+              + `<span class="set-nav-label">${escHtml(item.label)}</span>`
+              + (count ? `<span class="set-nav-count">${count}</span>` : '')
+              + `<span class="set-nav-chev">›</span></button>`;
+          }
+          html += '</div>';
+        }
+        nav.innerHTML = html;
+      },
+
+      // จอเล็กเข้าหน้าย่อยแล้วต้องมีทางกลับ จอใหญ่ไม่ต้องเพราะเมนูอยู่ข้างๆ ตลอด
+      backToSettingsHome() {
+        const shell = document.getElementById('settings-shell');
+        if (shell) { shell.classList.add('is-home'); shell.classList.remove('is-page'); }
+        const back = document.getElementById('settings-back');
+        if (back) back.classList.add('hidden');
+        const title = document.getElementById('settings-title');
+        if (title) title.innerText = 'ตั้งค่า';
+        this.currentSettingsTab = null;
+        this.renderSettingsNav();
       },
 
       switchSettingsTab(tab) {
@@ -2169,24 +2227,15 @@
         document.querySelectorAll('.settings-panel').forEach(p => p.classList.add('hidden'));
         document.getElementById(`settings-panel-${tab}`).classList.remove('hidden');
 
-        document.querySelectorAll('button[id^="settings-tab-"]').forEach(btn => {
-          btn.classList.remove('text-white');
-          btn.classList.add('text-slate-500');
-        });
-        const activeTabBtn = document.getElementById(`settings-tab-${tab}`);
-        activeTabBtn.classList.add('text-white');
-        activeTabBtn.classList.remove('text-slate-500');
-        // แถบสีลอย (liquid navigation) ไหลไปเกาะใต้แท็บที่เพิ่งเลือกแทนการสลับสีปุ่มทันที
-        const indicator = document.getElementById('settings-tab-indicator');
-        if (indicator) {
-          indicator.style.left = activeTabBtn.offsetLeft + 'px';
-          indicator.style.width = activeTabBtn.offsetWidth + 'px';
-        }
-        // แถบแท็บมี ~12 ปุ่มเลื่อนแนวนอน มือถือกดแท็บที่โผล่แค่ครึ่งเดียวแล้วจะงงว่าอยู่ตรงไหน เลยเลื่อนให้เข้ากลางจอเสมอ
-        activeTabBtn.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        // ซิงก์ปุ่มเปิดเมนูบนมือถือให้โชว์ไอคอน+ชื่อแท็บปัจจุบัน (โคลนจากปุ่มแท็บจริงเพื่อไม่ต้องเก็บไอคอนซ้ำสองที่)
-        const triggerContent = document.getElementById('settings-mobile-tab-trigger-content');
-        if (triggerContent) triggerContent.innerHTML = activeTabBtn.innerHTML;
+        this.renderSettingsNav();
+
+        // จอเล็กมีที่พอโชว์ทีละอย่าง เลือกหัวข้อแล้วรายการหลบไป เหลือแต่หน้าที่เปิด พร้อมปุ่มย้อนกลับ
+        const shell = document.getElementById('settings-shell');
+        if (shell) { shell.classList.remove('is-home'); shell.classList.add('is-page'); }
+        const back = document.getElementById('settings-back');
+        if (back) back.classList.remove('hidden');
+        const title = document.getElementById('settings-title');
+        if (title) title.innerText = this.settingsTabLabel(tab);
 
         if (tab === 'printer') {
           document.getElementById('printer-header').value = this.receiptSettings.header || '';

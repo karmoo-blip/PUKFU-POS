@@ -502,3 +502,47 @@ test('the report paints the figures, the peak hours and the margin caveat', () =
   assert.ok(!el('sales-waste-wrap').classList.contains('hidden'), 'มีของเสียต้องโชว์');
   assert.ok(el('sales-paylegend').innerHTML.includes('เงินสด'), 'ทุกก้อนในแถบต้องมีป้ายกำกับ');
 });
+
+// ---- เมนูตั้งค่าแบบจัดกลุ่ม ----
+function settingsController(user) {
+  const ctx = loadController({});
+  const { C, document: d } = ctx;
+  C.currentSettingsUser = user || { id: 'u1', name: 'บอส', role: 'Owner', active: true };
+  C.loggedInEmployee = C.currentSettingsUser;
+  C.bellCounts = () => ({ expired: [], soon: [], waitingOrders: [], unsynced: 0, update: 0, total: 0 });
+  d.__q['#user-menu-wrap button'] = new FakeEl('umb');
+  return ctx;
+}
+
+test('the settings menu only lists what the staff member may open', () => {
+  const { C, el } = settingsController({ id: 'u2', name: 'เบส', role: 'Staff', permissions: 'history,inventory' });
+  C.renderSettingsNav();
+  const html = el('settings-nav').innerHTML;
+
+  assert.ok(html.includes('ประวัติบิล') && html.includes('วัตถุดิบ'), 'ต้องเห็นสองหน้าที่มีสิทธิ์');
+  assert.ok(!html.includes('พนักงาน') && !html.includes('สำรองข้อมูล'), 'หน้าที่ไม่มีสิทธิ์ต้องไม่โผล่');
+  assert.ok(!html.includes('คนและระบบ'), 'กลุ่มที่ไม่เหลือรายการเลยต้องหายทั้งกลุ่ม ไม่ใช่เหลือหัวข้อว่าง');
+});
+
+test('picking a page swaps the phone view, and back returns to the list', () => {
+  const { C, el } = settingsController();
+  C.renderHistory = () => {};
+
+  C.switchSettingsTab('history');
+  assert.ok(el('settings-shell').classList.contains('is-page'), 'เลือกหัวข้อแล้วต้องสลับไปหน้าย่อย');
+  assert.ok(!el('settings-back').classList.contains('hidden'), 'ต้องมีปุ่มย้อนกลับให้กด');
+  assert.equal(el('settings-title').innerText, 'ประวัติบิล', 'หัวหน้าต้องบอกว่าอยู่หน้าไหน');
+
+  C.backToSettingsHome();
+  assert.ok(el('settings-shell').classList.contains('is-home'), 'กดย้อนกลับต้องกลับไปหน้ารายการ');
+  assert.ok(el('settings-back').classList.contains('hidden'), 'หน้ารายการไม่ต้องมีปุ่มย้อนกลับ');
+});
+
+test('the open page is marked in the menu', () => {
+  const { C, el } = settingsController();
+  C.renderHistory = () => {};
+  C.switchSettingsTab('history');
+  const html = el('settings-nav').innerHTML;
+  const activeChunk = html.slice(html.indexOf('data-tab="history"'), html.indexOf('data-tab="history"') + 160);
+  assert.ok(activeChunk.includes('is-on'), 'หน้าที่เปิดอยู่ต้องถูกไฮไลต์ในเมนู');
+});
