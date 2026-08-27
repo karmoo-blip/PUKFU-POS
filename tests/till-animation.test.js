@@ -468,6 +468,22 @@ test('an employee whose saved permission still says summary can open the sales t
   assert.ok(!C.getAllowedTabs({ role: 'Staff', permissions: 'history' }).includes('sales'), 'คนที่ไม่เคยมีสิทธิ์ต้องยังเข้าไม่ได้');
 });
 
+test('every settings page can be granted to an employee', () => {
+  const { C, el } = loadController({});
+  const allTabs = C.getAllowedTabs({ role: 'Owner' });
+
+  C.renderEmployeePermissionGrid(['sales', 'printer']);
+  const html = el('emp-perm-groups').innerHTML;
+
+  const offered = (html.match(/class="emp-perm-checkbox" value="([a-z]+)"/g) || [])
+    .map(m => m.replace(/.*value="/, '').replace('"', ''));
+  const missing = allTabs.filter(t => !offered.includes(t));
+  assert.strictEqual(missing.join(','), '', 'ทุกหน้าที่เข้าได้ต้องติ๊กให้สิทธิ์ได้ ขาด ' + missing.join(','));
+  assert.strictEqual(offered.length, allTabs.length, 'ห้ามมีช่องติ๊กที่ไม่ตรงกับหน้าไหนเลย');
+  C.SETTINGS_GROUPS.forEach(g => assert.ok(html.includes(g.title), 'ต้องจัดกลุ่มตามเมนูซ้าย ขาดกลุ่ม ' + g.title));
+  assert.strictEqual((html.match(/ checked/g) || []).length, 2, 'ต้องติ๊กมาให้ตรงกับสิทธิ์เดิมเท่านั้น');
+});
+
 test('an empty report renders empty states instead of throwing', () => {
   const { C, el } = loadController({});
   C.renderReport({ total: 0, totalProfit: 0, totalCost: 0, billCount: 0, cupCount: 0, avgPerBill: 0, wasteCost: 0, refundedTotal: 0, cash: 0, other: 0, byType: {}, topSellers: [], byWeekday: [], byHour: [], daily: [] });

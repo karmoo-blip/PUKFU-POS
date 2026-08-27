@@ -1214,3 +1214,17 @@
       #settings-panel-printer .set-card-wide .set-field-full { grid-column: span 2; }
       #settings-panel-printer .set-checkgrid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
     }
+
+    /* ===== ช่องติ๊กสิทธิ์ในฟอร์มพนักงาน =====
+       แผ่นนี้กว้าง 384px หักขอบแล้วเหลือ 336px จึงตรึงไว้สองคอลัมน์
+       ไม่ยืมค่า 3 คอลัมน์ของ .set-checkgrid บนจอใหญ่ ไม่งั้นชื่อหน้ายาวๆ จะตัดคำกลางคัน */
+    .emp-perm-group + .emp-perm-group { margin-top: 12px; }
+    .emp-perm-group-t {
+      font-size: 11px;
+      font-weight: 800;
+      color: #94a3b8;
+      letter-spacing: .02em;
+      margin-bottom: 2px;
+    }
+    #emp-perm-groups .set-checkgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 12px; }
+    #emp-perm-groups .set-check { font-size: 12.5px; min-height: 30px; }

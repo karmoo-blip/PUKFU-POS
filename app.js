@@ -2647,6 +2647,24 @@
         }).join('');
       },
 
+      // วาดช่องติ๊กสิทธิ์จาก SETTINGS_GROUPS ตัวเดียวกับเมนูซ้าย
+      // ของเดิมเขียนช่องติ๊กไว้ตายตัวใน index.html แล้วตกไปสี่หน้า (ปฏิทินยอดขาย ต้นทุนเมนู เครื่องพิมพ์ สั่งอาหารออนไลน์)
+      // ให้สิทธิ์สี่หน้านั้นไม่ได้เลย วาดจากรายการเดียวกันแล้วเพิ่มหน้าใหม่ทีหลังจะไม่หลุดอีก
+      renderEmployeePermissionGrid(checkedTabs) {
+        const wrap = document.getElementById('emp-perm-groups');
+        if (!wrap) return;
+        const checked = new Set(checkedTabs || []);
+        wrap.innerHTML = this.SETTINGS_GROUPS.map(group => `
+          <div class="emp-perm-group">
+            <p class="emp-perm-group-t">${escHtml(group.title)}</p>
+            <div class="set-checkgrid">
+              ${group.items.map(item => `
+                <label class="set-check"><input type="checkbox" class="emp-perm-checkbox" value="${escAttr(item.tab)}"${checked.has(item.tab) ? ' checked' : ''}> ${escHtml(item.label)}</label>
+              `).join('')}
+            </div>
+          </div>`).join('');
+      },
+
       // ---- สลับสามลิสต์ในหน้าประวัติการใช้งาน ----
       switchLogView(which) {
         this.currentLogView = which;
@@ -2719,10 +2737,10 @@
           }
         });
 
-        const permList = emp && emp.permissions ? emp.permissions.split(',') : [];
-        document.querySelectorAll('.emp-perm-checkbox').forEach(cb => {
-          cb.checked = permList.includes(cb.value);
-        });
+        const permList = emp && emp.permissions ? emp.permissions.split(',').map(t => t.trim()) : [];
+        // สิทธิ์เก่าในชีตยังเขียนว่า summary/report ซึ่งยุบเป็น "ยอดขาย" ไปแล้ว ต้องติ๊กให้ตรงกับที่เขาเข้าได้จริง
+        if (permList.includes('summary') || permList.includes('report')) permList.push('sales');
+        this.renderEmployeePermissionGrid(permList);
 
         this.editingEmployeePhoto = emp ? (emp.photo || '') : '';
         const photoPreview = document.getElementById('emp-form-photo-preview');

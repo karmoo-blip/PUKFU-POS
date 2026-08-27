@@ -792,20 +792,9 @@
       <div class="mb-3">
         <p id="emp-form-full-access-note" class="hidden text-xs font-bold text-primary bg-accent px-3 py-2 rounded-xl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg> ตำแหน่งนี้เข้าถึงได้ทุกอย่างเสมอ ไม่สามารถจำกัดสิทธิ์ได้</p>
         <div id="emp-form-permissions-wrap">
-          <label class="text-sm font-bold text-slate-500 mb-2 block">เข้าถึงเมนูไหนได้บ้าง</label>
-          <div class="grid grid-cols-2 gap-2 text-sm">
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="history"> History</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="sales"> ยอดขาย</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="inventory"> Inventory</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="stock"> Available</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="employees"> Employee</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="log"> Log</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="addons"> Add-ons</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="sweetness"> ความหวาน</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="notifications"> แจ้งเตือน</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="payment"> Payment</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="backup"> Backup</label>
-          </div>
+          <label class="text-sm font-bold text-slate-500 mb-2 block">เห็นหน้าไหนได้บ้าง</label>
+          <!-- ช่องติ๊กวาดจาก SETTINGS_GROUPS ตอนเปิดฟอร์ม จะได้ครบทุกหน้าและจัดกลุ่มตรงกับเมนูซ้ายเสมอ -->
+          <div id="emp-perm-groups"></div>
         </div>
       </div>
       <div class="mb-5 flex items-center gap-2">
