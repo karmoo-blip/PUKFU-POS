@@ -989,6 +989,7 @@
             this._updateAvailable = true;
             const banner = document.getElementById('app-update-banner');
             if (banner) banner.classList.remove('hidden');
+            this.updateBellBadge();
           }
         } catch (e) {
           // ออฟไลน์หรือเน็ตมีปัญหา ข้ามไปเช็ครอบหน้า
@@ -1472,16 +1473,9 @@
         this.openModal('modal-alert');
       },
 
+      // ตัวเลขของค้างซิงก์ย้ายไปรวมอยู่บนกระดิ่งแล้ว ปุ่ม STATUS เหลือไว้บอกสถานะการเชื่อมต่ออย่างเดียว
       updateSyncQueueBadge() {
-        const badge = document.getElementById('sync-queue-badge');
-        if (!badge) return;
-        const count = this.syncQueue.length;
-        if (count > 0) {
-          badge.innerText = count;
-          badge.classList.remove('hidden');
-        } else {
-          badge.classList.add('hidden');
-        }
+        this.updateBellBadge();
       },
 
       async showSyncQueueInfo() {
@@ -1640,6 +1634,119 @@
         return { expired, soon };
       },
 
+      // ===== กระดิ่ง: รวมทุกเรื่องที่ต้องจัดการไว้ที่เดียว =====
+      // นับสี่ทาง ของหมดอายุ/ใกล้หมดอายุ, ออเดอร์ออนไลน์ที่ยังไม่ได้ยืนยัน, เวอร์ชันใหม่, บิลที่ยังไม่ได้ซิงก์
+      // ตัวเลขกับรายการในหน้าต่างอ่านจากฟังก์ชันเดียวกัน จะได้ไม่มีทางไม่ตรงกัน
+      bellCounts() {
+        const { expired, soon } = this._getActiveNotifications();
+        const waitingOrders = (this.pendingOrders || []).filter(o => (o.status || 'pending') === 'pending');
+        // นับให้ตรงกับตัวเลขบนปุ่ม STATUS ซึ่งรวมคิวเงินทอน/ล็อก/สถานะบิลด้วย ไม่ใช่แค่บิลขาย
+        const unsynced = (this.syncQueue || []).length
+          + (this.floatCashQueue || []).length
+          + (this.accessLogQueue || []).length
+          + (this.statusQueue || []).length;
+        const update = this._updateAvailable ? 1 : 0;
+        return {
+          expired, soon, waitingOrders, unsynced, update,
+          total: expired.length + soon.length + waitingOrders.length + unsynced + update
+        };
+      },
+
+      updateBellBadge() {
+        const badge = document.getElementById('bell-badge');
+        const count = this.bellCounts().total;
+        // ฟังก์ชันที่เรียกตัวนี้ทำงานทุก 8 วิ/60 วิ และส่วนใหญ่ได้เลขเดิม เด้งเฉพาะตอนเพิ่มขึ้นจริง
+        const rose = count > (this._lastBellCount || 0);
+        this._lastBellCount = count;
+
+        if (badge) {
+          badge.innerText = count;
+          badge.classList.toggle('hidden', count === 0);
+          if (rose) {
+            this.replayClass(badge, 'badge-alert');
+            this.replayClass(document.getElementById('btn-bell'), 'icon-shake');
+          }
+        }
+
+        // เปิดกระดิ่งค้างไว้แล้วมีของเข้ามาใหม่ ต้องเห็นในหน้าต่างเลย ไม่ต้องปิดเปิดใหม่
+        const modal = document.getElementById('modal-bell');
+        if (modal && !modal.classList.contains('hidden')) this.renderBellList();
+      },
+
+      openBellModal() {
+        this.renderBellList();
+        this.openModal('modal-bell');
+      },
+
+      renderBellList() {
+        const list = document.getElementById('bell-list');
+        if (!list) return;
+        const c = this.bellCounts();
+
+        if (c.total === 0) {
+          list.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>ไม่มีอะไรต้องจัดการ</div>';
+          return;
+        }
+
+        const group = (title) => `<div class="px-5 pt-4 pb-1 text-[11px] font-bold text-slate-400 tracking-wide uppercase">${title}</div>`;
+        const row = (dotColor, title, sub, btnClass, btnLabel, onclick) => `
+          <div class="flex items-center gap-3 px-5 py-3.5 border-t border-slate-100">
+            <span class="w-2 h-2 rounded-full shrink-0" style="background:${dotColor}"></span>
+            <div class="min-w-0 flex-1">
+              <p class="font-bold text-secondary truncate">${title}</p>
+              <p class="text-xs text-slate-400 mt-0.5">${sub}</p>
+            </div>
+            <button onclick="${onclick}" class="shrink-0 min-h-[2.25rem] px-3.5 inline-flex items-center rounded-full text-xs font-bold active:scale-95 transition-all ${btnClass}">${btnLabel}</button>
+          </div>`;
+
+        let html = '';
+
+        if (c.waitingOrders.length) {
+          html += group('ออเดอร์ออนไลน์');
+          for (const o of c.waitingOrders) {
+            const when = o.timestamp ? new Date(o.timestamp).toLocaleTimeString() : '';
+            const cups = (o.items || []).reduce((n, i) => n + (Number(i.qty) || 0), 0);
+            html += row('#154360', escHtml(o.customerName || 'ลูกค้า') + (cups ? ` — ${cups} แก้ว` : ''),
+              (when ? when + ' · ' : '') + 'รอยืนยัน',
+              'text-primary bg-primary/10', 'จัดการ',
+              "Controller.closeModal(&quot;modal-bell&quot;); Controller.openPendingOrdersModal()");
+          }
+        }
+
+        if (c.expired.length || c.soon.length) {
+          html += group('ของหมดอายุ');
+          for (const n of c.expired) {
+            html += row('#ef4444', escHtml(n.item_name), 'หมดอายุแล้ว' + (n.expires_at ? ' ' + new Date(n.expires_at).toLocaleString() : ''),
+              'text-red-500 bg-red-50', 'ดูรายการ', 'Controller.openBellNotifications()');
+          }
+          for (const n of c.soon) {
+            html += row('#fb923c', escHtml(n.item_name), 'ใกล้หมดอายุ' + (n.expires_at ? ' ' + new Date(n.expires_at).toLocaleString() : ''),
+              'text-orange-500 bg-orange-50', 'ดูรายการ', 'Controller.openBellNotifications()');
+          }
+        }
+
+        if (c.update || c.unsynced) {
+          html += group('ระบบ');
+          if (c.update) {
+            html += row('#10b981', 'มีเวอร์ชันใหม่พร้อมใช้งาน', 'กดรีเฟรชเพื่อโหลดตัวล่าสุด',
+              'text-emerald-600 bg-emerald-50', 'รีเฟรช', 'Controller.applyAppUpdate()');
+          }
+          if (c.unsynced) {
+            html += row('#d97706', `ข้อมูลค้างซิงก์ ${c.unsynced} รายการ`, 'ยังไม่ได้ส่งขึ้นเซิร์ฟเวอร์',
+              'text-amber-600 bg-amber-50', 'ลองใหม่',
+              "Controller.closeModal(&quot;modal-bell&quot;); Controller.showSyncQueueInfo()");
+          }
+        }
+
+        list.innerHTML = html;
+      },
+
+      // ปิดกระดิ่งก่อนแล้วค่อยพาไปหน้าจัดการแจ้งเตือน ไม่งั้นหน้าต่างค้างทับหน้า Settings
+      openBellNotifications() {
+        this.closeModal('modal-bell');
+        this.openSettings().then(() => this.switchSettingsTab('notifications'));
+      },
+
       dismissNotificationAlert() {
         const { expired, soon } = this._getActiveNotifications();
         [...expired, ...soon].forEach(n => this.dismissedNotificationIds.add(n.id));
@@ -1671,6 +1778,8 @@
           if (newlySoon.length) parts.push(`ใกล้หมดอายุ: ${newlySoon.map(n => n.item_name).join(', ')}`);
           this.showAlert(parts.join('\n'), '', 'warning');
         }
+
+        this.updateBellBadge();
       },
 
       checkPendingOrders() {
@@ -1688,10 +1797,8 @@
             if (badge) {
               badge.innerText = count;
               badge.classList.toggle('hidden', count === 0);
-              if (rose) {
-                this.replayClass(badge, 'badge-alert');
-                this.replayClass(badge.parentElement, 'icon-shake');
-              }
+              // ตัวเลขนี้ไปอยู่ในเมนูใต้ชื่อแล้ว เขย่าไม่มีประโยชน์เพราะเมนูปิดอยู่ ตัวที่เขย่าคือกระดิ่ง (updateBellBadge)
+              if (rose) this.replayClass(badge, 'badge-alert');
             }
             const newlyArrived = waiting.filter(o => !this._alertedPendingOrderIds.has(o.id));
             if (newlyArrived.length > 0) {
@@ -1701,6 +1808,7 @@
             if (!document.getElementById('modal-pending-orders').classList.contains('hidden')) {
               this.renderPendingOrdersList();
             }
+            this.updateBellBadge();
           })
           .withFailureHandler(() => console.warn("เช็คออเดอร์ออนไลน์ไม่สำเร็จ"))
           .getPendingOrders({ includeConfirmed: true });
@@ -6830,19 +6938,9 @@ renderReport(r) {
           Controller.statusQueue = JSON.parse(localStorage.getItem('pos_statusQueue')) || [];
           Controller.isStatusSyncing = false;
 
+          // คิวพิเศษของบล็อกนี้ (เงินทอน/ล็อก/สถานะบิล) ถูกนับรวมใน bellCounts() แล้ว ไม่ต้องเขียนทับอีก
           Controller.updateSyncQueueBadge = function () {
-                    const badge = document.getElementById('sync-queue-badge');
-                    if (!badge) return;
-                    const count = this.syncQueue.length
-                      + (this.floatCashQueue ? this.floatCashQueue.length : 0)
-                      + (this.accessLogQueue ? this.accessLogQueue.length : 0)
-                      + (this.statusQueue ? this.statusQueue.length : 0);
-                    if (count > 0) {
-                                badge.innerText = count;
-                                badge.classList.remove('hidden');
-                    } else {
-                                badge.classList.add('hidden');
-                    }
+                    this.updateBellBadge();
           };
 
           Controller.processStatusQueue = function () {
