@@ -566,6 +566,12 @@
 
       // ─── สร้างใบเสร็จ ───
       async buildReceipt(order, queueStr, settings) {
+        return await this.docToBytes(await this.buildReceiptDoc(order, queueStr, settings));
+      },
+
+      // แยกส่วนวาดออกมาจากส่วนส่งเข้าเครื่องพิมพ์ หน้าตั้งค่าจะได้เอา doc เดียวกันไปวาดเป็นตัวอย่างบนจอได้
+      // ตัวอย่างจึงเป็นใบเดียวกับที่พิมพ์จริงเสมอ ไม่ใช่ใบจำลองที่ต้องตามแก้ทีหลัง
+      async buildReceiptDoc(order, queueStr, settings) {
         const R = ReceiptImage;
         const doc = R.newDoc(settings.paperSize);
         const S = doc.base;
@@ -652,7 +658,7 @@
         // ── ข้อความท้ายใบเสร็จ ──
         R.gap(doc, 6);
         if (settings.showFooter !== false) R.text(doc, settings.footer || 'Thank You', { size: small, align: 'center' });
-        return await this.docToBytes(doc);
+        return doc;
       },
       // ─── สร้างใบสั่งทำ (Order Slip) ───
       async buildOrderSlip(order, queueStr, settings) {
@@ -2261,6 +2267,7 @@
           
           const qDisplay = document.getElementById('current-queue-display');
           if (qDisplay) qDisplay.innerText = 'Q' + this.queueNumber.toString().padStart(2, '0');
+          this.initPrinterPanel();
         }
         if (tab === 'history') this.renderHistory();
         if (tab === 'sales') this.initSalesTab();
@@ -2510,32 +2517,109 @@
         }
       },
 
-      generateTableQr() {
-        const loc = document.getElementById('qr-location-input').value.trim();
-        if (!loc) return this.showAlert('กรุณาระบุชื่อโต๊ะหรือจุดรับสินค้าก่อน', '');
+      // ===== QR โต๊ะ =====
+      // ของเดิมจำได้ทีละโต๊ะเดียว สร้างโต๊ะใหม่ทับของเก่าทันที ร้านที่มีหลายโต๊ะต้องพิมพ์ชื่อสร้างใหม่ทุกครั้ง
+      // เก็บเป็นรายการแทน ชื่อโต๊ะเป็นตัวระบุ (QR ชี้ไปที่ ?loc=ชื่อ อยู่แล้ว ชื่อซ้ำคือ QR เดียวกัน)
+      tableQrList() {
+        let list;
+        try {
+          list = JSON.parse(localStorage.getItem('pos_tableQrs') || '[]');
+        } catch (e) {
+          list = [];
+        }
+        if (!Array.isArray(list)) list = [];
+        // ย้ายโต๊ะเดียวที่เคยเก็บไว้แบบเก่าเข้ารายการ ไม่งั้น QR ที่แปะไว้ที่โต๊ะแล้วจะหายไปจากหน้าจอ
+        const legacy = localStorage.getItem('pos_lastTableQrLoc');
+        if (legacy && !list.some(q => q.loc === legacy)) list.unshift({ loc: legacy, createdAt: '' });
+        return list;
+      },
+
+      saveTableQrList(list) {
+        localStorage.setItem('pos_tableQrs', JSON.stringify(list));
+        localStorage.removeItem('pos_lastTableQrLoc');
+      },
+
+      tableQrUrl(loc) {
         const basePath = location.pathname.replace(/[^/]*$/, ''); // เช่น "/PUKFU-POS/" กัน path พังตอน deploy ใน subpath ของ GitHub Pages
-        const url = location.origin + basePath + 'order.html?loc=' + encodeURIComponent(loc);
+        return location.origin + basePath + 'order.html?loc=' + encodeURIComponent(loc);
+      },
+
+      generateTableQr() {
+        const input = document.getElementById('qr-location-input');
+        const loc = input.value.trim();
+        if (!loc) return this.showAlert('กรุณาระบุชื่อโต๊ะหรือจุดรับสินค้าก่อน', '');
+        const list = this.tableQrList();
+        if (!list.some(q => q.loc === loc)) {
+          list.unshift({ loc: loc, createdAt: new Date().toISOString() });
+          this.saveTableQrList(list);
+        }
+        input.value = '';
+        this.renderTableQrList();
+        this.showTableQr(loc);
+      },
+
+      showTableQr(loc) {
+        const url = this.tableQrUrl(loc);
         const qr = qrcode(0, 'M');
         qr.addData(url);
         qr.make();
         document.getElementById('table-qr-image').src = qr.createDataURL(6, 4);
+        document.getElementById('table-qr-title').innerText = loc;
         document.getElementById('table-qr-url').innerText = url;
         document.getElementById('table-qr-result').classList.remove('hidden');
-        localStorage.setItem('pos_lastTableQrLoc', loc);
+        this.shownTableQr = loc;
+        this.renderTableQrList();
       },
 
-      // เรียกตอนเปิดแท็บ Online Order ทุกครั้ง เพื่อโชว์ QR ล่าสุดที่เคยสร้างไว้ ไม่ต้องพิมพ์ชื่อโต๊ะ+กดสร้างใหม่ทุกครั้งที่รีเฟรชหน้า
-      restoreTableQr() {
-        const loc = localStorage.getItem('pos_lastTableQrLoc');
-        if (!loc) return;
-        document.getElementById('qr-location-input').value = loc;
-        this.generateTableQr();
-      },
-
-      cancelTableQr() {
-        localStorage.removeItem('pos_lastTableQrLoc');
-        document.getElementById('qr-location-input').value = '';
+      hideTableQr() {
         document.getElementById('table-qr-result').classList.add('hidden');
+        this.shownTableQr = '';
+        this.renderTableQrList();
+      },
+
+      async removeTableQr(loc) {
+        const ok = await this.showConfirm('ยกเลิก QR ของ "' + loc + '" ใช่ไหม แผ่นที่แปะไว้ที่โต๊ะจะสั่งไม่ได้อีก', '');
+        if (!ok) return;
+        this.saveTableQrList(this.tableQrList().filter(q => q.loc !== loc));
+        if (this.shownTableQr === loc) this.hideTableQr();
+        else this.renderTableQrList();
+      },
+
+      // จำนวนออเดอร์นับจากประวัติที่โหลดมา (50 รายการล่าสุด) จึงเขียนกำกับไว้ว่านับจากตรงไหน
+      // ถ้าเขียนลอยๆ ว่า "ใช้ไป 3 ออเดอร์" เจ้าของร้านจะอ่านว่าเป็นยอดสะสมทั้งหมด
+      renderTableQrList() {
+        const wrap = document.getElementById('table-qr-list');
+        if (!wrap) return;
+        const list = this.tableQrList();
+        if (list.length === 0) {
+          wrap.innerHTML = '<p class="set-row-s" style="padding:10px 0">ยังไม่ได้สร้าง QR โต๊ะไหนไว้</p>';
+          return;
+        }
+        const history = this.onlineOrderHistory || [];
+        wrap.innerHTML = list.map(q => {
+          const used = history.filter(o => o.location === q.loc).length;
+          // ส่งชื่อโต๊ะผ่าน onclick แบบ encode ไว้ ชื่อที่มีเครื่องหมายคำพูดจะได้ไม่ทำให้ปุ่มพัง
+          const arg = encodeURIComponent(q.loc);
+          const when = q.createdAt ? new Date(q.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : '';
+          const meta = [when ? 'สร้างเมื่อ ' + when : '', history.length ? used + ' ออเดอร์ใน ' + history.length + ' รายการล่าสุด' : '']
+            .filter(Boolean).join(' · ');
+          return `
+          <div class="set-row">
+            <div class="set-row-body">
+              <p class="set-row-t">${escHtml(q.loc)}${this.shownTableQr === q.loc ? ' <span class="set-tag set-tag-info">กำลังแสดง</span>' : ''}</p>
+              <p class="set-row-s">${escHtml(meta)}</p>
+            </div>
+            <div class="set-row-acts">
+              <button onclick="Controller.showTableQr(decodeURIComponent('${arg}'))" class="set-btn set-btn-sm set-btn-soft">ดู QR</button>
+              <button onclick="Controller.removeTableQr(decodeURIComponent('${arg}'))" class="set-btn set-btn-sm set-btn-danger">ยกเลิก QR นี้</button>
+            </div>
+          </div>`;
+        }).join('');
+      },
+
+      // เรียกตอนเปิดแท็บ Online Order ทุกครั้ง เพื่อโชว์รายการ QR ที่เคยสร้างไว้
+      restoreTableQr() {
+        this.renderTableQrList();
       },
 
       loadOnlineOrderHistory() {
@@ -2548,6 +2632,8 @@
       renderOnlineOrderHistory(rows) {
         const container = document.getElementById('online-order-history-list');
         if (!container) return;
+        this.onlineOrderHistory = rows || []; // รายการ QR โต๊ะนับจำนวนออเดอร์จากชุดนี้
+        this.renderTableQrList();
         if (!rows || rows.length === 0) {
           container.innerHTML = '<p class="text-center text-slate-400 py-6 text-sm">ยังไม่มีประวัติ</p>';
           return;
@@ -5877,6 +5963,98 @@ renderReport(r) {
         }
       },
 
+      // ===== ตัวอย่างใบเสร็จ =====
+      // ผูกฟังการพิมพ์ครั้งเดียวต่อการเปิดแอป ไม่ผูกซ้ำทุกครั้งที่เปิดแท็บ
+      initPrinterPanel() {
+        this.renderReceiptPreview();
+        if (this._printerPanelBound) return;
+        const panel = document.getElementById('settings-panel-printer');
+        if (!panel) return;
+        const onEdit = () => {
+          this.markPrinterDirty(true);
+          this.scheduleReceiptPreview();
+        };
+        panel.addEventListener('input', onEdit);
+        panel.addEventListener('change', onEdit);
+        this._printerPanelBound = true;
+      },
+
+      markPrinterDirty(dirty) {
+        const note = document.getElementById('printer-save-note');
+        if (!note) return;
+        note.innerText = dirty ? 'แก้แล้วยังไม่ได้บันทึก' : 'แก้ช่องไหนแล้วอย่าลืมกดบันทึก';
+        note.classList.toggle('is-dirty', !!dirty);
+      },
+
+      // รอให้พิมพ์หยุดก่อนค่อยวาด ไม่งั้นวาดใหม่ทุกตัวอักษรที่พิมพ์
+      scheduleReceiptPreview() {
+        clearTimeout(this._receiptPreviewTimer);
+        this._receiptPreviewTimer = setTimeout(() => this.renderReceiptPreview(), 250);
+      },
+
+      // ค่าที่อยู่ในช่องตอนนี้ ยังไม่ได้บันทึก ตัวอย่างจะได้ตามมือที่พิมพ์
+      receiptFormSettings() {
+        const val = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+        const on = id => { const el = document.getElementById(id); return el ? el.checked : false; };
+        return {
+          ...this.receiptSettings,
+          ...this.shopInfo,
+          header: val('printer-header'),
+          footer: val('printer-footer'),
+          branch: val('printer-branch'),
+          company: val('printer-company'),
+          branchNo: val('printer-branch-no'),
+          posId: val('printer-pos-id'),
+          docTitle: val('printer-doc-title'),
+          showQueue: on('printer-show-queue'),
+          paperSize: val('printer-paper-size') || '80mm',
+          address: val('shop-address').trim(),
+          phone: val('shop-phone').trim(),
+          taxId: val('shop-tax-id').trim(),
+          vatEnabled: on('vat-enabled'),
+          vatRate: Number(val('vat-rate')) || 7,
+          ...this.readReceiptToggles(),
+        };
+      },
+
+      sampleReceiptOrder() {
+        return {
+          invoice: 'INV-000123',
+          timestamp: Date.now(),
+          cashier: (this.loggedInEmployee && this.loggedInEmployee.name) || 'พนักงาน',
+          items: [
+            { qty: 2, name: 'ลาเต้ (ร้อน)', price: 55, note: 'หวานน้อย' },
+            { qty: 1, name: 'ชาเขียวเย็น', price: 75, note: '' },
+          ],
+          subtotal: 185,
+          total: 185,
+          paymentType: 'เงินสด',
+          cashReceived: 200,
+          changeAmount: 15,
+        };
+      },
+
+      async renderReceiptPreview() {
+        const img = document.getElementById('receipt-preview-img');
+        const note = document.getElementById('receipt-preview-note');
+        if (!img) return;
+        const token = (this._receiptPreviewToken || 0) + 1;
+        this._receiptPreviewToken = token;
+        try {
+          const settings = this.receiptFormSettings();
+          const doc = await ReceiptPrinter.buildReceiptDoc(this.sampleReceiptOrder(), settings.showQueue ? 'Q07' : '', settings);
+          const url = await ReceiptImage.toDataURL(doc);
+          if (this._receiptPreviewToken !== token) return; // มีการแก้ทับมาแล้ว ทิ้งใบเก่า
+          img.src = url;
+          img.classList.remove('hidden');
+          if (note) note.classList.add('hidden');
+        } catch (e) {
+          // วาดตัวอย่างไม่ได้ไม่ควรทำให้หน้าตั้งค่าใช้ไม่ได้ไปด้วย
+          console.warn('วาดตัวอย่างใบเสร็จไม่สำเร็จ', e);
+          if (note) { note.innerText = 'แสดงตัวอย่างไม่ได้ในเครื่องนี้'; note.classList.remove('hidden'); }
+        }
+      },
+
       async savePrinterSettings() {
         const oldPaperSize = this.receiptSettings.paperSize;
         this.receiptSettings = {
@@ -5923,6 +6101,7 @@ renderReport(r) {
           .withFailureHandler(() => this.showAlert('บันทึกข้อมูลร้านลง Google Sheet ไม่สำเร็จ (จะเก็บไว้ในเครื่องก่อน)', ''))
           .saveShopInfo({ ...this.shopInfo, ...receiptSettingsForSync });
 
+        this.markPrinterDirty(false);
         this.showAlert('บันทึกการตั้งค่าเครื่องพิมพ์แล้ว', '');
       },
 
