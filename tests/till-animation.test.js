@@ -270,3 +270,97 @@ test('the cash keypad writes the exact figures first, and only then animates', (
   assert.equal(el('cash-change').innerText, '90', 'เงินทอนต้องนับไปจบที่ค่าจริง ได้ ' + el('cash-change').innerText);
   assert.equal(el('btn-submit-order').disabled, false, 'จ่ายพอแล้วปุ่มต้องกดได้');
 });
+
+// ---- หน้าประวัติบิล ----
+// แอปดึงข้อมูลซ้ำเป็นระยะและได้คำตอบเดิมเป็นส่วนใหญ่ กฎเดียวกับหน้าขาย: วาดใหม่เฉพาะตอนข้อมูลเปลี่ยนจริง
+function billsController(bills) {
+  const ctx = loadController({});
+  const { C } = ctx;
+  C.history = bills;
+  C.syncQueue = [];
+  C.historyViewData = null;
+  return ctx;
+}
+
+const BILL_A = { invoice: 'INV-A', timestamp: '2026-08-27T10:00:00Z', total: 185, paymentType: 'เงินสด', items: [], status: 'active' };
+const BILL_B = { invoice: 'INV-B', timestamp: '2026-08-27T10:05:00Z', total: 60, paymentType: 'พร้อมเพย์', items: [], status: 'active' };
+
+test('the bill list is left alone when a repeat check brings back the same bills', () => {
+  const { C, el } = billsController([{ ...BILL_A }]);
+  C.renderHistory();
+
+  const list = el('history-list');
+  list.innerHTML = 'ของเดิมที่กางอยู่';
+  C.renderHistory();
+
+  assert.equal(list.innerHTML, 'ของเดิมที่กางอยู่', 'ข้อมูลเท่าเดิมต้องไม่วาดทับ ไม่งั้นบิลที่กางค้างไว้จะถูกพับกลับเอง');
+});
+
+test('only a bill that was not there before is marked as new', () => {
+  const { C, el } = billsController([{ ...BILL_A }]);
+  C.renderHistory();
+  const list = el('history-list');
+
+  const rowA = new FakeEl('row-a'); rowA.dataset.invoice = 'INV-A';
+  const rowB = new FakeEl('row-b'); rowB.dataset.invoice = 'INV-B';
+  rowA.querySelector = () => null;
+  rowB.querySelector = () => null;
+  list.children = [rowA, rowB];
+
+  C.history = [{ ...BILL_A }, { ...BILL_B }];
+  C.renderHistory();
+
+  assert.ok(rowB.classList.contains('is-fresh'), 'บิลที่เพิ่งเข้ามาต้องถูกทำเครื่องหมาย');
+  assert.ok(!rowA.classList.contains('is-fresh'), 'บิลเก่าต้องไม่ถูกนับเป็นของใหม่');
+});
+
+test('the first draw after opening the app marks nothing as new', () => {
+  const { C, el } = billsController([{ ...BILL_A }, { ...BILL_B }]);
+  const list = el('history-list');
+  const rowA = new FakeEl('row-a'); rowA.dataset.invoice = 'INV-A'; rowA.querySelector = () => null;
+  const rowB = new FakeEl('row-b'); rowB.dataset.invoice = 'INV-B'; rowB.querySelector = () => null;
+  list.children = [rowA, rowB];
+
+  C.renderHistory();
+
+  assert.ok(!rowA.classList.contains('is-fresh') && !rowB.classList.contains('is-fresh'), 'เปิดแท็บครั้งแรกต้องไม่วาบทั้งกระดาน');
+});
+
+test('cancelling a bill flashes that row, not the whole list', () => {
+  const { C, el } = billsController([{ ...BILL_A }, { ...BILL_B }]);
+  C.renderHistory();
+  const list = el('history-list');
+  const rowA = new FakeEl('row-a'); rowA.dataset.invoice = 'INV-A'; rowA.querySelector = () => null;
+  const rowB = new FakeEl('row-b'); rowB.dataset.invoice = 'INV-B'; rowB.querySelector = () => null;
+  list.children = [rowA, rowB];
+
+  C.history = [{ ...BILL_A, status: 'cancelled', cancelReason: 'ลูกค้าเปลี่ยนใจ' }, { ...BILL_B }];
+  C.renderHistory();
+
+  assert.ok(rowA.classList.contains('is-hit-cancel'), 'ใบที่เพิ่งยกเลิกต้องวาบ');
+  assert.ok(!rowB.classList.contains('is-hit-cancel'), 'ใบอื่นต้องอยู่เฉยๆ');
+});
+
+test('looking at an older day clears the list first, so no stale figures are read as that day', () => {
+  const { C, el } = billsController([{ ...BILL_A }]);
+  C.renderHistory();
+  const list = el('history-list');
+
+  C.renderHistorySkeleton();
+
+  assert.ok(!list.innerHTML.includes('INV-A'), 'บิลของวันนี้ต้องหายไปทันที');
+  assert.ok(list.innerHTML.includes('history-skel-bar'), 'ต้องขึ้นโครงร่างเทารอ');
+  assert.equal(C._historyHtml, null, 'ต้องล้างลายเซ็นไว้ ไม่งั้นข้อมูลที่โหลดมาอาจไม่ถูกวาดทับโครงร่าง');
+});
+
+test('a reduced-motion machine still gets the bills, just without the entrance', () => {
+  const { C, el } = loadController({ reducedMotion: true });
+  C.history = [{ ...BILL_A }];
+  C.syncQueue = [];
+  C.historyViewData = null;
+  C.renderHistory();
+
+  const list = el('history-list');
+  assert.ok(list.innerHTML.includes('INV-A'), 'ต้องเห็นบิลครบ');
+  assert.ok(!list.classList.contains('is-entering'), 'เครื่องที่ลดการเคลื่อนไหวต้องไม่เล่นจังหวะโผล่');
+});
