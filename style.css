@@ -1082,3 +1082,16 @@
     @media (prefers-reduced-motion: reduce) {
       .set-nav-item, .set-btn { transition: none; }
     }
+
+    /* รูปสินค้าในแถวรายการ (หน้าสินค้าในเมนู) */
+    .set-thumb { width: 40px; height: 40px; border-radius: 10px; object-fit: cover; flex: none; }
+
+    /* จอเล็ก: ปุ่มจัดการท้ายแถวขึ้นบรรทัดใหม่ กดง่ายกว่าเบียดกันอยู่ข้างชื่อ */
+    @media (max-width: 1023px) {
+      .set-row { flex-wrap: wrap; }
+      .set-row-body { flex: 1 1 100%; }
+      .set-row-acts { flex: 1 1 100%; flex-wrap: wrap; }
+      .set-row-acts .set-btn { flex: 1 1 auto; min-height: 40px; }
+      .set-toolbar .set-btn { flex: 1 1 100%; }
+      .set-toolbar .set-search { flex: 1 1 100%; }
+    }

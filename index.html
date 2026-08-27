@@ -418,23 +418,20 @@
         <div id="notification-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
       </div>
 
-      <div id="settings-panel-stock" class="settings-panel hidden flex flex-col">
-        <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 max-w-md mb-4">
-          <p class="text-sm text-slate-400 mb-1">สถานะปัจจุบัน</p>
-          <p id="stock-status-label" class="text-2xl font-black text-secondary mb-4">ปกติ</p>
-          <p class="text-sm text-slate-400 mb-4">เปิดโหมดนี้เพื่อคลิกที่สินค้าในหน้า POS แล้วสลับสถานะ Sold Out ได้ทันที</p>
-          <button id="btn-toggle-stock" onclick="Controller.toggleStockMode()" class="w-full bg-gradient-to-b from-primary to-secondary text-white py-3 rounded-2xl font-bold hover:brightness-110 transition">เปิดโหมดจัดการสต๊อก</button>
+      <div id="settings-panel-stock" class="settings-panel hidden">
+        <div class="set-card">
+          <p class="set-card-t">โหมดจัดการสต๊อก — <span id="stock-status-label">ปิดอยู่</span></p>
+          <p class="set-card-sub">เปิดแล้วแตะสินค้าในหน้าขายเพื่อสลับ "หมด/มีของ" ได้เลย ไม่ต้องเข้ามาหน้านี้ เหมาะกับตอนเช็คของรัวๆ หน้าร้าน</p>
+          <button id="btn-toggle-stock" onclick="Controller.toggleStockMode()" class="set-btn set-btn-warn" style="width:100%">เปิดโหมดจัดการสต๊อก</button>
         </div>
 
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-          <p class="text-sm text-slate-400">จัดการสินค้าในเมนู (เพิ่ม/แก้ไข/ลบ)</p>
-          <div class="flex gap-2 w-full sm:w-auto">
-            <button onclick="Controller.showProductForm(null)" class="flex-1 sm:flex-none justify-center items-center flex bg-emerald-500 text-white hover:brightness-95 px-4 py-2 rounded-2xl font-bold transition">+ เพิ่มสินค้า</button>
-            <button onclick="Controller.fetchMenuForAdmin(this)" class="flex-1 sm:flex-none justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-4 py-2 rounded-2xl font-bold transition">Refresh</button>
-          </div>
+        <div class="set-toolbar" style="margin-top:14px">
+          <input id="product-search" type="text" placeholder="ค้นหาสินค้า..." oninput="Controller.filterProductList(this.value)" class="set-search">
+          <button onclick="Controller.fetchMenuForAdmin(this)" class="set-btn set-btn-ghost">รีเฟรช</button>
+          <button onclick="Controller.showProductForm(null)" class="set-btn set-btn-go">+ เพิ่มสินค้า</button>
         </div>
-        <input id="product-search" type="text" placeholder="ค้นหาสินค้า..." oninput="Controller.filterProductList(this.value)" class="w-full border border-sand rounded-xl p-2.5 mb-3 focus:outline-none focus:border-primary bg-cream">
-        <div id="product-list" class="flex-1 overflow-y-auto bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[55vh]"></div>
+
+        <div class="set-card"><div id="product-list"></div></div>
       </div>
 
       <div id="settings-panel-printer" class="settings-panel hidden">
@@ -686,19 +683,19 @@
         <div id="change-log-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
       </div>
       <div id="settings-panel-addons" class="settings-panel hidden">
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-          <p class="text-sm text-slate-400">จัดการส่วนเสริม (เช่น เพิ่มช็อต, ไข่มุก)</p>
-          <button onclick="Controller.openAddonForm()" class="w-full sm:w-auto justify-center items-center flex bg-gradient-to-b from-primary to-secondary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-110 transition">+ เพิ่ม Add-on</button>
+        <div class="set-toolbar">
+          <p class="set-card-sub" style="margin:0;flex:1 1 200px">ของที่ลูกค้าเลือกเพิ่มตอนสั่ง เช่น เพิ่มช็อต ไข่มุก</p>
+          <button onclick="Controller.openAddonForm()" class="set-btn set-btn-go">+ เพิ่มส่วนเสริม</button>
         </div>
-        <div id="addon-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
+        <div class="set-card"><div id="addon-list"></div></div>
       </div>
 
       <div id="settings-panel-sweetness" class="settings-panel hidden">
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-          <p class="text-sm text-slate-400">จัดการระดับความหวานที่ให้ลูกค้าเลือกตอนสั่ง เพิ่ม/แก้ไข/ลบได้เอง</p>
-          <button onclick="Controller.openSweetnessForm()" class="w-full sm:w-auto justify-center items-center flex bg-gradient-to-b from-primary to-secondary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-110 transition">+ เพิ่มระดับความหวาน</button>
+        <div class="set-toolbar">
+          <p class="set-card-sub" style="margin:0;flex:1 1 200px">ตัวเลือกบังคับตอนกดสินค้าเข้าตะกร้า ถ้าลิสต์นี้ว่างจะสั่งของไม่ได้</p>
+          <button onclick="Controller.openSweetnessForm()" class="set-btn set-btn-go">+ เพิ่มระดับความหวาน</button>
         </div>
-        <div id="sweetness-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
+        <div class="set-card"><div id="sweetness-list"></div></div>
       </div>
 
       <div id="settings-panel-calendar" class="settings-panel hidden">
@@ -719,11 +716,11 @@
       </div>
 
       <div id="settings-panel-payment" class="settings-panel hidden">
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-          <p class="text-sm text-slate-400">จัดการวิธีชำระเงินที่ใช้ในร้าน เปิด/ปิด เพิ่ม/ลบได้เอง เช่น QR, Cash, Thai Plus, ShopeePay</p>
-          <button onclick="Controller.openPaymentMethodForm()" class="w-full sm:w-auto justify-center items-center flex bg-gradient-to-b from-primary to-secondary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-110 transition">+ เพิ่มวิธีชำระเงิน</button>
+        <div class="set-toolbar">
+          <p class="set-card-sub" style="margin:0;flex:1 1 200px">ปุ่มที่ขึ้นในหน้าชำระเงิน และตัวไหนนับเป็นเงินสด</p>
+          <button onclick="Controller.openPaymentMethodForm()" class="set-btn set-btn-go">+ เพิ่มวิธีชำระเงิน</button>
         </div>
-        <div id="payment-method-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
+        <div class="set-card"><div id="payment-method-list"></div></div>
       </div>
 
       <div id="settings-panel-backup" class="settings-panel hidden">
