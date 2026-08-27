@@ -261,8 +261,7 @@
         <button id="settings-tab-stock" onclick="Controller.switchSettingsTab('stock')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> AVAILABLE</button>
         <button id="settings-tab-printer" onclick="Controller.switchSettingsTab('printer')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg> Printer</button>
         <button id="settings-tab-history" onclick="Controller.switchSettingsTab('history')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/></svg> History</button>
-        <button id="settings-tab-summary" onclick="Controller.switchSettingsTab('summary')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M3 3v18h18"/><path d="M7 18v-6M12 18V8M17 18V5"/></svg> Summary</button>
-        <button id="settings-tab-report" onclick="Controller.switchSettingsTab('report')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> Report</button>
+        <button id="settings-tab-sales" onclick="Controller.switchSettingsTab('sales')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg> ยอดขาย</button>
         <button id="settings-tab-calendar" onclick="Controller.switchSettingsTab('calendar')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> ปฏิทิน</button>
         <button id="settings-tab-inventory" onclick="Controller.switchSettingsTab('inventory')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5"/><path d="M12 13v8"/></svg> Inventory</button>
         <button id="settings-tab-cost" onclick="Controller.switchSettingsTab('cost')" class="relative z-10 shrink-0 px-5 py-2 rounded-xl font-bold text-sm transition-colors whitespace-nowrap text-slate-500 hover:bg-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M12 1v22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg> ต้นทุน</button>
@@ -293,75 +292,107 @@
         <div id="history-list" class="flex-1 overflow-y-auto bg-white rounded-3xl border border-sand shadow-sm p-4 divide-y divide-sand max-h-[65vh]"></div>
       </div>
 
-      <div id="settings-panel-summary" class="settings-panel hidden">
-        <div class="sum-cards grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-6">
-          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-sand shadow-sm">
-            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-primary/15 rounded-2xl flex items-center justify-center text-primary mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg></div>
-            <p class="text-slate-400 font-bold text-xs lg:text-sm">Total Sales</p>
-            <p id="sum-total" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
-          </div>
-          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-sand shadow-sm">
-            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg></div>
-            <p class="text-slate-400 font-bold text-xs lg:text-sm">Cash</p>
-            <p id="sum-cash" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
-          </div>
-          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-sand shadow-sm">
-            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-sky-100 rounded-2xl flex items-center justify-center text-sky-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="7" y="2" width="10" height="20" rx="2"/><path d="M11 18h2"/></svg></div>
-            <p class="text-slate-400 font-bold text-xs lg:text-sm">PromptPay QR</p>
-            <p id="sum-qr" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
-          </div>
-          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-sand shadow-sm relative group">
-            <button onclick="Controller.resetCupCount()" class="absolute top-3 right-3 lg:top-6 lg:right-6 text-[10px] lg:text-xs font-bold text-slate-300 hover:text-red-500 transition-colors bg-accent px-2 py-1 rounded-full">Reset</button>
-            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-orange-100 rounded-2xl flex items-center justify-center text-orange-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M5 8h11v6a5 5 0 0 1-10 0z"/><path d="M16 9h2a2 2 0 0 1 0 4h-2"/><path d="M4 21h14"/></svg></div>
-            <p class="text-slate-400 font-bold text-xs lg:text-sm">Cups Sold</p>
-            <p id="sum-cups" class="text-xl lg:text-3xl font-black text-secondary mt-1">0</p>
-          </div>
-        </div>
-        <div class="sum-cards grid grid-cols-2 gap-3 lg:gap-6 mt-3 lg:mt-6">
-          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-sand shadow-sm">
-            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M3 3v18h18"/><path d="M7 9l4 5 3-3 5 7"/></svg></div>
-            <p class="text-slate-400 font-bold text-xs lg:text-sm">ต้นทุนรวม (Cost)</p>
-            <p id="sum-cost" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
-          </div>
-          <div class="bg-white p-4 lg:p-6 rounded-3xl border border-sand shadow-sm">
-            <div class="w-9 h-9 lg:w-11 lg:h-11 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-500 mb-2 lg:mb-4 text-base lg:text-lg"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg></div>
-            <p class="text-slate-400 font-bold text-xs lg:text-sm">กำไรสุทธิ (Profit)</p>
-            <p id="sum-profit" class="text-xl lg:text-3xl font-black text-secondary mt-1">฿0.00</p>
-          </div>
-        </div>
-        <div id="sum-waste-banner" class="hidden bg-orange-50 border border-orange-200 text-orange-600 rounded-2xl p-4 mt-3 lg:mt-6 flex justify-between items-center">
-          <span class="font-bold text-sm">ต้นทุนของเสียวันนี้</span>
-          <span id="sum-waste-cost" class="font-black text-lg">฿0.00</span>
-        </div>
-        <div id="sum-refund-banner" class="hidden bg-sky-50 border border-sky-200 text-sky-600 rounded-2xl p-4 mt-3 flex justify-between items-center">
-          <span class="font-bold text-sm">คืนเงินลูกค้าวันนี้</span>
-          <span id="sum-refund-total" class="font-black text-lg">฿0.00</span>
-        </div>
-                <!-- ส่วนจัดการเงินทอน (New!) -->
-        <div class="bg-white p-4 lg:p-6 rounded-3xl border border-sand shadow-sm mt-4 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <p class="text-slate-400 font-bold text-sm">เงินสำรองทอน (ลิ้นชักตั้งต้น)</p>
-            <div class="flex flex-wrap items-end gap-x-2 gap-y-1 mt-1">
-              <p id="sum-float" class="text-2xl lg:text-3xl font-black text-secondary">฿0.00</p>
-              <button onclick="Controller.openFloatCashPrompt()" class="text-sm font-bold text-primary hover:underline mb-1 whitespace-nowrap">นำเงินเข้า / นำเงินออก</button>
-            </div>
-          </div>
-          <div class="md:text-right p-4 bg-slate-50 rounded-2xl border border-slate-100">
-            <p class="text-slate-500 font-bold text-xs mb-1">ยอดเงินสดที่ต้องมีในลิ้นชัก (เงินขาย + เงินทอน)</p>
-            <p id="sum-expected-drawer" class="text-xl lg:text-3xl font-black text-emerald-500">฿0.00</p>
-          </div>
-        </div>
-        <div id="sum-breakdown-container" class="hidden bg-white p-4 lg:p-6 rounded-3xl border border-sand shadow-sm mb-6">
-          <p class="text-slate-400 font-bold text-sm mb-3">แยกตามวิธีชำระเงิน</p>
-          <div id="sum-breakdown-list" class="space-y-2"></div>
-        </div>
-        <button onclick="Controller.fetchSummary(this)" class="mt-6 w-full sm:w-auto justify-center items-center flex bg-gradient-to-b from-primary to-secondary text-white px-6 py-3 rounded-2xl shadow shadow-primary/30 font-bold hover:brightness-110 transition">Refresh Stats</button>
+      <!-- หน้ายอดขาย: รวม Summary กับ Report เดิมไว้ด้วยกัน สลับช่วงเวลาเอา
+           DOM ชุดเดียว จอกว้าง (lg ขึ้นไป) แตกเป็นการ์ดสองคอลัมน์ จอเล็กคลายเป็นแผ่นเดียวคอลัมน์เดียว ดู #settings-panel-sales ใน style.css -->
+      <div id="settings-panel-sales" class="settings-panel hidden">
 
-        <div class="bg-white p-4 lg:p-6 rounded-3xl border border-sand shadow-sm mt-4">
-          <h3 class="font-bold text-secondary mb-1"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> ปิดยอดประจำวัน</h3>
-          <p class="text-xs text-slate-400 mb-3">เอายอดขายสด (เงินสดเท่านั้น) ของวันนี้ไปรวมเป็นเงินทอนสำหรับวันถัดไป ทำอัตโนมัติทุกคืนตอน 23:55 อยู่แล้ว กดปุ่มนี้เฉพาะกรณีต้องการปิดยอดก่อนเวลา หรือระบบอัตโนมัติไม่ทำงาน (ปิดซ้ำในวันเดียวกันไม่ได้)</p>
-          <button id="btn-close-day" onclick="Controller.closeDayCashManual(this)" class="w-full sm:w-auto bg-secondary text-white px-6 py-3 rounded-2xl font-bold hover:brightness-95 transition shadow-md">ปิดยอดประจำวันตอนนี้</button>
+        <div class="sales-sec sales-sec-full sales-sec-bar">
+          <div id="sales-chips" class="sales-chips">
+            <button data-period="today" onclick="Controller.setSalesPeriod('today')" class="sales-chip">วันนี้</button>
+            <button data-period="7d" onclick="Controller.setSalesPeriod('7d')" class="sales-chip">7 วัน</button>
+            <button data-period="30d" onclick="Controller.setSalesPeriod('30d')" class="sales-chip">30 วัน</button>
+            <button data-period="month" onclick="Controller.setSalesPeriod('month')" class="sales-chip">เดือนนี้</button>
+            <button data-period="custom" onclick="Controller.setSalesPeriod('custom')" class="sales-chip">กำหนดเอง</button>
+          </div>
+          <div class="sales-chips-tail">
+            <button onclick="Controller.refreshSales(this)" class="sales-chip">รีเฟรช</button>
+            <button onclick="Controller.exportReportPDF()" class="sales-chip">Export PDF</button>
+          </div>
         </div>
+
+        <div id="sales-custom" class="sales-sec sales-sec-full hidden">
+          <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
+            <div class="flex-1">
+              <label class="text-xs font-bold text-slate-400 mb-1 block">ตั้งแต่วันที่</label>
+              <input type="date" id="report-start" class="w-full min-h-[2.75rem] border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream text-sm">
+            </div>
+            <div class="flex-1">
+              <label class="text-xs font-bold text-slate-400 mb-1 block">ถึงวันที่</label>
+              <input type="date" id="report-end" class="w-full min-h-[2.75rem] border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream text-sm">
+            </div>
+            <button onclick="Controller.fetchReport(this)" class="bg-gradient-to-b from-primary to-secondary text-white px-6 min-h-[2.75rem] rounded-xl font-bold hover:brightness-110 transition shadow-md shadow-primary/30 whitespace-nowrap active:scale-95">ดูรายงาน</button>
+          </div>
+        </div>
+
+        <div class="sales-sec">
+          <p id="sales-period-label" class="sales-label">ขายได้วันนี้</p>
+          <p id="sales-total" class="sales-hero">฿0.00</p>
+          <span id="sales-delta" class="sales-delta hidden"></span>
+          <div class="sales-facts">
+            <span class="sales-fact">บิล <b id="sales-bills">0</b></span>
+            <span class="sales-fact">แก้ว <b id="sales-cups">0</b></span>
+            <span class="sales-fact">เฉลี่ยบิลละ <b id="sales-avg">฿0.00</b></span>
+          </div>
+        </div>
+
+        <div class="sales-sec">
+          <p class="sales-sec-t">กำไรกับต้นทุน</p>
+          <div class="sales-split sales-split-3">
+            <div class="sales-box"><p class="sales-box-l">กำไรสุทธิ</p><p id="sales-profit" class="sales-box-v sales-box-v-good">฿0.00</p></div>
+            <div class="sales-box"><p class="sales-box-l">ต้นทุนรวม</p><p id="sales-cost" class="sales-box-v">฿0.00</p></div>
+            <div class="sales-box sales-wide-box"><p class="sales-box-l">อัตรากำไร</p><p id="sales-margin" class="sales-box-v">-</p></div>
+          </div>
+          <div class="sales-facts">
+            <span class="sales-fact sales-narrow-only">อัตรากำไร <b id="sales-margin-narrow">-</b></span>
+            <span id="sales-waste-wrap" class="sales-fact hidden" style="color:#f97316">ของเสีย <b id="sales-waste" style="color:#f97316">฿0.00</b></span>
+            <span id="sales-refund-wrap" class="sales-fact hidden" style="color:#0284c7">คืนเงิน <b id="sales-refund" style="color:#0284c7">฿0.00</b></span>
+          </div>
+          <p id="sales-cost-note" class="sales-note hidden">มีสินค้าที่ยังไม่ระบุต้นทุน ตัวเลขกำไรจึงเป็นค่าประมาณ</p>
+        </div>
+
+        <div id="sales-drawer-sec" class="sales-sec sales-sec-full">
+          <p class="sales-sec-t">เงินในลิ้นชัก (เฉพาะวันนี้)</p>
+          <div class="sales-split">
+            <div class="sales-box"><p class="sales-box-l">เงินสำรองทอน</p><p id="sales-float" class="sales-box-v">฿0.00</p></div>
+            <div class="sales-box"><p class="sales-box-l">ต้องมีในลิ้นชัก (เงินขาย + เงินทอน)</p><p id="sales-expected" class="sales-box-v sales-box-v-good">฿0.00</p></div>
+          </div>
+          <div class="sales-btns">
+            <button onclick="Controller.openFloatCashPrompt()" class="sales-btn sales-btn-ghost">นำเงินเข้า / นำเงินออก</button>
+            <button id="btn-close-day" onclick="Controller.closeDayCashManual(this)" class="sales-btn sales-btn-go">ปิดยอดประจำวัน</button>
+          </div>
+          <p class="sales-note">ระบบปิดยอดอัตโนมัติทุกคืนตอน 23:55 อยู่แล้ว กดปุ่มนี้เฉพาะกรณีต้องการปิดก่อนเวลา (ปิดซ้ำในวันเดียวกันไม่ได้)</p>
+        </div>
+
+        <div id="sales-pay-sec" class="sales-sec">
+          <p class="sales-sec-t">รับเงินมาทางไหน</p>
+          <div id="sales-paybar"></div>
+          <div id="sales-paylegend" class="sales-legend"></div>
+        </div>
+
+        <div id="sales-hours-sec" class="sales-sec">
+          <p class="sales-sec-t">ช่วงเวลาขายดี</p>
+          <div id="sales-hours"></div>
+        </div>
+
+        <div id="sales-top-sec" class="sales-sec">
+          <p class="sales-sec-t">เมนูขายดี</p>
+          <div id="sales-top"></div>
+        </div>
+
+        <div id="sales-weekday-sec" class="sales-sec">
+          <p class="sales-sec-t">ยอดขายเฉลี่ยตามวันในสัปดาห์</p>
+          <div id="sales-weekday"></div>
+        </div>
+
+        <div id="sales-daily-sec" class="sales-sec sales-sec-full">
+          <p class="sales-sec-t">ยอดขายรายวัน</p>
+          <div id="sales-daily"></div>
+          <div class="sales-facts">
+            <span class="sales-fact">วันขายดีที่สุด <b id="sales-best-day">-</b></span>
+            <span class="sales-fact">เดือนขายดีที่สุด <b id="sales-best-month">-</b></span>
+          </div>
+        </div>
+
       </div>
 
       <div id="settings-panel-inventory" class="settings-panel hidden flex flex-col">
@@ -692,102 +723,6 @@
         <div id="sweetness-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
       </div>
 
-      <div id="settings-panel-report" class="settings-panel hidden">
-        <div class="bg-white rounded-3xl border border-sand shadow-sm p-4 lg:p-5 mb-4">
-          <p class="text-sm font-bold text-slate-500 mb-3">เลือกช่วงเวลา</p>
-          <div class="flex flex-wrap gap-2 mb-4">
-            <button onclick="Controller.setReportPreset('today')" class="report-preset-btn px-4 min-h-[2.75rem] rounded-xl font-bold text-sm bg-accent text-secondary transition active:scale-95">วันนี้</button>
-            <button onclick="Controller.setReportPreset('7d')" class="report-preset-btn px-4 min-h-[2.75rem] rounded-xl font-bold text-sm bg-accent text-secondary transition active:scale-95">7 วัน</button>
-            <button onclick="Controller.setReportPreset('30d')" class="report-preset-btn px-4 min-h-[2.75rem] rounded-xl font-bold text-sm bg-accent text-secondary transition active:scale-95">30 วัน</button>
-            <button onclick="Controller.setReportPreset('month')" class="report-preset-btn px-4 min-h-[2.75rem] rounded-xl font-bold text-sm bg-accent text-secondary transition active:scale-95">เดือนนี้</button>
-          </div>
-          <div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
-            <div class="flex-1">
-              <label class="text-xs font-bold text-slate-400 mb-1 block">ตั้งแต่วันที่</label>
-              <input type="date" id="report-start" class="w-full min-h-[2.75rem] border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream text-sm">
-            </div>
-            <div class="flex-1">
-              <label class="text-xs font-bold text-slate-400 mb-1 block">ถึงวันที่</label>
-              <input type="date" id="report-end" class="w-full min-h-[2.75rem] border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream text-sm">
-            </div>
-            <button onclick="Controller.fetchReport(this)" class="bg-gradient-to-b from-primary to-secondary text-white px-6 min-h-[2.75rem] rounded-xl font-bold hover:brightness-110 transition shadow-md shadow-primary/30 whitespace-nowrap active:scale-95">ดูรายงาน</button>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-          <div class="bg-gradient-to-br from-amber-50 to-white p-4 rounded-2xl border border-amber-200">
-            <p class="text-xs text-amber-600 font-bold mb-1">🏆 วันขายดีที่สุด (ตลอดกาล)</p>
-            <p id="rp-best-day" class="text-lg font-black text-secondary">-</p>
-          </div>
-          <div class="bg-gradient-to-br from-amber-50 to-white p-4 rounded-2xl border border-amber-200">
-            <p class="text-xs text-amber-600 font-bold mb-1">🏆 เดือนขายดีที่สุด (ตลอดกาล)</p>
-            <p id="rp-best-month" class="text-lg font-black text-secondary">-</p>
-          </div>
-        </div>
-
-        <div id="report-result" class="hidden">
-          <div class="flex justify-end mb-3">
-            <button onclick="Controller.exportReportPDF()" class="bg-secondary text-white px-4 min-h-[2.75rem] rounded-xl font-bold text-sm hover:brightness-110 transition active:scale-95">Export PDF</button>
-          </div>
-          <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-            <div class="bg-white p-4 rounded-2xl border border-sand shadow-sm">
-              <p class="text-xs text-slate-400 font-bold mb-1">ยอดขายรวม</p>
-              <p id="rp-total" class="text-xl font-black text-secondary">฿0.00</p>
-            </div>
-            <div class="bg-white p-4 rounded-2xl border border-sand shadow-sm">
-              <p class="text-xs text-slate-400 font-bold mb-1">กำไร</p>
-              <p id="rp-profit" class="text-xl font-black text-emerald-500">฿0.00</p>
-            </div>
-            <div class="bg-white p-4 rounded-2xl border border-sand shadow-sm">
-              <p class="text-xs text-slate-400 font-bold mb-1">จำนวนบิล</p>
-              <p id="rp-bills" class="text-xl font-black text-secondary">0</p>
-            </div>
-            <div class="bg-white p-4 rounded-2xl border border-sand shadow-sm">
-              <p class="text-xs text-slate-400 font-bold mb-1">จำนวนแก้ว</p>
-              <p id="rp-cups" class="text-xl font-black text-secondary">0</p>
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
-            <div class="bg-white p-4 rounded-2xl border border-sand shadow-sm">
-              <p class="text-sm font-bold text-slate-500 mb-3">แยกตามวิธีชำระเงิน</p>
-              <div id="rp-bytype" class="space-y-2"></div>
-            </div>
-            <div class="bg-white p-4 rounded-2xl border border-sand shadow-sm">
-              <p class="text-sm font-bold text-slate-500 mb-3">สรุปเพิ่มเติม</p>
-              <div class="space-y-2 text-sm">
-                <div class="flex justify-between"><span class="text-slate-500 font-bold">ต้นทุนรวม</span><span id="rp-cost" class="font-black text-secondary">฿0.00</span></div>
-                <div class="flex justify-between"><span class="text-slate-500 font-bold">ต้นทุนของเสีย</span><span id="rp-waste-cost" class="font-black text-orange-500">฿0.00</span></div>
-                <div class="flex justify-between"><span class="text-slate-500 font-bold">คืนเงินลูกค้า</span><span id="rp-refund-total" class="font-black text-sky-500">฿0.00</span></div>
-                <div class="flex justify-between"><span class="text-slate-500 font-bold">เฉลี่ยต่อบิล</span><span id="rp-avg" class="font-black text-secondary">฿0.00</span></div>
-                <div class="flex justify-between"><span class="text-slate-500 font-bold">เงินสด</span><span id="rp-cash" class="font-black text-secondary">฿0.00</span></div>
-                <div class="flex justify-between"><span class="text-slate-500 font-bold">ไม่ใช่เงินสด</span><span id="rp-other" class="font-black text-secondary">฿0.00</span></div>
-              </div>
-            </div>
-          </div>
-
-          <div class="bg-white rounded-2xl border border-sand shadow-sm p-4 mb-4">
-            <p class="text-sm font-bold text-slate-500 mb-3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 5H5v2a3 3 0 0 0 3 3M16 5h3v2a3 3 0 0 1-3 3"/><path d="M10 17h4M12 13v4M9 20h6"/></svg> เมนูขายดี 10 อันดับ</p>
-            <div id="rp-topsellers" class="space-y-2"></div>
-          </div>
-
-          <div class="bg-white rounded-2xl border border-sand shadow-sm p-4 mb-4">
-            <p class="text-sm font-bold text-slate-500 mb-3">ยอดขายเฉลี่ยตามวันในสัปดาห์</p>
-            <div id="rp-weekday" class="space-y-2"></div>
-          </div>
-
-          <div class="bg-white rounded-2xl border border-sand shadow-sm p-4 mb-4">
-            <p class="text-sm font-bold text-slate-500 mb-3">ช่วงเวลาขายดี (Rush Hour)</p>
-            <div id="rp-hourly" class="space-y-1.5"></div>
-          </div>
-
-          <div class="bg-white rounded-2xl border border-sand shadow-sm p-4">
-            <p class="text-sm font-bold text-slate-500 mb-3">ยอดขายรายวัน</p>
-            <div id="rp-daily" class="space-y-1 max-h-[40vh] overflow-y-auto"></div>
-          </div>
-        </div>
-      </div>
-
       <div id="settings-panel-calendar" class="settings-panel hidden">
         <div class="bg-white rounded-3xl border border-sand shadow-sm p-4 lg:p-5">
           <div class="flex justify-between items-center mb-4">
@@ -956,8 +891,7 @@
           <label class="text-sm font-bold text-slate-500 mb-2 block">เข้าถึงเมนูไหนได้บ้าง</label>
           <div class="grid grid-cols-2 gap-2 text-sm">
             <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="history"> History</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="summary"> Summary</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="report"> Report</label>
+            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="sales"> ยอดขาย</label>
             <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="inventory"> Inventory</label>
             <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="stock"> Available</label>
             <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="employees"> Employee</label>

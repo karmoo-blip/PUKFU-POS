@@ -1235,7 +1235,7 @@
         
         // จำนวนแก้ววิ่งขึ้นตอนค่าเปลี่ยน ถ้าค่าเท่าเดิม countTo จะเขียนตัวเลขเฉยๆ ไม่เล่นอนิเมชัน
         // (ฟังก์ชันนี้ถูกเรียกซ้ำทุกครั้งที่ซิงก์ ซึ่งส่วนใหญ่ค่าไม่เปลี่ยน)
-        const el = document.getElementById('sum-cups');
+        const el = document.getElementById('sales-cups');
         if (el) this.countTo(el, this.readMoney(el), Number(displayCups) || 0, 600, {});
       },
 
@@ -2105,9 +2105,12 @@
       },
 
       getAllowedTabs(user) {
-        const allTabs = ['printer', 'history', 'summary', 'report', 'calendar', 'inventory', 'cost', 'stock', 'employees', 'log', 'addons', 'sweetness', 'payment', 'notifications', 'backup', 'onlineorder'];
+        const allTabs = ['printer', 'history', 'sales', 'calendar', 'inventory', 'cost', 'stock', 'employees', 'log', 'addons', 'sweetness', 'payment', 'notifications', 'backup', 'onlineorder'];
         if (user.role === 'Owner' || user.role === 'Admin') return allTabs;
-        return user.permissions ? user.permissions.split(',').filter(t => allTabs.includes(t)) : [];
+        const saved = user.permissions ? user.permissions.split(',') : [];
+        // แท็บ Summary กับ Report ถูกยุบเป็น "ยอดขาย" แล้ว คนที่ชีตบันทึกสิทธิ์เก่าไว้ต้องยังเข้าได้เหมือนเดิม
+        if (saved.includes('summary') || saved.includes('report')) saved.push('sales');
+        return saved.filter(t => allTabs.includes(t));
       },
 
       async openSettings() {
@@ -2211,7 +2214,7 @@
           if (qDisplay) qDisplay.innerText = 'Q' + this.queueNumber.toString().padStart(2, '0');
         }
         if (tab === 'history') this.renderHistory();
-        if (tab === 'summary') this.fetchSummary();
+        if (tab === 'sales') this.initSalesTab();
         if (tab === 'inventory') this.fetchInventory();
         if (tab === 'cost') this.initCostTab();
         if (tab === 'employees') this.fetchEmployeeList();
@@ -2221,7 +2224,6 @@
         if (tab === 'sweetness') { this.renderSweetnessList(); this.fetchSweetnessLevels(); }
         if (tab === 'notifications') { this.renderNotificationList(); this.fetchNotifications(); }
         if (tab === 'payment') this.fetchPaymentMethods();
-        if (tab === 'report') this.initReportTab();
         if (tab === 'calendar') this.initCalendarTab();
         if (tab === 'backup') { this.fetchBackupList(); this.fetchArchiveList(); }
         if (tab === 'onlineorder') { this.renderPaymentQrPreview(); this.renderQueueSettings(); this.loadOnlineOrderHistory(); this.restoreTableQr(); }
@@ -3188,13 +3190,210 @@
           .deleteSweetnessLevel(id);
       },
 
-      initReportTab() {
-        const startEl = document.getElementById('report-start');
-        const endEl = document.getElementById('report-end');
-        if (!startEl.value || !endEl.value) {
-          this.setReportPreset('7d');
-        }
+      // ===== หน้ายอดขาย (รวม Summary กับ Report เดิม) =====
+      // ช่วง "วันนี้" อ่านจาก getStats + ประวัติในเครื่อง (ทำงานตอนเน็ตหลุดได้)
+      // ช่วงอื่นยิง getSalesReport เหมือนแท็บ Report เดิมทุกอย่าง
+      initSalesTab() {
+        if (!this.salesPeriod) this.salesPeriod = 'today';
         this.fetchSalesRecords();
+        this.setSalesPeriod(this.salesPeriod);
+      },
+
+      setSalesPeriod(preset) {
+        this.salesPeriod = preset;
+        this.updateSalesPeriodUI();
+
+        if (preset === 'custom') {
+          // ยังไม่ยิงจนกว่าจะกดปุ่มดูรายงาน ผู้ใช้ต้องเลือกวันก่อน
+          const startEl = document.getElementById('report-start');
+          const endEl = document.getElementById('report-end');
+          if (startEl && endEl && (!startEl.value || !endEl.value)) {
+            const today = new Date();
+            const start = new Date();
+            start.setDate(today.getDate() - 6);
+            startEl.value = this.toLocalDateStr(start);
+            endEl.value = this.toLocalDateStr(today);
+          }
+          return;
+        }
+
+        if (preset === 'today') {
+          this.fetchSummary();
+          return;
+        }
+        this.setReportPreset(preset);
+      },
+
+      refreshSales(btn) {
+        if (this.salesPeriod === 'today' || !this.salesPeriod) this.fetchSummary(btn);
+        else this.fetchReport(btn);
+      },
+
+      // ส่วนไหนโชว์ ส่วนไหนซ่อน ขึ้นกับช่วงเวลาที่เลือก
+      // เงินในลิ้นชักมีความหมายเฉพาะวันนี้ ส่วนกราฟรายวัน/วันในสัปดาห์ต้องมีหลายวันถึงจะอ่านได้
+      updateSalesPeriodUI() {
+        const preset = this.salesPeriod || 'today';
+        const isToday = preset === 'today';
+
+        document.querySelectorAll('#sales-chips .sales-chip').forEach(btn => {
+          btn.classList.toggle('is-on', btn.dataset.period === preset);
+        });
+
+        const labels = {
+          today: 'ขายได้วันนี้',
+          '7d': 'ขายได้ 7 วันล่าสุด',
+          '30d': 'ขายได้ 30 วันล่าสุด',
+          month: 'ขายได้เดือนนี้',
+          custom: 'ขายได้ตามช่วงที่เลือก'
+        };
+        const labelEl = document.getElementById('sales-period-label');
+        if (labelEl) labelEl.innerText = labels[preset] || labels.today;
+
+        const show = (id, on) => {
+          const el = document.getElementById(id);
+          if (el) el.classList.toggle('hidden', !on);
+        };
+        show('sales-custom', preset === 'custom');
+        show('sales-drawer-sec', isToday);
+        show('sales-daily-sec', !isToday);
+        show('sales-weekday-sec', !isToday);
+        if (!isToday) show('sales-delta', false);
+      },
+
+      // ---- ตัวช่วยวาดกราฟ วาดเป็น SVG เอง แอปนี้ไม่ได้โหลดไลบรารีกราฟและต้องทำงานตอนออฟไลน์ ----
+      salesBarRows(rows) {
+        if (!rows || rows.length === 0) return '<p class="sales-empty">ไม่มีข้อมูล</p>';
+        const max = Math.max(1, ...rows.map(r => Number(r.value) || 0));
+        return rows.map(r => {
+          const pct = Math.max(2, Math.round((Number(r.value) || 0) / max * 100));
+          return `<div class="sales-row">
+            <span class="sales-row-lab">${escHtml(r.label)}</span>
+            <span class="sales-row-track"><span class="sales-row-fill${r.peak ? ' sales-row-fill-peak' : ''}" style="width:${pct}%"></span></span>
+            <span class="sales-row-val">${r.display}${r.extra ? `<span class="sales-wide-only"> · ${escHtml(r.extra)}</span>` : ''}</span>
+          </div>`;
+        }).join('');
+      },
+
+      // แถบเดียวแบ่งสัดส่วน เว้น 2px ระหว่างก้อน ทุกก้อนมีป้ายกำกับของตัวเองในคำอธิบายข้างล่าง
+      // (สีเขียวมีค่าคอนทราสต์ต่ำกว่า 3:1 จึงห้ามใช้สีบอกอย่างเดียว)
+      salesSegmentBar(entries) {
+        const palette = ['#2a78d6', '#eb6834', '#1baf7a', '#7c3aed', '#0f766e'];
+        const clean = (entries || []).filter(e => (Number(e.amount) || 0) > 0);
+        if (clean.length === 0) {
+          return { bar: '<p class="sales-empty">ไม่มีข้อมูล</p>', legend: '' };
+        }
+        const total = clean.reduce((s, e) => s + (Number(e.amount) || 0), 0) || 1;
+        const W = 480;
+        const gap = 2;
+        let x = 0;
+        const rects = clean.map((e, i) => {
+          const w = Math.max(6, ((Number(e.amount) || 0) / total) * (W - gap * (clean.length - 1)));
+          const rect = `<rect x="${x.toFixed(1)}" y="0" width="${w.toFixed(1)}" height="28" rx="6" fill="${palette[i % palette.length]}"></rect>`;
+          x += w + gap;
+          return rect;
+        }).join('');
+        const money = n => '฿' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const legend = clean.map((e, i) => `<span class="sales-lg"><span class="sales-sw" style="background:${palette[i % palette.length]}"></span>${escHtml(e.name)} ${money(e.amount)}</span>`).join('');
+        return {
+          bar: `<svg viewBox="0 0 ${W} 28" style="width:100%;height:28px" role="img" aria-label="สัดส่วนวิธีชำระเงิน">${rects}</svg>`,
+          legend
+        };
+      },
+
+      // แท่งตั้งสำหรับข้อมูลที่เรียงตามเวลา (ชั่วโมงขายดี, ยอดรายวัน)
+      salesColumnChart(points, opts) {
+        const o = opts || {};
+        if (!points || points.length === 0) return '<p class="sales-empty">ไม่มีข้อมูล</p>';
+        const W = 720;
+        const H = 150;
+        const base = H - 28;
+        const max = Math.max(1, ...points.map(p => Number(p.value) || 0));
+        const slot = W / points.length;
+        const bw = Math.max(6, Math.min(46, slot - 6));
+
+        const bars = points.map((p, i) => {
+          const h = Math.max(3, ((Number(p.value) || 0) / max) * (base - 8));
+          const x = i * slot + (slot - bw) / 2;
+          return `<rect x="${x.toFixed(1)}" y="${(base - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${p.peak ? '#d97706' : '#154360'}"></rect>`;
+        }).join('');
+
+        // ป้ายแกนเฉพาะบางช่อง ไม่ใส่ทุกแท่งเพราะจะชนกันเอง
+        const step = Math.max(1, Math.ceil(points.length / 7));
+        const ticks = points.map((p, i) => {
+          if (i % step !== 0) return '';
+          const x = i * slot + slot / 2;
+          return `<text x="${x.toFixed(1)}" y="${H - 8}" text-anchor="middle" font-family="Sarabun, system-ui, sans-serif" font-size="10" font-weight="700" fill="#94a3b8">${escHtml(p.label)}</text>`;
+        }).join('');
+
+        const peakNote = o.peakLabel
+          ? `<text x="${(W / 2).toFixed(1)}" y="12" text-anchor="middle" font-family="Sarabun, system-ui, sans-serif" font-size="10" font-weight="800" fill="#d97706">${escHtml(o.peakLabel)}</text>`
+          : '';
+
+        return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${o.height || 150}px" role="img" aria-label="${escAttr(o.aria || 'กราฟแท่ง')}">
+          <line x1="0" y1="${base}" x2="${W}" y2="${base}" stroke="#e2e8f0" stroke-width="1"></line>
+          ${bars}${ticks}${peakNote}
+        </svg>`;
+      },
+
+      // ยอดของเมื่อวานไว้เทียบ ดึงครั้งเดียวต่อการเปิดแอป ถ้าดึงไม่ได้ก็ซ่อนป้ายไปเลย
+      // ดีกว่าโชว์ตัวเลขเทียบที่อาจผิด
+      updateSalesDelta(todayTotal) {
+        const chip = document.getElementById('sales-delta');
+        if (!chip) return;
+        const paint = (yesterday) => {
+          if (yesterday === null || yesterday === undefined) { chip.classList.add('hidden'); return; }
+          const diff = (Number(todayTotal) || 0) - yesterday;
+          const money = Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+          chip.classList.remove('hidden', 'sales-delta-up', 'sales-delta-down');
+          chip.classList.add(diff >= 0 ? 'sales-delta-up' : 'sales-delta-down');
+          chip.innerText = (diff >= 0 ? '▲ มากกว่าเมื่อวาน ฿' : '▼ น้อยกว่าเมื่อวาน ฿') + money;
+        };
+
+        if (this._yesterdayTotal !== undefined) return paint(this._yesterdayTotal);
+
+        const d = new Date();
+        d.setDate(d.getDate() - 1);
+        google.script.run
+          .withSuccessHandler(data => {
+            const rows = (data && data.history) || [];
+            this._yesterdayTotal = rows
+              .filter(h => h.status !== 'cancelled')
+              .reduce((sum, h) => sum + (Number(h.total) || 0), 0);
+            paint(this._yesterdayTotal);
+          })
+          .withFailureHandler(() => { this._yesterdayTotal = null; paint(null); })
+          .getPOSDataByDate(this.toLocalDateStr(d));
+      },
+
+      // ชั่วโมงขายดีกับเมนูขายดีของ "วันนี้" คิดจากประวัติในเครื่อง ไม่ต้องยิงเซิร์ฟเวอร์เพิ่ม
+      salesTodayExtras() {
+        const todayStr = new Date().toLocaleDateString();
+        const offlineInvoices = new Set(this.syncQueue.map(o => o.invoice));
+        const combined = [...this.syncQueue, ...this.history.filter(h => !offlineInvoices.has(h.invoice))];
+
+        const hours = Array.from({ length: 24 }, () => 0);
+        const byItem = new Map();
+        let bills = 0;
+        let noCost = false;
+
+        combined.forEach(order => {
+          if (new Date(order.timestamp).toLocaleDateString() !== todayStr) return;
+          if (order.status === 'cancelled' || order.status === 'waste') return;
+          bills++;
+          hours[new Date(order.timestamp).getHours()]++;
+          (order.items || []).forEach(item => {
+            if (item.cancelled) return;
+            const menuProduct = this.menuData.find(m => m.sku === item.sku);
+            if (!menuProduct || !menuProduct.cost) noCost = true;
+            const prev = byItem.get(item.name) || { name: item.name, qty: 0, amount: 0 };
+            prev.qty += item.qty;
+            prev.amount += item.price * item.qty;
+            byItem.set(item.name, prev);
+          });
+        });
+
+        const top = [...byItem.values()].sort((a, b) => b.amount - a.amount).slice(0, 10);
+        return { bills, hours, top, noCost };
       },
 
       // สถิติวัน/เดือนขายดีที่สุดตลอดกาล ไม่ขึ้นกับช่วงวันที่ที่เลือกในตัวกรองด้านบน
@@ -3207,8 +3406,8 @@
 
       renderSalesRecords(res) {
         const fmt = n => `฿${(n || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
-        const dayEl = document.getElementById('rp-best-day');
-        const monthEl = document.getElementById('rp-best-month');
+        const dayEl = document.getElementById('sales-best-day');
+        const monthEl = document.getElementById('sales-best-month');
         if (dayEl) dayEl.innerText = res.bestDay
           ? `${new Date(res.bestDay.date + 'T00:00:00').toLocaleDateString('th-TH', {day: 'numeric', month: 'short', year: '2-digit'})} · ${fmt(res.bestDay.total)}`
           : 'ยังไม่มีข้อมูล';
@@ -4082,90 +4281,67 @@
         },
 
 renderReport(r) {
-          this.lastReport = r;
+        this.lastReport = r;
         const fmt = n => `฿${(n || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+        const set = (id, text) => { const el = document.getElementById(id); if (el) el.innerText = text; };
+        const html = (id, markup) => { const el = document.getElementById(id); if (el) el.innerHTML = markup; };
+        const toggle = (id, on) => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden', !on); };
 
-        document.getElementById('report-result').classList.remove('hidden');
-        document.getElementById('rp-total').innerText = fmt(r.total);
-        document.getElementById('rp-profit').innerText = fmt(r.totalProfit);
-        document.getElementById('rp-bills').innerText = r.billCount.toLocaleString();
-        document.getElementById('rp-cups').innerText = r.cupCount.toLocaleString();
-        document.getElementById('rp-cost').innerText = fmt(r.totalCost);
-        document.getElementById('rp-waste-cost').innerText = fmt(r.wasteCost);
-        document.getElementById('rp-refund-total').innerText = fmt(r.refundedTotal);
-        document.getElementById('rp-avg').innerText = fmt(r.avgPerBill);
-        document.getElementById('rp-cash').innerText = fmt(r.cash);
-        document.getElementById('rp-other').innerText = fmt(r.other);
+        this.countMoney('sales-total', r.total);
+        this.countMoney('sales-profit', r.totalProfit);
+        this.countMoney('sales-cost', r.totalCost);
+        this.countMoney('sales-avg', r.avgPerBill);
+        set('sales-bills', (r.billCount || 0).toLocaleString());
+        set('sales-cups', (r.cupCount || 0).toLocaleString());
+        const marginText = r.total > 0 ? Math.round((r.totalProfit / r.total) * 100) + '%' : '-';
+        set('sales-margin', marginText);
+        set('sales-margin-narrow', marginText);
 
-        const byTypeEl = document.getElementById('rp-bytype');
-        const typeEntries = Object.entries(r.byType || {});
-        byTypeEl.innerHTML = typeEntries.length === 0
-          ? '<p class="text-xs text-slate-300">ไม่มีข้อมูล</p>'
-          : typeEntries.map(([name, amt]) => `
-              <div class="flex justify-between text-sm">
-                <span class="text-slate-500 font-bold">${escHtml(name)}</span>
-                <span class="text-secondary font-black">${fmt(amt)}</span>
-              </div>
-            `).join('');
+        this.countMoney('sales-waste', r.wasteCost);
+        this.countMoney('sales-refund', r.refundedTotal);
+        toggle('sales-waste-wrap', (r.wasteCost || 0) > 0);
+        toggle('sales-refund-wrap', (r.refundedTotal || 0) > 0);
+        toggle('sales-cost-note', (r.topSellers || []).some(item => !item.hasCost));
 
-        const topEl = document.getElementById('rp-topsellers');
-        topEl.innerHTML = (!r.topSellers || r.topSellers.length === 0)
-          ? '<p class="text-xs text-slate-300">ไม่มีข้อมูล</p>'
-          : r.topSellers.map((item, i) => `
-              <div class="flex justify-between items-center text-sm">
-                <span class="text-slate-600 font-bold truncate mr-2">${i + 1}. ${escHtml(item.name)}</span>
-                <span class="text-secondary font-black whitespace-nowrap">
-                  ${item.qty} แก้ว · ${fmt(item.amount)}
-                  ${item.hasCost
-                    ? `<span class="text-xs font-bold ${item.marginPct >= 50 ? 'text-emerald-500' : 'text-amber-500'} ml-1">(กำไร ${item.marginPct.toFixed(0)}%)</span>`
-                    : `<span class="text-xs font-bold text-slate-300 ml-1">(ยังไม่ระบุต้นทุน)</span>`}
-                </span>
-              </div>
-            `).join('');
+        const pay = this.salesSegmentBar(Object.entries(r.byType || {}).map(([name, amount]) => ({ name, amount })));
+        html('sales-paybar', pay.bar);
+        html('sales-paylegend', pay.legend);
 
-        const wdEl = document.getElementById('rp-weekday');
-        const maxAvg = Math.max(1, ...(r.byWeekday || []).map(w => w.avgPerDay));
-        wdEl.innerHTML = (!r.byWeekday || r.byWeekday.length === 0)
-          ? '<p class="text-xs text-slate-300">ไม่มีข้อมูล</p>'
-          : r.byWeekday.map(w => `
-              <div class="flex items-center gap-3 text-sm">
-                <span class="w-16 shrink-0 text-slate-500 font-bold">${w.label}</span>
-                <div class="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
-                  <div class="bg-primary h-full rounded-full" style="width:${(w.avgPerDay / maxAvg * 100).toFixed(0)}%"></div>
-                </div>
-                <span class="w-20 shrink-0 text-right text-secondary font-black">${fmt(w.avgPerDay)}</span>
-              </div>
-            `).join('');
-
-        const hourEl = document.getElementById('rp-hourly');
+        // ชั่วโมงที่ขายดีสุดสามช่อง ทำสีต่างพร้อมข้อความกำกับ ไม่ได้ใช้สีบอกอย่างเดียว
         const hoursWithData = (r.byHour || []).filter(h => h.bills > 0);
-        const maxBills = Math.max(1, ...hoursWithData.map(h => h.bills));
-        const peakHours = new Set(
-          [...hoursWithData].sort((a, b) => b.bills - a.bills).slice(0, 3).map(h => h.hour)
-        );
-        hourEl.innerHTML = hoursWithData.length === 0
-          ? '<p class="text-xs text-slate-300">ไม่มีข้อมูล</p>'
-          : hoursWithData.map(h => `
-              <div class="flex items-center gap-3 text-sm">
-                <span class="w-14 shrink-0 text-slate-500 font-bold">${h.label}</span>
-                <div class="flex-1 bg-slate-100 rounded-full h-3 overflow-hidden">
-                  <div class="${peakHours.has(h.hour) ? 'bg-amber-500' : 'bg-primary'} h-full rounded-full" style="width:${(h.bills / maxBills * 100).toFixed(0)}%"></div>
-                </div>
-                <span class="w-16 shrink-0 text-right text-secondary font-black whitespace-nowrap">${h.bills} บิล</span>
-                ${peakHours.has(h.hour) ? '<span class="text-[10px] font-black text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded-full shrink-0">พีค</span>' : '<span class="w-8 shrink-0"></span>'}
-              </div>
-            `).join('');
+        const peakHours = new Set([...hoursWithData].sort((a, b) => b.bills - a.bills).slice(0, 3).map(h => h.hour));
+        const peakList = [...peakHours].sort((a, b) => a - b);
+        html('sales-hours', this.salesColumnChart(
+          hoursWithData.map(h => ({ label: String(h.hour).padStart(2, '0'), value: h.bills, peak: peakHours.has(h.hour) })),
+          {
+            height: 130,
+            aria: 'จำนวนบิลรายชั่วโมง',
+            peakLabel: peakList.length ? 'พีค ' + peakList.map(h => String(h).padStart(2, '0')).join(', ') + ' น.' : ''
+          }
+        ));
 
-        const dailyEl = document.getElementById('rp-daily');
-        dailyEl.innerHTML = (!r.daily || r.daily.length === 0)
-          ? '<p class="text-xs text-slate-300">ไม่มีข้อมูลในช่วงเวลานี้</p>'
-          : r.daily.map(d => `
-              <div class="flex justify-between items-center text-sm py-1.5 border-b border-slate-50 last:border-0">
-                <span class="text-slate-500 font-bold">${new Date(d.date + 'T00:00:00').toLocaleDateString('th-TH', {day: 'numeric', month: 'short', year: '2-digit'})}</span>
-                <span class="text-xs text-slate-400">${d.bills} บิล · ${d.cups} แก้ว</span>
-                <span class="text-secondary font-black whitespace-nowrap">${fmt(d.total)}</span>
-              </div>
-            `).join('');
+        html('sales-top', this.salesBarRows((r.topSellers || []).map(item => ({
+          label: item.name,
+          value: item.amount,
+          display: fmt(item.amount),
+          extra: `${item.qty} แก้ว` + (item.hasCost ? ` · กำไร ${item.marginPct.toFixed(0)}%` : '')
+        }))));
+
+        html('sales-weekday', this.salesBarRows((r.byWeekday || []).map(w => ({
+          label: w.label,
+          value: w.avgPerDay,
+          display: fmt(w.avgPerDay)
+        }))));
+
+        html('sales-daily', this.salesColumnChart(
+          (r.daily || []).map(d => ({
+            label: new Date(d.date + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric' }),
+            value: d.total
+          })),
+          { aria: 'ยอดขายรายวัน' }
+        ));
+
+        document.querySelectorAll('#settings-panel-sales .sales-sec').forEach(sec => this.replayClass(sec, 'is-entering'));
       },
 
       fetchPaymentMethods(btn) {
@@ -6665,12 +6841,10 @@ renderReport(r) {
             const floatCash = stats.floatCash || 0;
             const expectedDrawer = stats.cash + floatCash;
             // ตัวเลขวิ่งขึ้นแทนที่จะโผล่มาเต็มจำนวน หน้านี้เปิดเฉพาะตอนกดแท็บ ไม่ได้อยู่บน timer จึงไม่วิ่งซ้ำเอง
-            this.countMoney('sum-total', stats.total);
-            this.countMoney('sum-cash', stats.cash);
-            this.countMoney('sum-qr', stats.qr);
-            this.countMoney('sum-float', floatCash);
-            this.countMoney('sum-expected-drawer', expectedDrawer);
-            document.querySelectorAll('.sum-cards').forEach(g => this.replayClass(g, 'is-entering'));
+            this.countMoney('sales-total', stats.total);
+            this.countMoney('sales-float', floatCash);
+            this.countMoney('sales-expected', expectedDrawer);
+            document.querySelectorAll('#settings-panel-sales .sales-sec').forEach(sec => this.replayClass(sec, 'is-entering'));
             
             // --- คำนวณต้นทุนและกำไรจาก History ภายในแอป ---
             const todayStr = new Date().toLocaleDateString();
@@ -6706,34 +6880,48 @@ renderReport(r) {
             totalProfit -= wasteCost;
             totalProfit -= refundedTotal;
 
-            this.countMoney('sum-cost', totalCost);
-            this.countMoney('sum-profit', totalProfit);
+            this.countMoney('sales-cost', totalCost);
+            this.countMoney('sales-profit', totalProfit);
 
-            const wasteBanner = document.getElementById('sum-waste-banner');
-            this.countMoney('sum-waste-cost', wasteCost);
-            if (wasteBanner) wasteBanner.classList.toggle('hidden', wasteCost <= 0);
+            const toggle = (id, on) => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden', !on); };
+            const set = (id, text) => { const el = document.getElementById(id); if (el) el.innerText = text; };
+            const html = (id, markup) => { const el = document.getElementById(id); if (el) el.innerHTML = markup; };
 
-            const refundBanner = document.getElementById('sum-refund-banner');
-            this.countMoney('sum-refund-total', refundedTotal);
-            if (refundBanner) refundBanner.classList.toggle('hidden', refundedTotal <= 0);
-            // ------------------------------------------
+            this.countMoney('sales-waste', wasteCost);
+            this.countMoney('sales-refund', refundedTotal);
+            toggle('sales-waste-wrap', wasteCost > 0);
+            toggle('sales-refund-wrap', refundedTotal > 0);
 
-            const breakdownContainer = document.getElementById('sum-breakdown-container');
-            const breakdownList = document.getElementById('sum-breakdown-list');
-            if (breakdownContainer && breakdownList && stats.byType) {
-              const entries = Object.entries(stats.byType);
-              if (entries.length > 0) {
-                breakdownContainer.classList.remove('hidden');
-                breakdownList.innerHTML = entries.map(([name, amt]) => `
-                  <div class="flex justify-between text-sm">
-                    <span class="text-slate-500 font-bold">${escHtml(name)}</span>
-                    <span class="text-secondary font-black">฿${amt.toLocaleString(undefined, {minimumFractionDigits: 2})}</span>
-                  </div>
-                `).join('');
-              } else {
-                breakdownContainer.classList.add('hidden');
-              }
-            }
+            // ชั่วโมงขายดีกับเมนูขายดีของวันนี้คิดจากประวัติในเครื่อง ไม่ต้องยิงเซิร์ฟเวอร์เพิ่ม
+            const extras = this.salesTodayExtras();
+            set('sales-bills', extras.bills.toLocaleString());
+            this.countMoney('sales-avg', extras.bills > 0 ? stats.total / extras.bills : 0);
+            const marginText = stats.total > 0 ? Math.round((totalProfit / stats.total) * 100) + '%' : '-';
+            set('sales-margin', marginText);
+            set('sales-margin-narrow', marginText);
+            toggle('sales-cost-note', extras.noCost);
+            this.updateSalesDelta(stats.total);
+            this.updateCupUI();
+
+            const pay = this.salesSegmentBar(Object.entries(stats.byType || {}).map(([name, amount]) => ({ name, amount })));
+            html('sales-paybar', pay.bar);
+            html('sales-paylegend', pay.legend);
+
+            const busiest = [...extras.hours.map((bills, hour) => ({ hour, bills }))].filter(h => h.bills > 0);
+            const peak = new Set([...busiest].sort((a, b) => b.bills - a.bills).slice(0, 3).map(h => h.hour));
+            const peakList = [...peak].sort((a, b) => a - b);
+            html('sales-hours', this.salesColumnChart(
+              busiest.map(h => ({ label: String(h.hour).padStart(2, '0'), value: h.bills, peak: peak.has(h.hour) })),
+              { height: 130, aria: 'จำนวนบิลรายชั่วโมงของวันนี้', peakLabel: peakList.length ? 'พีค ' + peakList.map(h => String(h).padStart(2, '0')).join(', ') + ' น.' : '' }
+            ));
+
+            const fmtMoney = n => `฿${(n || 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            html('sales-top', this.salesBarRows(extras.top.map(item => ({
+              label: item.name,
+              value: item.amount,
+              display: fmtMoney(item.amount),
+              extra: `${item.qty} แก้ว`
+            }))));
 
             this.setIndicator('synced');
           })
