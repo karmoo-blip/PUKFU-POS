@@ -1095,3 +1095,62 @@
       .set-toolbar .set-btn { flex: 1 1 100%; }
       .set-toolbar .set-search { flex: 1 1 100%; }
     }
+
+    /* ---------- หน้าวัตถุดิบ: หัวคอลัมน์ ---------- */
+    .inv-head {
+      grid-template-columns: 1fr 6rem 6rem 6rem 6rem 6rem;
+      gap: 12px;
+      padding: 14px 0 12px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #94a3b8;
+      border-bottom: 1px solid #f1f5f9;
+    }
+
+    /* ---------- หน้าต้นทุนเมนู ---------- */
+    .cost-head {
+      grid-template-columns: 1fr 5.5rem 7rem 7rem 5rem 5.5rem;
+      gap: 10px;
+      padding: 4px 0 10px;
+      font-size: 11px;
+      font-weight: 800;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .cost-row { padding: 13px 0; border-top: 1px solid #f1f5f9; }
+    .cost-row:first-of-type { border-top: none; }
+    .cost-cell { display: none; }
+    .cost-act { margin-top: 8px; }
+    .cost-note { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: #fff7ed; }
+    .cost-note p { margin: 0; font-size: 11px; font-weight: 700; color: #c2410c; }
+    .cost-note p + p { margin-top: 6px; }
+
+    /* ---------- ปฏิทินยอดขาย ---------- */
+    .cal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-bottom: 6px; text-align: center; font-size: 11px; font-weight: 800; color: #94a3b8; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+    .cal-cell {
+      min-height: 62px;
+      min-width: 0;
+      padding: 6px;
+      border-radius: 12px;
+      border: 1px solid var(--color-sand);
+      background: var(--color-cream);
+      display: flex;
+      flex-direction: column;
+    }
+    .cal-cell-blank { border-color: #f6f1e4; background: #fffdf5; }
+    .cal-day { font-size: 10px; font-weight: 700; color: #94a3b8; }
+    .cal-cell.has-sale .cal-day { color: var(--color-secondary); }
+    .cal-total { margin-top: auto; font-size: 12px; font-weight: 900; color: var(--color-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cal-bills { font-size: 10px; font-weight: 700; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cal-cell.is-strong { background: var(--color-accent); border-color: var(--color-mustard); }
+
+    @media (min-width: 1024px) {
+      .cost-row { display: grid; grid-template-columns: 1fr 5.5rem 7rem 7rem 5rem 5.5rem; gap: 10px; align-items: center; }
+      .cost-cell { display: block; text-align: right; font-size: 13px; font-weight: 700; color: var(--color-secondary); }
+      .cost-act { margin-top: 0; text-align: right; }
+      .cost-mobile-line { display: none; }
+      .cal-cell { min-height: 76px; padding: 8px; }
+    }

@@ -598,3 +598,48 @@ test('toggling sold out from the settings row sends the same command the till us
   assert.equal(sent.args[0].sku, 'A');
   assert.equal(sent.args[0].isSoldOut, true);
 });
+
+// ---- หน้ากลุ่มของในร้าน / ตัวเลข ----
+test('expiry notifications lead with what already went off', () => {
+  const { C, el } = loadController({});
+  const HOUR = 3600 * 1000;
+  C.notifications = [
+    { id: 'n2', item_name: 'วิปครีม', expires_at: new Date(Date.now() + HOUR).toISOString() },
+    { id: 'n1', item_name: 'นมสด', expires_at: new Date(Date.now() - HOUR).toISOString() }
+  ];
+  C.renderNotificationList();
+  const html = el('notification-list').innerHTML;
+
+  assert.ok(html.indexOf('นมสด') < html.indexOf('วิปครีม'), 'ของที่หมดอายุแล้วต้องอยู่บนสุด');
+  assert.ok(html.includes('หมดอายุแล้ว') && html.includes('ใกล้หมดอายุ'), 'ต้องติดป้ายทั้งสองสถานะ');
+});
+
+test('the cost page puts menus with no recipe first, with a way to fix them', () => {
+  const { C, el } = loadController({});
+  C.menuData = [
+    { sku: 'A', name: 'ลาเต้', price: 55, cost: 23 },
+    { sku: 'D', name: 'ชานม', price: 60 }
+  ];
+  C.inventoryData = [{ id: 'i1', name: 'นมสด', purchase_price: 320, purchase_factor: 12, stock: 4 }];
+  C.recipes = [{ menu_sku: 'A', inventory_item_id: 'i1', qty: 1 }];
+
+  C.renderCostTable();
+  const html = el('cost-list').innerHTML;
+
+  assert.ok(html.indexOf('ชานม') < html.indexOf('ลาเต้'), 'เมนูที่ยังไม่มีสูตรต้องอยู่บนสุด');
+  assert.ok(html.includes('ใส่สูตร'), 'และต้องมีปุ่มลัดไปใส่สูตร');
+  assert.ok(el('cost-summary').innerText.includes('จากทั้งหมด 2 เมนู'));
+});
+
+test('the calendar marks the days that beat the month average', () => {
+  const { C, el } = loadController({});
+  C.calendarYear = 2026; C.calendarMonth = 7;
+  C.renderCalendar({ daily: [
+    { date: '2026-08-01', total: 2000, bills: 20 },
+    { date: '2026-08-02', total: 6000, bills: 60 }
+  ]}, '2026-08-01', '2026-08-31');
+
+  const html = el('cal-grid').innerHTML;
+  assert.equal((html.match(/is-strong/g) || []).length, 1, 'วันที่ขายดีกว่าค่าเฉลี่ยต้องถูกทำเครื่องหมายไว้วันเดียว');
+  assert.ok(el('cal-month-summary').innerText.includes('2 วันที่มีขาย'));
+});
