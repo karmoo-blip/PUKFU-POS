@@ -729,3 +729,111 @@
       #paid-overlay .paid-check { animation: none; }
       #paid-overlay.is-on { display: none; }
     }
+
+    /* ===== หน้าประวัติบิล =====
+       ชุดนี้เพิ่มตามที่เจ้าของร้านเลือกจากหน้าทดลอง History Motion (แถวโผล่ = เบา, ดูย้อนหลัง = โครงร่างเทา) */
+
+    /* ---- ทั้งชุดจางเข้าพร้อมกัน เล่นเฉพาะตอนรายการเปลี่ยนจริง ไม่ใช่ทุกครั้งที่ถามเซิร์ฟเวอร์ ---- */
+    #history-list.is-entering > * { animation: history-row-in .26s ease-out; }
+    @keyframes history-row-in {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+
+    /* ---- บิลใหม่แทรกหัวรายการ: เปิดที่ว่างลงมาแล้ววาบเขียวครั้งเดียว แถวเก่าไม่ขยับ ---- */
+    #history-list .is-fresh {
+      animation: history-fresh-open .34s cubic-bezier(0.34, 1.56, 0.64, 1), history-fresh-flash .9s ease-out;
+      overflow: hidden;
+    }
+    @keyframes history-fresh-open {
+      from { max-height: 0; opacity: 0; }
+      to   { max-height: 400px; opacity: 1; }
+    }
+    @keyframes history-fresh-flash {
+      0%   { background-color: #ecfdf5; }
+      55%  { background-color: #ecfdf5; }
+      100% { background-color: transparent; }
+    }
+    /* จุดเขียวหน้าเลขบิล หายไปเองแล้วคืนที่ว่างให้ตัวหนังสือ ไม่ค้างเป็นสถานะถาวร */
+    .history-new-dot {
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      margin-right: 7px;
+      border-radius: 50%;
+      background: #10b981;
+      vertical-align: middle;
+      animation: history-dot 1.2s ease-out forwards;
+    }
+    @keyframes history-dot {
+      0%   { opacity: 0; transform: scale(.4); }
+      12%  { opacity: 1; transform: scale(1); }
+      70%  { opacity: 1; width: 7px; margin-right: 7px; }
+      100% { opacity: 0; width: 0; margin-right: 0; }
+    }
+
+    /* ---- แถวที่เพิ่งเปลี่ยนสถานะ วาบให้รู้ว่ากดโดนใบไหน สีตามป้ายที่ใช้อยู่แล้ว ---- */
+    #history-list .is-hit-cancel { animation: history-hit-cancel .6s ease-out; }
+    #history-list .is-hit-waste  { animation: history-hit-waste .6s ease-out; }
+    #history-list .is-hit-refund { animation: history-hit-refund .6s ease-out; }
+    @keyframes history-hit-cancel {
+      0% { background-color: #ffffff; } 25% { background-color: #fef2f2; } 100% { background-color: transparent; }
+    }
+    @keyframes history-hit-waste {
+      0% { background-color: #ffffff; } 25% { background-color: #fff7ed; } 100% { background-color: transparent; }
+    }
+    @keyframes history-hit-refund {
+      0% { background-color: #ffffff; } 25% { background-color: #f0f9ff; } 100% { background-color: transparent; }
+    }
+
+    /* ---- แตะหัวบิลบนจอเล็ก: เนื้อหาไหลลงมา ไม่ใช่โผล่ทั้งก้อน ----
+       ตอนพับใส่คลาส hidden ทันทีเหมือนเดิม ตรงนี้แค่ฝืนให้ยังวาดอยู่จนจังหวะจบ (ชุดเดียวกับหน้าต่างชำระเงิน) */
+    .history-detail.is-opening { animation: history-detail-in .2s ease-out; overflow: hidden; }
+    @keyframes history-detail-in {
+      from { max-height: 0; opacity: 0; }
+      to   { max-height: 600px; opacity: 1; }
+    }
+    .history-detail.is-closing.hidden {
+      display: block !important;
+      overflow: hidden;
+      animation: history-detail-out .18s ease-in forwards;
+    }
+    @keyframes history-detail-out {
+      from { max-height: 600px; opacity: 1; }
+      to   { max-height: 0; opacity: 0; }
+    }
+    /* แถวที่แตะสว่างวาบสั้นๆ ให้รู้ว่ากดโดน */
+    .history-row-tap { animation: history-row-tap .28s ease-out; border-radius: 12px; }
+    @keyframes history-row-tap {
+      0%   { background-color: #fff3d1; }
+      100% { background-color: transparent; }
+    }
+
+    /* ---- โครงร่างเทาระหว่างรอข้อมูลของวันที่เลือก ---- */
+    .history-skel-row { padding: 14px 0; display: flex; justify-content: space-between; align-items: center; }
+    .history-skel-row + .history-skel-row { border-top: 1px solid var(--color-sand); }
+    .history-skel-bar {
+      height: 12px;
+      border-radius: 6px;
+      background: linear-gradient(90deg, #e9eef4 25%, #d7dfe9 37%, #e9eef4 63%);
+      background-size: 400% 100%;
+      animation: history-skel-shimmer 1.3s linear infinite;
+    }
+    @keyframes history-skel-shimmer {
+      from { background-position: 100% 0; }
+      to   { background-position: -100% 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #history-list.is-entering > *,
+      #history-list .is-fresh,
+      #history-list .is-hit-cancel,
+      #history-list .is-hit-waste,
+      #history-list .is-hit-refund,
+      .history-detail.is-opening,
+      .history-row-tap,
+      .history-skel-bar { animation: none; }
+      .history-new-dot { animation: none; opacity: 1; }
+      /* พับแล้วหายไปเลย ไม่ต้องฝืนวาดต่อ */
+      .history-detail.is-closing.hidden { display: none !important; animation: none; }
+    }

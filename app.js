@@ -6067,6 +6067,8 @@ renderReport(r) {
         }
         this.historyViewDate = dateStr;
         if (note) note.innerText = 'กำลังโหลด...';
+        // รายการของวันนี้ต้องหายไปทันที ไม่งั้นพนักงานอ่านตัวเลขวันเก่าเป็นของวันที่เลือก
+        this.renderHistorySkeleton();
         google.script.run
           .withSuccessHandler(data => {
             if (this.historyViewDate !== dateStr) return;
@@ -6076,6 +6078,10 @@ renderReport(r) {
           })
           .withFailureHandler(() => {
             if (note) note.innerText = 'โหลดไม่สำเร็จ ลองใหม่อีกครั้ง';
+            // เอารายการของวันนี้กลับมา ไม่ปล่อยให้ค้างเป็นโครงร่างเทาที่ไม่มีวันมีข้อมูล
+            this.historyViewDate = null;
+            this.historyViewData = null;
+            this.renderHistory();
           })
           .getPOSDataByDate(dateStr);
       },
@@ -6086,7 +6092,25 @@ renderReport(r) {
         if (window.innerWidth >= 1024) return;
         const detail = headerEl.nextElementSibling;
         if (!detail) return;
+
+        const opening = detail.classList.contains('hidden');
+        // คลาส hidden ยังสลับทันทีเหมือนเดิม จังหวะตอนพับอาศัย CSS ฝืนให้วาดต่ออีก 180ms แล้วถอดคลาสทิ้ง
         detail.classList.toggle('hidden');
+        this.replayClass(headerEl, 'history-row-tap');
+
+        clearTimeout(this._historyFoldTimers && this._historyFoldTimers.get(detail));
+        detail.classList.remove('is-opening', 'is-closing');
+
+        if (!this.reducedMotion()) {
+          void detail.offsetWidth;
+          detail.classList.add(opening ? 'is-opening' : 'is-closing');
+          if (!this._historyFoldTimers) this._historyFoldTimers = new Map();
+          this._historyFoldTimers.set(detail, setTimeout(() => {
+            detail.classList.remove('is-opening', 'is-closing');
+            this._historyFoldTimers.delete(detail);
+          }, 220));
+        }
+
         const chevron = headerEl.querySelector('.history-chevron');
         if (chevron) chevron.classList.toggle('rotate-180');
       },
@@ -6095,16 +6119,18 @@ renderReport(r) {
         const list = document.getElementById('history-list');
         if (!list) return;
         const sorted = rows.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        this._historyRowState = null;
         if (sorted.length === 0) {
+          this._historyHtml = null;
           list.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/></svg>ไม่มีบิลในวันที่เลือก</div>';
           return;
         }
         let html = '';
         for (const h of sorted) {
           const off = h.status === 'cancelled' || h.status === 'waste';
-          html += '<div class="py-4' + (off ? ' opacity-60' : '') + '">';
+          html += '<div data-invoice="' + escAttr(h.invoice) + '" class="py-4' + (off ? ' opacity-60' : '') + '">';
           html += '<div class="flex justify-between items-center gap-2 cursor-pointer lg:cursor-default" onclick="Controller.toggleHistoryDetail(this)">';
-          html += '<div class="min-w-0"><p class="font-bold text-secondary' + (off ? ' line-through' : '') + '">' + h.invoice + '</p>';
+          html += '<div class="min-w-0"><p class="history-inv font-bold text-secondary' + (off ? ' line-through' : '') + '">' + h.invoice + '</p>';
           html += '<p class="text-xs text-slate-400 mt-0.5">' + new Date(h.timestamp).toLocaleString() + (h.cashier ? ' · ' + escHtml(h.cashier) : '') + '</p>';
           html += '</div><div class="flex items-center gap-2 shrink-0"><div class="text-right">';
           html += '<p class="font-black text-lg ' + (off ? 'text-slate-400 line-through' : 'text-primary') + '">฿' + h.total + '</p>';
@@ -6150,7 +6176,7 @@ renderReport(r) {
           html += '</div>'; // .history-detail
           html += '</div>'; // .py-4
         }
-        list.innerHTML = html;
+        this.paintHistoryList(list, html, sorted, { markNew: false });
       },
 
       renderHistory() {
@@ -6170,19 +6196,21 @@ renderReport(r) {
         combined.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
         if (combined.length === 0) {
+          this._historyRowState = null;
+          this._historyHtml = null;
           list.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/></svg>ยังไม่มีบิลวันนี้</div>';
           return;
         }
 
-        list.innerHTML = combined.map((h, idx) => {
+        const html = combined.map((h, idx) => {
           const isCancelled = h.status === 'cancelled';
           const isWaste = h.status === 'waste';
           
           return `
-          <div class="py-4 ${isCancelled || isWaste ? 'opacity-60' : ''}">
+          <div data-invoice="${escAttr(h.invoice)}" class="py-4 ${isCancelled || isWaste ? 'opacity-60' : ''}">
             <div class="flex justify-between items-center gap-2 cursor-pointer lg:cursor-default" onclick="Controller.toggleHistoryDetail(this)">
               <div class="min-w-0">
-                <p class="font-bold text-secondary ${isCancelled || isWaste ? 'line-through' : ''}">${h.invoice}</p>
+                <p class="history-inv font-bold text-secondary ${isCancelled || isWaste ? 'line-through' : ''}">${h.invoice}</p>
                 <p class="text-xs text-slate-400 mt-0.5">${new Date(h.timestamp).toLocaleString()}${h.cashier ? ' · ' + escHtml(h.cashier) : ''}</p>
               </div>
               <div class="flex items-center gap-2 shrink-0">
@@ -6228,7 +6256,86 @@ renderReport(r) {
             </div>
           </div>
         `}).join('');
+
+        this.paintHistoryList(list, html, combined);
       },
+
+      // วาดรายการก็ต่อเมื่อเนื้อหาต่างจากรอบที่แล้วจริงๆ
+      // แอปดึงข้อมูลซ้ำเป็นระยะและได้คำตอบเดิมเป็นส่วนใหญ่ ถ้าวาดทุกครั้งรายการที่กางอยู่จะถูกพับกลับเองและจอกะพริบทั้งวัน
+      // opts.markNew = false สำหรับข้อมูลวันเก่า ทุกบิลในนั้นไม่ใช่ของใหม่ ต่อให้ไม่เคยเห็นมาก่อนก็ตาม
+      paintHistoryList(list, html, rows, opts) {
+        const o = opts || {};
+        const changes = o.markNew === false
+          ? { fresh: [], hits: [] }
+          : this.diffHistoryRows(rows);
+        const sameHtml = html === this._historyHtml;
+        if (sameHtml && !changes.fresh.length && !changes.hits.length) return;
+
+        list.innerHTML = html;
+        this._historyHtml = html;
+
+        if (this.reducedMotion()) return;
+
+        // ทั้งชุดจางเข้ามาพร้อมกัน (ระดับ "เบา" ตามที่เจ้าของร้านเลือก)
+        this.replayClass(list, 'is-entering');
+
+        const kids = list.children ? Array.from(list.children) : [];
+        const rowByInvoice = (invoice) => kids.find(el => el.dataset && el.dataset.invoice === invoice);
+
+        for (const invoice of changes.fresh) {
+          const row = rowByInvoice(invoice);
+          if (!row) continue;
+          row.classList.add('is-fresh');
+          const inv = row.querySelector('.history-inv');
+          if (inv) inv.insertAdjacentHTML('afterbegin', '<span class="history-new-dot"></span>');
+        }
+
+        for (const hit of changes.hits) {
+          this.replayClass(rowByInvoice(hit.invoice), hit.cls);
+        }
+      },
+
+      // เทียบกับรอบที่แล้วว่าบิลไหนเพิ่งเข้ามา และบิลไหนเพิ่งเปลี่ยนสถานะ
+      // ทำจากข้อมูลล้วน ไม่ต้องให้ทุกที่ที่สั่งยกเลิก/คืนเงินมาบอก จึงครอบคลุมบิลที่เครื่องอื่นในร้านแก้มาด้วย
+      diffHistoryRows(rows) {
+        const prev = this._historyRowState;
+        const next = new Map();
+        const fresh = [];
+        const hits = [];
+
+        for (const h of rows) {
+          const state = {
+            status: h.status || 'active',
+            refunded: Number(h.refundedTotal || 0)
+          };
+          next.set(h.invoice, state);
+          if (!prev) continue;
+
+          const was = prev.get(h.invoice);
+          if (!was) { fresh.push(h.invoice); continue; }
+          if (was.status !== state.status && state.status === 'cancelled') hits.push({ invoice: h.invoice, cls: 'is-hit-cancel' });
+          else if (was.status !== state.status && state.status === 'waste') hits.push({ invoice: h.invoice, cls: 'is-hit-waste' });
+          else if (state.refunded > was.refunded) hits.push({ invoice: h.invoice, cls: 'is-hit-refund' });
+        }
+
+        this._historyRowState = next;
+        // รอบแรกหลังเปิดแอปไม่นับว่าทุกบิลเป็นของใหม่ ไม่งั้นจอทั้งจอวาบเขียวตอนเปิดแท็บครั้งแรก
+        return { fresh, hits };
+      },
+
+      // โครงร่างเทาระหว่างรอข้อมูลของวันที่เลือก บอกว่ารายการที่เห็นอยู่ไม่ใช่ของจริงแล้ว
+      renderHistorySkeleton() {
+        const list = document.getElementById('history-list');
+        if (!list) return;
+        const row = '<div class="history-skel-row">'
+          + '<div><div class="history-skel-bar" style="width:210px"></div><div class="history-skel-bar" style="width:130px;height:9px;margin-top:8px"></div></div>'
+          + '<div class="history-skel-bar" style="width:62px;height:16px"></div>'
+          + '</div>';
+        list.innerHTML = row + row + row;
+        // ล้างลายเซ็นไว้ ไม่งั้นข้อมูลที่โหลดมาได้อาจตรงกับรอบก่อนแล้วไม่ถูกวาดทับโครงร่างเทา
+        this._historyHtml = null;
+      },
+
       cancelOrder(invoiceId) {
         this.updateOrderStatus(invoiceId, 'cancelled');
       },
