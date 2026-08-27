@@ -436,215 +436,130 @@
       </div>
 
       <div id="settings-panel-printer" class="settings-panel hidden">
-        <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 max-w-md">
-          <h3 class="font-bold text-lg text-secondary mb-4">ตั้งค่าเครื่องพิมพ์ใบเสร็จ</h3>
+        <div class="set-card">
+          <p class="set-card-t">ข้อมูลร้านบนใบเสร็จ</p>
+          <p class="set-card-sub">พิมพ์อยู่หัวใบเสร็จทุกใบ ช่องไหนไม่ต้องการให้พิมพ์ ติ๊กออกได้ในหัวข้อ "หัวข้อที่แสดงบนใบเสร็จ" ด้านล่าง</p>
+          <div class="set-fields">
+            <div class="set-field"><label>ชื่อร้าน / ข้อความส่วนหัว</label><input type="text" id="printer-header" placeholder="เช่น Pukfu Coffee"></div>
+            <div class="set-field"><label>สาขา</label><input type="text" id="printer-branch" placeholder="เช่น Central Ladprao"></div>
+            <div class="set-field set-field-full"><label>ที่อยู่ร้าน</label><textarea id="shop-address" rows="2" placeholder="เช่น 123 ถ.สุขุมวิท แขวง... เขต... กรุงเทพฯ 10110"></textarea></div>
+            <div class="set-field"><label>เบอร์โทรศัพท์ติดต่อ</label><input type="text" id="shop-phone" placeholder="เช่น 08X-XXX-XXXX"></div>
+            <div class="set-field"><label>เลขประจำตัวผู้เสียภาษี</label><input type="text" id="shop-tax-id" placeholder="เช่น 0-1055-XXXXX-XX-X"><span class="set-hint">ใส่หรือไม่ใส่ก็ได้</span></div>
+            <div class="set-field"><label>ชื่อนิติบุคคล</label><input type="text" id="printer-company" placeholder="เช่น บริษัท ปุ๊กฟู่ จำกัด"></div>
+            <div class="set-field"><label>เลขที่สาขา</label><input type="text" id="printer-branch-no" placeholder="เช่น 00000"></div>
+            <div class="set-field"><label>POS ID</label><input type="text" id="printer-pos-id" placeholder="เช่น 00000"></div>
+            <div class="set-field"><label>หัวเอกสาร</label><input type="text" id="printer-doc-title" placeholder="Receipt / TAX Invoice (ABB)"></div>
+            <div class="set-field set-field-full"><label>ข้อความส่วนท้าย</label><input type="text" id="printer-footer" placeholder="เช่น ขอบคุณที่ใช้บริการค่ะ"></div>
+          </div>
+        </div>
 
-          <div class="mb-6">
-            <label class="text-sm font-bold text-slate-500 mb-1 block">โลโก้ร้าน (แสดงบนหัวใบเสร็จ)</label>
-            <div class="flex items-center gap-3">
-              <img id="logo-preview" src="" class="hidden w-16 h-16 object-contain border border-sand rounded-xl bg-white p-1">
-              <input type="file" id="logo-upload-input" accept="image/*" onchange="Controller.handleLogoUpload(event)" class="text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-bold">
-            </div>
-            <button id="btn-remove-logo" onclick="Controller.removeLogo()" class="hidden mt-2 text-xs font-bold text-red-400 hover:underline">ลบโลโก้</button>
-            <p class="text-xs text-slate-400 mt-1">แนะนำ: รูปขาวดำ/คอนทราสต์สูง จะพิมพ์ออกมาชัดกว่า</p>
+        <div class="set-card">
+          <p class="set-card-t">โลโก้ร้าน</p>
+          <p class="set-card-sub">พิมพ์เหนือชื่อร้าน รูปขาวดำคอนทราสต์สูงจะออกมาชัดที่สุด</p>
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+            <img id="logo-preview" src="" class="hidden" style="width:72px;height:72px;object-fit:contain;border:1px solid var(--color-sand);border-radius:14px;background:#fff;padding:4px" alt="">
+            <input type="file" id="logo-upload-input" accept="image/*" onchange="Controller.handleLogoUpload(event)" class="set-file">
+            <button id="btn-remove-logo" onclick="Controller.removeLogo()" class="hidden set-btn set-btn-sm set-btn-danger">ลบโลโก้</button>
           </div>
+        </div>
 
-          <div class="mb-4">
-            <label class="text-sm font-bold text-slate-500 mb-1 block">ที่อยู่ร้าน</label>
-            <textarea id="shop-address" rows="2" class="w-full border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream" placeholder="เช่น 123 ถ.สุขุมวิท แขวง... เขต... กรุงเทพฯ 10110"></textarea>
+        <div class="set-card">
+          <p class="set-card-t">ภาษีมูลค่าเพิ่ม</p>
+          <label class="set-check"><input type="checkbox" id="vat-enabled" onchange="Controller.toggleVatRateInput()">แสดงรายละเอียด VAT บนใบเสร็จ</label>
+          <div id="vat-rate-wrap" class="hidden" style="margin-top:12px">
+            <div class="set-field" style="max-width:220px"><label>อัตรา VAT (%)</label><input type="number" id="vat-rate" step="0.01" min="0" max="100" placeholder="7"><span class="set-hint">ราคาสินค้าที่ตั้งไว้ถือว่ารวม VAT แล้ว</span></div>
           </div>
-          <div class="mb-4">
-            <label class="text-sm font-bold text-slate-500 mb-1 block">เบอร์โทรศัพท์ติดต่อ</label>
-            <input type="text" id="shop-phone" class="w-full border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream" placeholder="เช่น 08X-XXX-XXXX">
-          </div>
-          <div class="mb-6">
-            <label class="text-sm font-bold text-slate-500 mb-1 block">เลขประจำตัวผู้เสียภาษี (ถ้ามี)</label>
-            <input type="text" id="shop-tax-id" class="w-full border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream" placeholder="เช่น 0-1055-XXXXX-XX-X">
-          </div>
+        </div>
 
-          <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
-            <div class="flex items-center gap-2 mb-3">
-              <input type="checkbox" id="vat-enabled" class="w-5 h-5 rounded text-primary" onchange="Controller.toggleVatRateInput()">
-              <label for="vat-enabled" class="text-sm font-bold text-slate-500">แสดงรายละเอียดภาษีมูลค่าเพิ่ม (VAT) บนใบเสร็จ</label>
-            </div>
-            <div id="vat-rate-wrap" class="hidden">
-              <label class="text-xs font-bold text-slate-400 mb-1 block">อัตรา VAT (%) — ราคาสินค้าที่ตั้งไว้ถือว่ารวม VAT แล้ว</label>
-              <input type="number" id="vat-rate" step="0.01" min="0" max="100" class="w-28 border border-sand rounded-xl p-2 text-center font-bold focus:outline-none focus:border-primary bg-white" placeholder="7">
-            </div>
-          </div>
-
-          <div class="mb-4">
-            <label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อร้าน / ข้อความส่วนหัว (Header)</label>
-            <input type="text" id="printer-header" class="w-full border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream" placeholder="เช่น Pukfu Coffee">
-          </div>
-          <div class="mb-4">
-            <label class="text-sm font-bold text-slate-500 mb-1 block">สาขา (Branch)</label>
-            <input type="text" id="printer-branch" class="w-full border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream" placeholder="เช่น Central Ladprao">
-          </div>
-          <div class="mb-4">
-            <label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อนิติบุคคล</label>
-            <input type="text" id="printer-company" class="w-full border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream" placeholder="เช่น บริษัท ปุ๊กฟู่ จำกัด">
-          </div>
-          <div class="mb-4">
-            <label class="text-sm font-bold text-slate-500 mb-1 block">เลขที่สาขา (No. Branch)</label>
-            <input type="text" id="printer-branch-no" class="w-full border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream" placeholder="เช่น 00000">
-          </div>
-          <div class="mb-4">
-            <label class="text-sm font-bold text-slate-500 mb-1 block">POS ID</label>
-            <input type="text" id="printer-pos-id" class="w-full border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream" placeholder="เช่น 00000">
-          </div>
-          <div class="mb-4">
-            <label class="text-sm font-bold text-slate-500 mb-1 block">หัวเอกสาร</label>
-            <input type="text" id="printer-doc-title" class="w-full border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream" placeholder="Receipt / TAX Invoice (ABB)">
-          </div>
-          <div class="mb-4">
-            <label class="text-sm font-bold text-slate-500 mb-1 block">ข้อความส่วนท้าย (Footer)</label>
-            <input type="text" id="printer-footer" class="w-full border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream" placeholder="เช่น ขอบคุณที่ใช้บริการค่ะ">
-          </div>
-          <div class="mb-4">
-            <label class="text-sm font-bold text-slate-500 mb-1 block">ขนาดกระดาษ (Paper Size)</label>
-            <select id="printer-paper-size" class="w-full border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream">
-              <option value="80mm">80mm (สลิปมาตรฐาน)</option>
-              <option value="58mm">58mm (สลิปขนาดเล็ก)</option>
-            </select>
-          </div>
-          <div class="mb-6 flex items-center gap-2">
-            <input type="checkbox" id="printer-auto-print" class="w-5 h-5 rounded text-primary">
-            <label for="printer-auto-print" class="text-sm font-bold text-slate-500">พิมพ์ใบเสร็จอัตโนมัติเมื่อกดชำระเงิน</label>
-          </div>
-          <div class="mb-6 flex items-center gap-2">
-             <input type="checkbox" id="printer-show-queue" class="w-5 h-5 rounded text-primary">
-             <label for="printer-show-queue" class="text-sm font-bold text-slate-500">แสดงเลขคิวบนใบเสร็จ (Q01-Q99)</label>
-          </div>
-          <div class="mb-6 flex items-center gap-2">
-             <input type="checkbox" id="printer-print-order-slip" class="w-5 h-5 rounded text-primary">
-             <label for="printer-print-order-slip" class="text-sm font-bold text-slate-500">พิมพ์ใบสั่งทำเครื่องดื่ม (สำหรับบาริสต้า/ห้องครัว)</label>
-          </div>
-          <!--  Bluetooth Printer -->
-          <div class="border-t border-sand pt-4 mt-2 mb-4">
-            <label class="text-sm font-bold text-slate-500 mb-2 block">เครื่องพิมพ์ใบเสร็จ (หน้าร้าน)</label>
-            <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <p id="bt-printer-status-receipt" class="text-sm text-slate-500 mb-3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M6 6l12 12M18 6L6 18"/></svg> ยังไม่ได้เชื่อมต่อ</p>
-              <div class="flex flex-wrap gap-2">
-                <button id="btn-bt-connect-receipt" onclick="Controller.connectBTPrinter('receipt')" class="bg-blue-500 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-blue-600 transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M10 14a4 4 0 0 0 6 .5l2-2a4 4 0 0 0-6-6l-1 1"/><path d="M14 10a4 4 0 0 0-6-.5l-2 2a4 4 0 0 0 6 6l1-1"/></svg> เชื่อมต่อเครื่องพิมพ์</button>
-                <button id="btn-bt-disconnect-receipt" onclick="Controller.disconnectBTPrinter('receipt')" class="hidden bg-red-50 text-red-500 px-4 py-2 rounded-xl font-bold text-sm hover:bg-red-100 transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M9 3v6M15 3v6"/><path d="M6 9h12v3a6 6 0 0 1-12 0z"/><path d="M12 18v3"/></svg> ตัดการเชื่อมต่อ</button>
-                <button id="btn-bt-test-receipt" onclick="Controller.testBTPrint('receipt')" class="hidden bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-emerald-100 transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg> ทดสอบพิมพ์</button>
-              </div>
+        <div class="set-card">
+          <p class="set-card-t">กระดาษและการพิมพ์</p>
+          <div class="set-fields">
+            <div class="set-field"><label>ขนาดกระดาษ</label>
+              <select id="printer-paper-size">
+                <option value="80mm">80mm (สลิปมาตรฐาน)</option>
+                <option value="58mm">58mm (สลิปขนาดเล็ก)</option>
+              </select>
             </div>
           </div>
+          <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
+            <label class="set-check"><input type="checkbox" id="printer-auto-print">พิมพ์ใบเสร็จอัตโนมัติเมื่อกดชำระเงิน</label>
+            <label class="set-check"><input type="checkbox" id="printer-show-queue">แสดงเลขคิวบนใบเสร็จ (Q01-Q99)</label>
+            <label class="set-check"><input type="checkbox" id="printer-print-order-slip">พิมพ์ใบสั่งทำเครื่องดื่ม (บาริสต้า/ห้องครัว)</label>
+          </div>
+        </div>
 
-          <div class="border-t border-sand pt-4 mt-2 mb-4">
-            <label class="text-sm font-bold text-slate-500 mb-2 block">เครื่องพิมพ์ใบสั่งครัว (ห้องครัว)</label>
-            <div class="bg-slate-50 p-4 rounded-xl border border-slate-100">
-              <p id="bt-printer-status-kitchen" class="text-sm text-slate-500 mb-3"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M6 6l12 12M18 6L6 18"/></svg> ยังไม่ได้เชื่อมต่อ</p>
-              <div class="flex flex-wrap gap-2">
-                <button id="btn-bt-connect-kitchen" onclick="Controller.connectBTPrinter('kitchen')" class="bg-blue-500 text-white px-4 py-2 rounded-xl font-bold text-sm hover:bg-blue-600 transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M10 14a4 4 0 0 0 6 .5l2-2a4 4 0 0 0-6-6l-1 1"/><path d="M14 10a4 4 0 0 0-6-.5l-2 2a4 4 0 0 0 6 6l1-1"/></svg> เชื่อมต่อเครื่องพิมพ์</button>
-                <button id="btn-bt-disconnect-kitchen" onclick="Controller.disconnectBTPrinter('kitchen')" class="hidden bg-red-50 text-red-500 px-4 py-2 rounded-xl font-bold text-sm hover:bg-red-100 transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M9 3v6M15 3v6"/><path d="M6 9h12v3a6 6 0 0 1-12 0z"/><path d="M12 18v3"/></svg> ตัดการเชื่อมต่อ</button>
-                <button id="btn-bt-test-kitchen" onclick="Controller.testBTPrint('kitchen')" class="hidden bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl font-bold text-sm hover:bg-emerald-100 transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg> ทดสอบพิมพ์</button>
-              </div>
-              <p class="text-xs text-slate-400 mt-3">ถ้าไม่เชื่อมต่อ ใบสั่งครัวจะพิมพ์ออกเครื่องเดียวกับใบเสร็จแทน</p>
+        <div class="set-card">
+          <p class="set-card-t">เครื่องพิมพ์</p>
+        <div class="set-row">
+            <div class="set-row-body">
+              <p class="set-row-t">เครื่องพิมพ์ใบเสร็จ (หน้าร้าน)</p>
+              <p id="bt-printer-status-receipt" class="set-row-s">ยังไม่ได้เชื่อมต่อ</p>
+            </div>
+            <div class="set-row-acts">
+              <button id="btn-bt-connect-receipt" onclick="Controller.connectBTPrinter('receipt')" class="set-btn set-btn-sm set-btn-soft"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;flex:none"><path d="M10 14a4 4 0 0 0 6 .5l2-2a4 4 0 0 0-6-6l-1 1"/><path d="M14 10a4 4 0 0 0-6-.5l-2 2a4 4 0 0 0 6 6l1-1"/></svg> เชื่อมต่อ</button>
+              <button id="btn-bt-disconnect-receipt" onclick="Controller.disconnectBTPrinter('receipt')" class="hidden set-btn set-btn-sm set-btn-danger">ตัดการเชื่อมต่อ</button>
+              <button id="btn-bt-test-receipt" onclick="Controller.testBTPrint('receipt')" class="hidden set-btn set-btn-sm set-btn-soft">ทดสอบพิมพ์</button>
             </div>
           </div>
-          
-          <div class="mb-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
-            <label class="text-sm font-bold text-slate-500 mb-1 block">หัวข้อที่แสดงบนใบเสร็จ</label>
-            <p class="text-xs text-slate-400 mb-3">ติ๊กออกเพื่อไม่ให้หัวข้อนั้นพิมพ์ลงใบเสร็จ</p>
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2">
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showLogo" class="w-4 h-4 rounded text-primary" checked>
-                โลโก้ร้าน
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showHeader" class="w-4 h-4 rounded text-primary" checked>
-                ชื่อร้าน (Header)
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showBranch" class="w-4 h-4 rounded text-primary" checked>
-                สาขา
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showCompany" class="w-4 h-4 rounded text-primary" checked>
-                ชื่อนิติบุคคล
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showBranchNo" class="w-4 h-4 rounded text-primary" checked>
-                เลขที่สาขา
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showAddress" class="w-4 h-4 rounded text-primary" checked>
-                ที่อยู่ร้าน
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showTaxId" class="w-4 h-4 rounded text-primary" checked>
-                เลขประจำตัวผู้เสียภาษี
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showPhone" class="w-4 h-4 rounded text-primary" checked>
-                เบอร์โทร
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showDocTitle" class="w-4 h-4 rounded text-primary" checked>
-                หัวเอกสาร
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showPosId" class="w-4 h-4 rounded text-primary" checked>
-                POS ID
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showInvoiceNo" class="w-4 h-4 rounded text-primary" checked>
-                เลขที่บิล (NO.)
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showStaff" class="w-4 h-4 rounded text-primary" checked>
-                ชื่อพนักงาน
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showDateTime" class="w-4 h-4 rounded text-primary" checked>
-                วันที่ / เวลา
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showItemNote" class="w-4 h-4 rounded text-primary" checked>
-                หมายเหตุรายการ
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showSummary" class="w-4 h-4 rounded text-primary" checked>
-                สรุปจำนวน / ยอดก่อนรวม
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showPayment" class="w-4 h-4 rounded text-primary" checked>
-                วิธีชำระเงิน / เงินทอน
-              </label>
-              <label class="flex items-center gap-2">
-                <input type="checkbox" id="rs-showFooter" class="w-4 h-4 rounded text-primary" checked>
-                ข้อความส่วนท้าย
-              </label>
+        <div class="set-row">
+            <div class="set-row-body">
+              <p class="set-row-t">เครื่องพิมพ์ใบสั่งครัว (ห้องครัว)</p>
+              <p id="bt-printer-status-kitchen" class="set-row-s">ยังไม่ได้เชื่อมต่อ</p><p class="set-row-s">ถ้าไม่เชื่อมต่อ ใบสั่งครัวจะพิมพ์ออกเครื่องเดียวกับใบเสร็จแทน</p>
             </div>
-          </div>
-
-          <button onclick="Controller.savePrinterSettings()" class="w-full bg-gradient-to-b from-primary to-secondary text-white py-3 rounded-2xl font-bold hover:brightness-110 transition shadow-md shadow-primary/30 mb-4">บันทึกการตั้งค่า</button>
-          
-          <div class="border-t border-sand pt-4 mt-2">
-            <label class="text-sm font-bold text-slate-500 mb-2 block">ตั้งค่าเพิ่มเติม</label>
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50 p-3 rounded-xl border border-slate-100">
-              <div>
-                <p class="font-bold text-secondary text-sm">รีเซ็ตเลขคิว (คิวปัจจุบัน: <span id="current-queue-display">Q01</span>)</p>
-                <p class="text-xs text-slate-400">เริ่มนับ Q01 ใหม่อีกครั้ง</p>
-              </div>
-              <button onclick="Controller.resetQueue()" class="shrink-0 bg-red-50 text-red-500 hover:bg-red-400 hover:text-white px-4 py-2 rounded-xl font-bold text-sm transition">รีเซ็ตคิว</button>
+            <div class="set-row-acts">
+              <button id="btn-bt-connect-kitchen" onclick="Controller.connectBTPrinter('kitchen')" class="set-btn set-btn-sm set-btn-soft"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;flex:none"><path d="M10 14a4 4 0 0 0 6 .5l2-2a4 4 0 0 0-6-6l-1 1"/><path d="M14 10a4 4 0 0 0-6-.5l-2 2a4 4 0 0 0 6 6l1-1"/></svg> เชื่อมต่อ</button>
+              <button id="btn-bt-disconnect-kitchen" onclick="Controller.disconnectBTPrinter('kitchen')" class="hidden set-btn set-btn-sm set-btn-danger">ตัดการเชื่อมต่อ</button>
+              <button id="btn-bt-test-kitchen" onclick="Controller.testBTPrint('kitchen')" class="hidden set-btn set-btn-sm set-btn-soft">ทดสอบพิมพ์</button>
             </div>
           </div>
         </div>
-        <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 max-w-md mt-4">
-          <h3 class="font-bold text-lg text-secondary mb-1">ความปลอดภัย</h3>
-          <p class="text-xs text-slate-400 mb-4">ล็อกหน้าจอเมื่อไม่มีการใช้งานนานเกินกำหนด (ใส่ 0 = ปิดใช้งาน)</p>
-          <div class="mb-5 flex items-center gap-2">
-            <label class="text-sm font-bold text-slate-500">ล็อกหน้าจออัตโนมัติ</label>
-            <input type="number" id="auto-lock-minutes" min="0" max="240" class="w-24 border border-sand rounded-xl p-2 text-center font-bold focus:outline-none focus:border-primary bg-white" placeholder="20">
-            <span class="text-sm font-bold text-slate-400">นาที</span>
+
+        <div class="set-card">
+          <p class="set-card-t">หัวข้อที่แสดงบนใบเสร็จ</p>
+          <p class="set-card-sub">ติ๊กออกเพื่อไม่ให้หัวข้อนั้นพิมพ์ลงใบเสร็จ</p>
+          <div class="set-checkgrid">
+            <label class="set-check"><input type="checkbox" id="rs-showLogo" checked>โลโก้ร้าน</label>
+            <label class="set-check"><input type="checkbox" id="rs-showHeader" checked>ชื่อร้าน (Header)</label>
+            <label class="set-check"><input type="checkbox" id="rs-showBranch" checked>สาขา</label>
+            <label class="set-check"><input type="checkbox" id="rs-showCompany" checked>ชื่อนิติบุคคล</label>
+            <label class="set-check"><input type="checkbox" id="rs-showBranchNo" checked>เลขที่สาขา</label>
+            <label class="set-check"><input type="checkbox" id="rs-showAddress" checked>ที่อยู่ร้าน</label>
+            <label class="set-check"><input type="checkbox" id="rs-showTaxId" checked>เลขประจำตัวผู้เสียภาษี</label>
+            <label class="set-check"><input type="checkbox" id="rs-showPhone" checked>เบอร์โทร</label>
+            <label class="set-check"><input type="checkbox" id="rs-showDocTitle" checked>หัวเอกสาร</label>
+            <label class="set-check"><input type="checkbox" id="rs-showPosId" checked>POS ID</label>
+            <label class="set-check"><input type="checkbox" id="rs-showInvoiceNo" checked>เลขที่บิล (NO.)</label>
+            <label class="set-check"><input type="checkbox" id="rs-showStaff" checked>ชื่อพนักงาน</label>
+            <label class="set-check"><input type="checkbox" id="rs-showDateTime" checked>วันที่ / เวลา</label>
+            <label class="set-check"><input type="checkbox" id="rs-showItemNote" checked>หมายเหตุรายการ</label>
+            <label class="set-check"><input type="checkbox" id="rs-showSummary" checked>สรุปจำนวน / ยอดก่อนรวม</label>
+            <label class="set-check"><input type="checkbox" id="rs-showPayment" checked>วิธีชำระเงิน / เงินทอน</label>
+            <label class="set-check"><input type="checkbox" id="rs-showFooter" checked>ข้อความส่วนท้าย</label>
           </div>
-          <button onclick="Controller.saveAutoLockSetting()" class="w-full bg-gradient-to-b from-primary to-secondary text-white py-3 rounded-2xl font-bold hover:brightness-110 transition shadow-md shadow-primary/30">บันทึกความปลอดภัย</button>
         </div>
 
+        <div class="set-card">
+          <div class="set-savebar" style="margin-top:0;padding-top:0;border-top:none">
+            <span class="set-save-note">แก้ช่องไหนแล้วอย่าลืมกดบันทึก</span>
+            <span class="set-spacer"></span>
+            <button onclick="Controller.savePrinterSettings()" class="set-btn set-btn-go">บันทึกการตั้งค่าใบเสร็จ</button>
+          </div>
+        </div>
+
+        <div class="set-card">
+          <p class="set-card-t">ความปลอดภัย</p>
+          <p class="set-card-sub">ล็อกหน้าจอเมื่อไม่มีการใช้งานนานเกินกำหนด ใส่ 0 = ปิดใช้งาน</p>
+          <div class="set-fields">
+            <div class="set-field"><label>ล็อกหน้าจออัตโนมัติ (นาที)</label><input type="number" id="auto-lock-minutes" min="0" max="240" placeholder="20"></div>
+          </div>
+          <div class="set-savebar"><span class="set-spacer"></span><button onclick="Controller.saveAutoLockSetting()" class="set-btn set-btn-go">บันทึกความปลอดภัย</button></div>
+        </div>
+
+        <div class="set-card set-danger">
+          <p class="set-card-t" style="color:#ef4444">รีเซ็ตเลขคิว</p>
+          <p class="set-card-sub">คิวปัจจุบัน <span id="current-queue-display">Q01</span> — กดแล้วเริ่มนับ Q01 ใหม่ ย้อนกลับไม่ได้</p>
+          <button onclick="Controller.resetQueue()" class="set-btn set-btn-danger">รีเซ็ตคิว</button>
+        </div>
       </div>
 
       <div id="settings-panel-employees" class="settings-panel hidden">
@@ -762,45 +677,48 @@
       </div>
 
       <div id="settings-panel-onlineorder" class="settings-panel hidden">
-        <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 mb-4">
-          <h3 class="font-bold text-lg text-secondary mb-2">QR ชำระเงิน</h3>
-          <p class="text-sm text-slate-400 mb-4">อัพโหลดรูป QR พร้อมเพย์/บัญชีร้านครั้งเดียว ระบบจะแสดงรูปนี้ให้ลูกค้าทุกคนที่สั่งอาหารออนไลน์เห็นตอนชำระเงิน</p>
-          <img id="payment-qr-preview" src="" class="hidden w-40 h-40 object-contain border border-sand rounded-2xl bg-white mb-3 p-2">
-          <input type="file" accept="image/*" onchange="Controller.handlePaymentQrUpload(event)" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-bold mb-1">
-          <button onclick="Controller.removePaymentQr()" class="text-xs font-bold text-red-400 hover:underline">ลบรูป QR</button>
-        </div>
-
-        <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 mb-4">
-          <h3 class="font-bold text-lg text-secondary mb-2">คิวและเวลารอของลูกค้า</h3>
-          <p class="text-sm text-slate-400 mb-4">หลังร้านกดยืนยันออเดอร์ ลูกค้าจะเห็นว่ามีกี่คิวก่อนหน้าและต้องรอประมาณกี่นาที นับทั้งออเดอร์ออนไลน์และบิลหน้าร้าน</p>
-          <label class="text-sm font-bold text-slate-500 mb-1 block">เวลาชงต่อ 1 แก้ว (นาที)</label>
-          <input type="number" min="0" step="0.5" id="queue-minutes-per-drink" class="w-full border border-sand rounded-xl p-2.5 mb-3 focus:outline-none focus:border-primary bg-cream" placeholder="3">
-          <label class="text-sm font-bold text-slate-500 mb-1 block">นับคิวย้อนหลังกี่นาที</label>
-          <input type="number" min="1" step="1" id="queue-window-minutes" class="w-full border border-sand rounded-xl p-2.5 mb-1 focus:outline-none focus:border-primary bg-cream" placeholder="20">
-          <p class="text-xs text-slate-400 mb-4">ออเดอร์ที่เก่ากว่านี้จะถูกตัดออกจากคิวอัตโนมัติ เผื่อกรณีลืมกดปุ่ม &quot;เสร็จแล้ว&quot; ตั้งสั้นไปคิวจะหายทั้งที่ลูกค้ายังรออยู่ ตั้งยาวไปบิลที่ทำเสร็จแล้วจะยังค้างในคิว</p>
-          <button onclick="Controller.saveQueueSettings(this)" class="w-full bg-gradient-to-b from-primary to-secondary text-white py-2.5 rounded-2xl font-bold active:scale-95 transition-all">บันทึกการตั้งค่าคิว</button>
-        </div>
-
-        <div class="bg-white rounded-3xl border border-sand shadow-sm p-6 mb-4">
-          <h3 class="font-bold text-lg text-secondary mb-2">สร้าง QR โต๊ะ/จุดรับสินค้า</h3>
-          <p class="text-sm text-slate-400 mb-4">ระบุชื่อโต๊ะหรือจุดรับสินค้า แล้วกดสร้าง QR ให้ลูกค้าสแกนเพื่อสั่งอาหารออนไลน์ — พิมพ์หรือแคปหน้าจอไปแปะที่โต๊ะได้เลย ทำทีละโต๊ะ</p>
-          <div class="flex gap-2 mb-4">
-            <input type="text" id="qr-location-input" placeholder="เช่น โต๊ะ 5" class="flex-1 border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream">
-            <button onclick="Controller.generateTableQr()" class="bg-gradient-to-b from-primary to-secondary text-white px-5 rounded-2xl font-bold shadow-md shadow-primary/30 active:scale-95 transition-all">สร้าง QR</button>
-          </div>
-          <div id="table-qr-result" class="hidden text-center bg-cream rounded-2xl p-5 border border-sand">
-            <img id="table-qr-image" src="" class="mx-auto rounded-xl border border-sand bg-white p-2 mb-2" style="width:220px;height:220px">
-            <p id="table-qr-url" class="text-xs text-slate-400 break-all mb-3"></p>
-            <button onclick="Controller.cancelTableQr()" class="text-xs font-bold text-red-400 hover:underline">ยกเลิก QR นี้</button>
+        <div class="set-card">
+          <p class="set-card-t">QR ชำระเงิน</p>
+          <p class="set-card-sub">อัปโหลดรูป QR พร้อมเพย์/บัญชีร้านครั้งเดียว ลูกค้าที่สั่งออนไลน์ทุกคนจะเห็นรูปนี้ตอนชำระเงิน</p>
+          <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+            <img id="payment-qr-preview" src="" class="hidden" style="width:140px;height:140px;object-fit:contain;border:1px solid var(--color-sand);border-radius:16px;background:#fff;padding:8px" alt="">
+            <div style="display:flex;flex-direction:column;gap:10px">
+              <input type="file" accept="image/*" onchange="Controller.handlePaymentQrUpload(event)" class="set-file">
+              <button onclick="Controller.removePaymentQr()" class="set-btn set-btn-sm set-btn-danger">ลบรูป QR</button>
+            </div>
           </div>
         </div>
 
-        <div class="bg-white rounded-3xl border border-sand shadow-sm p-4">
-          <div class="flex justify-between items-center mb-3">
-            <p class="text-sm font-bold text-slate-500">ประวัติออเดอร์ออนไลน์ (50 รายการล่าสุด)</p>
-            <button onclick="Controller.loadOnlineOrderHistory()" class="text-xs font-bold text-primary hover:underline">รีเฟรช</button>
+        <div class="set-card">
+          <p class="set-card-t">คิวและเวลารอของลูกค้า</p>
+          <p class="set-card-sub">หลังร้านกดยืนยันออเดอร์ ลูกค้าจะเห็นว่ามีกี่คิวก่อนหน้าและต้องรอประมาณกี่นาที นับทั้งออเดอร์ออนไลน์และบิลหน้าร้าน</p>
+          <div class="set-fields">
+            <div class="set-field"><label>เวลาชงต่อ 1 แก้ว (นาที)</label><input type="number" min="0" step="0.5" id="queue-minutes-per-drink" placeholder="3"></div>
+            <div class="set-field"><label>นับคิวย้อนหลังกี่นาที</label><input type="number" min="1" step="1" id="queue-window-minutes" placeholder="20"><span class="set-hint">ตั้งสั้นไปคิวจะหายทั้งที่ลูกค้ายังรออยู่ ตั้งยาวไปบิลที่เสร็จแล้วจะค้างในคิว</span></div>
           </div>
-          <div id="online-order-history-list" class="divide-y divide-sand max-h-[50vh] overflow-y-auto"></div>
+          <div class="set-savebar"><span class="set-spacer"></span><button onclick="Controller.saveQueueSettings(this)" class="set-btn set-btn-go">บันทึกการตั้งค่าคิว</button></div>
+        </div>
+
+        <div class="set-card">
+          <p class="set-card-t">QR โต๊ะ / จุดรับสินค้า</p>
+          <p class="set-card-sub">ระบุชื่อโต๊ะแล้วกดสร้าง QR ให้ลูกค้าสแกนสั่งเอง พิมพ์หรือแคปหน้าจอไปแปะที่โต๊ะได้เลย ทำทีละโต๊ะ</p>
+          <div class="set-toolbar" style="margin-bottom:0">
+            <input type="text" id="qr-location-input" placeholder="เช่น โต๊ะ 5" class="set-search">
+            <button onclick="Controller.generateTableQr()" class="set-btn set-btn-go">สร้าง QR</button>
+          </div>
+          <div id="table-qr-result" class="hidden" style="margin-top:14px;text-align:center;background:var(--color-cream);border:1px solid var(--color-sand);border-radius:18px;padding:18px">
+            <img id="table-qr-image" src="" style="width:220px;height:220px;margin:0 auto 10px;display:block;border:1px solid var(--color-sand);border-radius:14px;background:#fff;padding:8px" alt="">
+            <p id="table-qr-url" class="set-row-s" style="word-break:break-all;margin-bottom:10px"></p>
+            <button onclick="Controller.cancelTableQr()" class="set-btn set-btn-sm set-btn-danger">ยกเลิก QR นี้</button>
+          </div>
+        </div>
+
+        <div class="set-card">
+          <div class="set-toolbar" style="margin-bottom:10px">
+            <p class="set-card-sub" style="margin:0;flex:1 1 200px">ประวัติออเดอร์ออนไลน์ 50 รายการล่าสุด</p>
+            <button onclick="Controller.loadOnlineOrderHistory()" class="set-btn set-btn-ghost set-btn-sm">รีเฟรช</button>
+          </div>
+          <div id="online-order-history-list"></div>
         </div>
       </div>
     </div>
