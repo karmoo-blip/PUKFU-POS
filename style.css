@@ -848,6 +848,11 @@
       border: 1px solid var(--color-sand);
       border-radius: 22px;
       overflow: hidden;
+      /* แผงนี้เป็นลูกของกล่อง flex-col ที่เลื่อนได้ (#view-settings)
+         ถ้าปล่อยให้ย่อได้ มันจะถูกบีบให้เท่าความสูงจอแล้ว overflow:hidden ตัดส่วนที่เหลือทิ้ง
+         ผลคือหน้าเลื่อนไม่ลงเลย ต้องห้ามย่อไว้ */
+      flex-shrink: 0;
+      margin-bottom: 24px;
     }
     #settings-panel-sales.hidden { display: none; }
 
