@@ -685,3 +685,21 @@ test('the refresh button fetches whichever log is on screen', () => {
   C.refreshCurrentLog();
   assert.deepEqual(hit, ['change'], 'ต้องดึงเฉพาะอันที่เปิดอยู่ ไม่ใช่ยิงทั้งสามชุด');
 });
+
+// เป็นบั๊กที่ตัวรัน node มองไม่เห็น (ไม่มี layout engine) แต่กันการลบกฎทิ้งโดยไม่ตั้งใจได้
+test('the sales panel pins its column width, so it cannot overflow the card again', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
+  const block = css.slice(css.indexOf('#settings-panel-sales {'));
+  const rule = block.slice(0, block.indexOf('}'));
+
+  assert.ok(rule.includes('grid-template-columns: minmax(0, 1fr)'),
+    'ถ้าไม่กำหนดคอลัมน์ คอลัมน์เดียวจะกว้างตาม max-content ทะลุกรอบ แล้ว overflow:hidden จะเฉือนขอบขวาทิ้งเงียบๆ');
+  assert.ok(rule.includes('overflow: hidden'), 'กฎที่ทำให้บั๊กนี้เงียบยังอยู่ ตัวบนจึงยังจำเป็น');
+});
+
+test('the printer page marks its wide cards in the markup, not by card order', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const panel = html.slice(html.indexOf('id="settings-panel-printer"'), html.indexOf('id="settings-panel-onlineorder"'));
+  assert.equal((panel.match(/set-card-wide/g) || []).length, 3,
+    'ข้อมูลร้าน หัวข้อที่แสดงบนใบเสร็จ และแถบบันทึก ต้องกินเต็มความกว้างบนจอกว้าง');
+});

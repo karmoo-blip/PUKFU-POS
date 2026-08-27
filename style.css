@@ -843,6 +843,9 @@
        จุดตัด 1024px คือจุด lg ที่ทั้งแอปใช้อยู่แล้ว */
     #settings-panel-sales {
       display: grid;
+      /* ต้องกำหนดคอลัมน์ไว้ ไม่งั้นคอลัมน์เดียวจะกว้างตาม max-content ทะลุกรอบการ์ด
+         แล้ว overflow:hidden ข้างล่างจะเฉือนขอบขวาทิ้งเงียบๆ (วัดที่จอ 390px: กว้าง 395 ในกรอบ 350) */
+      grid-template-columns: minmax(0, 1fr);
       gap: 0;
       background: #ffffff;
       border: 1px solid var(--color-sand);
@@ -881,7 +884,7 @@
     .sales-chip:active { transform: scale(.96); }
     .sales-chip.is-on { background: var(--color-secondary); border-color: var(--color-secondary); color: #ffffff; }
 
-    .sales-hero { margin: 0; font-size: 44px; line-height: 1; font-weight: 900; color: var(--color-secondary); letter-spacing: -.02em; }
+    .sales-hero { margin: 0; font-size: 40px; line-height: 1; font-weight: 900; color: var(--color-secondary); letter-spacing: -.02em; overflow-wrap: anywhere; }
     .sales-delta { display: inline-flex; align-items: center; gap: 6px; margin-top: 10px; padding: 5px 12px; border-radius: 999px; font-size: 12px; font-weight: 700; }
     .sales-delta-up { background: #ecfdf5; color: #059669; }
     .sales-delta-down { background: #fef2f2; color: #ef4444; }
@@ -1189,4 +1192,25 @@
 
     @media (min-width: 1024px) {
       .set-checkgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+
+    /* ===== หน้าเครื่องพิมพ์บนจอกว้าง =====
+       การ์ดสั้นๆ (โลโก้ VAT กระดาษ ความปลอดภัย รีเซ็ตคิว) เคยกินเต็มแถวคนละใบ เหลือที่ว่างข้างขวาเกือบครึ่ง
+       และดันปุ่มบันทึกตกไปสามหน้าจอ จอ 1280px ขึ้นไปจึงจับคู่สองใบต่อแถว
+       ส่วนสองใบที่เนื้อหาเยอะกินเต็มความกว้างแล้วใช้ที่ที่ได้มาเพิ่มคอลัมน์ข้างใน */
+    @media (min-width: 1280px) {
+      #settings-panel-printer {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+        align-items: start;
+      }
+      #settings-panel-printer .set-card { margin-top: 0; }
+      #settings-panel-printer .set-card + .set-card { margin-top: 0; }
+      /* ใบที่เนื้อหาเยอะกินเต็มความกว้าง ทำเครื่องหมายไว้ในมาร์กอัปตรงๆ จะได้ไม่ต้องเดาจากลำดับการ์ด */
+      #settings-panel-printer .set-card-wide { grid-column: 1 / -1; }
+
+      #settings-panel-printer .set-card-wide .set-fields { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      #settings-panel-printer .set-card-wide .set-field-full { grid-column: span 2; }
+      #settings-panel-printer .set-checkgrid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
     }
