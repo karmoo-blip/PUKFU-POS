@@ -2334,16 +2334,17 @@
           if (twin.length > 1) warn.push('สูตรซ้ำกับ ' + twin.filter(n => n !== m.name).map(escHtml).join(', ') + ' — น่าจะยังไม่ได้ใส่วัตถุดิบที่ทำให้ต่างกัน');
 
           rowsHtml.push(`
-            <div class="p-3 lg:grid lg:grid-cols-[1fr_5rem_6rem_6rem_5rem] lg:gap-2 lg:items-center">
+            <div class="cost-row">
               <div class="min-w-0">
-                <p class="font-bold text-secondary truncate">${escHtml(m.name)}</p>
-                <p class="text-xs text-slate-400 font-bold lg:hidden">ขาย ${money(price)} · คำนวณ ${computed === null ? 'ยังไม่ครบ' : money(computed)} · กรอกไว้ ${money(typed)}</p>
-                ${warn.length ? `<p class="text-xs text-amber-500 font-bold mt-1">${warn.join(' / ')}</p>` : ''}
+                <p class="set-row-t">${escHtml(m.name)}</p>
+                <p class="set-row-s cost-mobile-line">ขาย ${money(price)} · คำนวณ ${computed === null ? 'ยังไม่ครบ' : money(computed)} · กรอกไว้ ${typed === 0 ? 'ยังไม่ระบุ' : money(typed)}${margin === null ? '' : ' · กำไร ' + margin.toFixed(0) + '%'}</p>
+                ${warn.length ? `<p class="set-row-s" style="color:#f97316;margin-top:4px">${warn.join(' / ')}</p>` : ''}
               </div>
-              <div class="hidden lg:block text-right text-sm font-bold text-slate-500">${money(price)}</div>
-              <div class="hidden lg:block text-right text-sm font-black ${computed === null ? 'text-amber-500' : 'text-secondary'}">${computed === null ? 'ยังไม่ครบ' : money(computed)}</div>
-              <div class="hidden lg:block text-right text-sm font-bold ${diff !== null && Math.abs(diff) >= 1 ? 'text-red-500' : 'text-slate-400'}">${typed === 0 ? '—' : money(typed)}${diff !== null && Math.abs(diff) >= 1 ? ` (${diff > 0 ? '+' : ''}${diff.toFixed(2)})` : ''}</div>
-              <div class="hidden lg:block text-right text-sm font-black ${margin === null ? 'text-slate-300' : (margin >= 50 ? 'text-emerald-500' : 'text-amber-500')}">${margin === null ? '—' : margin.toFixed(0) + '%'}</div>
+              <div class="cost-cell">${money(price)}</div>
+              <div class="cost-cell" style="color:${computed === null ? '#f97316' : '#0f3550'};font-weight:900">${computed === null ? 'ยังไม่ครบ' : money(computed)}</div>
+              <div class="cost-cell" style="color:${diff !== null && Math.abs(diff) >= 1 ? '#ef4444' : '#94a3b8'}">${typed === 0 ? '—' : money(typed)}${diff !== null && Math.abs(diff) >= 1 ? ` (${diff > 0 ? '+' : ''}${diff.toFixed(2)})` : ''}</div>
+              <div class="cost-cell" style="font-weight:900;color:${margin === null ? '#cbd5e1' : (margin >= 50 ? '#059669' : '#f97316')}">${margin === null ? '—' : margin.toFixed(0) + '%'}</div>
+              <div class="cost-act"><button onclick="Controller.openRecipeForm('${escAttr(m.sku)}')" class="set-btn set-btn-sm set-btn-soft">แก้สูตร</button></div>
             </div>`);
         }
 
@@ -2352,14 +2353,34 @@
           .map(inv => inv.name);
         const unpriced = (this.inventoryData || []).filter(inv => !(Number(inv.purchase_price) > 0)).length;
 
+        // เมนูที่ยังไม่มีสูตรอยู่บนสุดพร้อมปุ่มลัดไปใส่ ไม่ใช่ซ่อนเป็นบรรทัดเดียวท้ายตาราง
+        const noRecipeRows = noRecipe.map(name => {
+          const item = (this.menuData || []).find(m => m.name === name) || {};
+          return `
+            <div class="cost-row">
+              <div class="min-w-0">
+                <p class="set-row-t">${escHtml(name)}</p>
+                <p class="set-row-s" style="color:#f97316">ยังไม่ได้ตั้งสูตร คิดต้นทุนไม่ได้</p>
+              </div>
+              <div class="cost-cell">${money(item.price)}</div>
+              <div class="cost-cell" style="color:#94a3b8">—</div>
+              <div class="cost-cell" style="color:#94a3b8">—</div>
+              <div class="cost-cell" style="color:#cbd5e1">—</div>
+              <div class="cost-act"><button onclick="Controller.openRecipeForm('${escAttr(item.sku || '')}')" class="set-btn set-btn-sm set-btn-go">ใส่สูตร</button></div>
+            </div>`;
+        });
+
+        const notes = [];
+        if (unusedIngredients.length) notes.push(`วัตถุดิบที่ไม่ได้อยู่ในสูตรไหนเลย (${unusedIngredients.length}): ${unusedIngredients.map(escHtml).join(', ')}`);
+        if (unpriced) notes.push(`วัตถุดิบที่ยังไม่ใส่ราคาซื้อ: ${unpriced} รายการ — ไปใส่ที่หน้าวัตถุดิบ`);
+
         host.innerHTML = `
-          <div class="p-3 bg-cream border-b border-sand text-xs font-bold text-slate-400 hidden lg:grid lg:grid-cols-[1fr_5rem_6rem_6rem_5rem] lg:gap-2">
-            <span>เมนู</span><span class="text-right">ราคาขาย</span><span class="text-right">ต้นทุนคำนวณ</span><span class="text-right">ต้นทุนที่กรอก</span><span class="text-right">กำไร %</span>
+          <div class="cost-head hidden lg:grid">
+            <span>เมนู</span><span class="text-right">ราคาขาย</span><span class="text-right">ต้นทุนคำนวณ</span><span class="text-right">ต้นทุนที่กรอก</span><span class="text-right">กำไร</span><span></span>
           </div>
-          ${rowsHtml.join('') || '<p class="p-4 text-sm text-slate-400 font-bold">ยังไม่มีเมนูที่ตั้งสูตรไว้</p>'}
-          ${noRecipe.length ? `<div class="p-3 bg-amber-50 border-t border-sand"><p class="text-xs font-bold text-amber-600">ยังไม่ได้ตั้งสูตร (${noRecipe.length} เมนู) คิดต้นทุนไม่ได้: ${noRecipe.map(escHtml).join(', ')}</p></div>` : ''}
-          ${unusedIngredients.length ? `<div class="p-3 bg-amber-50 border-t border-sand"><p class="text-xs font-bold text-amber-600">วัตถุดิบที่ไม่ได้อยู่ในสูตรไหนเลย (${unusedIngredients.length}): ${unusedIngredients.map(escHtml).join(', ')}</p></div>` : ''}
-          ${unpriced ? `<div class="p-3 bg-amber-50 border-t border-sand"><p class="text-xs font-bold text-amber-600">วัตถุดิบที่ยังไม่ใส่ราคาซื้อ: ${unpriced} รายการ — ไปใส่ที่แท็บวัตถุดิบ</p></div>` : ''}`;
+          ${noRecipeRows.join('')}
+          ${rowsHtml.join('') || (noRecipeRows.length ? '' : '<div class="set-empty">ยังไม่มีเมนูที่ตั้งสูตรไว้</div>')}
+          ${notes.length ? `<div class="cost-note">${notes.map(n => `<p>${n}</p>`).join('')}</div>` : ''}`;
 
         const summary = document.getElementById('cost-summary');
         if (summary) summary.innerText = `คิดต้นทุนได้ ${pricedCount} เมนู จากทั้งหมด ${(this.menuData || []).length} เมนู`;
@@ -3555,15 +3576,20 @@
         const leadingBlanks = firstDay.getDay();
         const totalDays = lastDay.getDate();
 
+        // วันที่ขายดีกว่าค่าเฉลี่ยทำพื้นเข้ม จะได้กวาดตาเห็นจังหวะของเดือนโดยไม่ต้องอ่านทุกช่อง
+        const saleDays = (r.daily || []).filter(d => d.bills > 0);
+        const avg = saleDays.length ? saleDays.reduce((sum, d) => sum + (d.total || 0), 0) / saleDays.length : 0;
+
         let cells = '';
-        for (let i = 0; i < leadingBlanks; i++) cells += '<div></div>';
+        for (let i = 0; i < leadingBlanks; i++) cells += '<div class="cal-cell cal-cell-blank"></div>';
         for (let day = 1; day <= totalDays; day++) {
           const dateStr = this.toLocalDateStr(new Date(this.calendarYear, this.calendarMonth, day));
           const d = byDate[dateStr];
           const hasSale = d && d.bills > 0;
-          cells += `<div class="rounded-xl border p-1.5 min-h-[4.5rem] min-w-0 flex flex-col ${hasSale ? 'bg-accent border-primary/30' : 'bg-cream border-sand'}">
-            <span class="text-xs font-bold ${hasSale ? 'text-secondary' : 'text-slate-400'}">${day}</span>
-            ${hasSale ? `<span class="text-xs font-black text-secondary mt-auto truncate">${d.bills} บิล</span><span class="text-[11px] text-slate-500 truncate">${fmt(d.total)}</span>` : ''}
+          const strong = hasSale && avg > 0 && d.total >= avg;
+          cells += `<div class="cal-cell${hasSale ? ' has-sale' : ''}${strong ? ' is-strong' : ''}">
+            <span class="cal-day">${day}</span>
+            ${hasSale ? `<span class="cal-total">${fmt(d.total)}</span><span class="cal-bills">${d.bills} บิล</span>` : ''}
           </div>`;
         }
 
@@ -4165,34 +4191,41 @@
           if (!container) return;
 
           if (this.notifications.length === 0) {
-            container.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>ยังไม่มีการแจ้งเตือน</div>';
+            container.innerHTML = '<div class="set-empty">ยังไม่มีการแจ้งเตือน กด "+ เพิ่มแจ้งเตือน" เพื่อตั้งวันหมดอายุของวัตถุดิบ</div>';
             return;
           }
 
           const now = Date.now();
           const twoHoursMs = 2 * 3600 * 1000;
-          let html = '';
-          this.notifications.forEach(n => {
-            const expiresAt = n.expires_at ? new Date(n.expires_at).getTime() : null;
-            let statusBadge = '';
-            if (expiresAt && !isNaN(expiresAt)) {
-              if (expiresAt <= now) statusBadge = '<span class="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">หมดอายุแล้ว</span>';
-              else if (expiresAt - now <= twoHoursMs) statusBadge = '<span class="bg-orange-400 text-white text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap">ใกล้หมดอายุ</span>';
-            }
-            html += `
-              <div class="flex items-center justify-between p-4 hover:bg-cream transition-colors">
-                <div>
-                  <p class="font-bold text-secondary flex items-center gap-2">${escHtml(n.item_name)} ${statusBadge}</p>
-                  <p class="text-xs text-slate-400 mt-1">
-                    ${n.opened_at ? 'เปิดใช้: ' + new Date(n.opened_at).toLocaleString() : ''}
-                    ${n.expires_at ? (n.opened_at ? ' | ' : '') + 'หมดอายุ: ' + new Date(n.expires_at).toLocaleString() : ''}
-                  </p>
-                </div>
-                <button onclick="Controller.deleteNotification('${n.id}')" class="text-sm font-bold text-red-400 hover:underline shrink-0">ลบ</button>
-              </div>
-            `;
+          // เรียงของที่ใกล้หมดอายุที่สุดขึ้นก่อน ของที่เลยกำหนดแล้วอยู่บนสุด
+          const sorted = [...this.notifications].sort((a, b) => {
+            const ta = a.expires_at ? new Date(a.expires_at).getTime() : Infinity;
+            const tb = b.expires_at ? new Date(b.expires_at).getTime() : Infinity;
+            return ta - tb;
           });
-          container.innerHTML = html;
+
+          container.innerHTML = sorted.map(n => {
+            const expiresAt = n.expires_at ? new Date(n.expires_at).getTime() : null;
+            let tag = '';
+            if (expiresAt && !isNaN(expiresAt)) {
+              if (expiresAt <= now) tag = '<span class="set-tag set-tag-off">หมดอายุแล้ว</span>';
+              else if (expiresAt - now <= twoHoursMs) tag = '<span class="set-tag set-tag-warn">ใกล้หมดอายุ</span>';
+            }
+            const detail = [
+              n.opened_at ? 'เปิดใช้ ' + new Date(n.opened_at).toLocaleString() : '',
+              n.expires_at ? 'หมดอายุ ' + new Date(n.expires_at).toLocaleString() : ''
+            ].filter(Boolean).join(' · ');
+            return `
+              <div class="set-row">
+                <div class="set-row-body">
+                  <p class="set-row-t">${escHtml(n.item_name)} ${tag}</p>
+                  <p class="set-row-s">${detail || 'ยังไม่ได้ระบุวัน'}</p>
+                </div>
+                <div class="set-row-acts">
+                  <button onclick="Controller.deleteNotification('${escAttr(n.id)}')" class="set-btn set-btn-sm set-btn-danger">ลบ</button>
+                </div>
+              </div>`;
+          }).join('');
         },
 
         openNotificationForm() {

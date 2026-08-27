@@ -373,49 +373,50 @@
 
       </div>
 
-      <div id="settings-panel-inventory" class="settings-panel hidden flex flex-col">
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-          <p class="text-sm text-slate-400">เช็คสต๊อกวัตถุดิบและรับของเข้า</p>
-          <div class="flex flex-wrap gap-2 w-full sm:w-auto">
-            <button onclick="Controller.showInventoryItemForm(null)" class="justify-center items-center flex bg-gradient-to-b from-emerald-500 to-emerald-600 text-white hover:brightness-110 px-3 py-2 text-sm rounded-xl font-bold transition active:scale-95">+ เพิ่มวัตถุดิบ</button>
-              <button onclick="Controller.fetchInventory(this)" class="justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-3 py-2 text-sm rounded-xl font-bold transition active:scale-95">Refresh</button>
-            <button onclick="Controller.saveAllInventory()" class="justify-center items-center flex bg-gradient-to-b from-primary to-secondary text-white hover:brightness-110 px-3 py-2 text-sm rounded-xl font-bold transition shadow-md shadow-primary/30 active:scale-95">Save All</button>
+      <div id="settings-panel-inventory" class="settings-panel hidden">
+        <div class="set-toolbar">
+          <input id="inventory-search" type="text" placeholder="ค้นหาวัตถุดิบ..." oninput="Controller.filterInventoryList(this.value)" class="set-search">
+          <button onclick="Controller.fetchInventory(this)" class="set-btn set-btn-ghost">รีเฟรช</button>
+          <button onclick="Controller.saveAllInventory()" class="set-btn set-btn-soft">บันทึกทั้งหมด</button>
+          <button onclick="Controller.showInventoryItemForm(null)" class="set-btn set-btn-go">+ เพิ่มวัตถุดิบ</button>
+        </div>
+        <div class="set-card" style="padding-top:0">
+          <!-- หัวคอลัมน์ขึ้นเฉพาะจอกว้าง จอเล็กแต่ละแถวอ่านเป็นก้อนอยู่แล้ว -->
+          <div class="inv-head hidden lg:grid">
+            <div>วัตถุดิบ</div>
+            <div class="text-center">คงเหลือ</div>
+            <div class="text-center" style="color:#ef4444">เบิกออก</div>
+            <div class="text-center" style="color:#10b981">เติมเข้า</div>
+            <div class="text-center">หน่วย</div>
+            <div class="text-right">สถานะ</div>
           </div>
-        </div>
-        <input id="inventory-search" type="text" placeholder="ค้นหาวัตถุดิบ..." oninput="Controller.filterInventoryList(this.value)" class="w-full min-h-[2.75rem] border border-sand rounded-xl p-2.5 mb-3 focus:outline-none focus:border-primary bg-cream">
-        <div class="hidden lg:grid bg-white rounded-t-3xl border border-sand shadow-sm p-4 font-bold text-slate-500 text-sm gap-3" style="grid-template-columns: 1fr 6rem 6rem 6rem 6rem 6rem;">
-          <div>วัตถุดิบ</div>
-          <div class="text-center">คงเหลือ</div>
-          <div class="text-center text-red-400">เบิกออก</div>
-          <div class="text-center text-emerald-500">เติมเข้า</div>
-          <div class="text-center">หน่วย</div>
-          <div class="text-right">สถานะ</div>
-        </div>
-        <div id="inventory-list" class="flex-1 overflow-y-auto bg-white rounded-b-3xl border-x border-b border-sand shadow-sm divide-y divide-sand pb-8 max-h-[55vh]">
+          <div id="inventory-list"></div>
         </div>
       </div>
 
-      <div id="settings-panel-cost" class="settings-panel hidden flex flex-col">
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-          <div>
-            <p class="text-sm text-slate-400">ต้นทุนวัตถุดิบต่อแก้ว คิดจากสูตร x ราคาซื้อที่กรอกไว้ในแท็บวัตถุดิบ</p>
-            <p id="cost-summary" class="text-xs text-slate-400 font-bold mt-1"></p>
+      <div id="settings-panel-cost" class="settings-panel hidden">
+        <div class="set-toolbar">
+          <div style="flex:1 1 220px;min-width:0">
+            <p class="set-card-sub" style="margin:0">ต้นทุนต่อแก้ว คิดจากสูตร x ราคาซื้อที่กรอกไว้ในหน้าวัตถุดิบ</p>
+            <p id="cost-summary" class="set-card-sub" style="margin:2px 0 0"></p>
           </div>
-          <button onclick="Controller.initCostTab()" class="w-full sm:w-auto justify-center items-center flex bg-primary/10 text-primary hover:bg-primary hover:text-white px-3 py-2 text-sm rounded-xl font-bold transition active:scale-95">Refresh</button>
+          <button onclick="Controller.initCostTab()" class="set-btn set-btn-ghost">รีเฟรช</button>
         </div>
-        <div id="cost-list" class="flex-1 overflow-y-auto bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh]"></div>
+        <div class="set-card"><div id="cost-list"></div></div>
       </div>
 
       <div id="settings-panel-notifications" class="settings-panel hidden">
-        <div id="notification-alert" class="hidden mb-4 bg-red-500 text-white font-bold px-4 py-3 rounded-xl shadow-md flex justify-between items-center gap-3">
-          <span id="notification-alert-text"></span>
-          <button onclick="Controller.dismissNotificationAlert()" class="shrink-0 bg-white/20 hover:bg-white/30 w-7 h-7 rounded-lg text-sm font-bold leading-none" title="ปิดแจ้งเตือนชั่วคราว">✕</button>
+        <div id="notification-alert" class="hidden set-card set-danger" style="margin-bottom:14px">
+          <div style="display:flex;align-items:center;gap:12px">
+            <span id="notification-alert-text" style="flex:1 1 auto;font-size:13px;font-weight:700;color:#ef4444"></span>
+            <button onclick="Controller.dismissNotificationAlert()" class="set-btn set-btn-sm set-btn-danger" title="ปิดแจ้งเตือนชั่วคราว">ปิดไว้ก่อน</button>
+          </div>
         </div>
-        <div class="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-          <p class="text-sm text-slate-400">ตั้งแจ้งเตือนวันเปิดใช้/หมดอายุของวัตถุดิบ (เลือกจากรายการในสต๊อก)</p>
-          <button onclick="Controller.openNotificationForm()" class="w-full sm:w-auto justify-center items-center flex bg-gradient-to-b from-primary to-secondary text-white px-4 py-2 rounded-2xl font-bold hover:brightness-110 transition">+ เพิ่มแจ้งเตือน</button>
+        <div class="set-toolbar">
+          <p class="set-card-sub" style="margin:0;flex:1 1 200px">ของที่เปิดใช้แล้วมีวันหมดอายุ เตือนล่วงหน้า 2 ชั่วโมง และนับรวมบนกระดิ่ง</p>
+          <button onclick="Controller.openNotificationForm()" class="set-btn set-btn-go">+ เพิ่มแจ้งเตือน</button>
         </div>
-        <div id="notification-list" class="bg-white rounded-3xl border border-sand shadow-sm divide-y divide-sand max-h-[60vh] overflow-y-auto"></div>
+        <div class="set-card"><div id="notification-list"></div></div>
       </div>
 
       <div id="settings-panel-stock" class="settings-panel hidden">
@@ -699,19 +700,19 @@
       </div>
 
       <div id="settings-panel-calendar" class="settings-panel hidden">
-        <div class="bg-white rounded-3xl border border-sand shadow-sm p-4 lg:p-5">
-          <div class="flex justify-between items-center mb-4">
-            <button onclick="Controller.calendarPrevMonth()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-accent text-secondary font-bold active:scale-95 transition">‹</button>
-            <div class="text-center">
-              <p id="cal-month-label" class="text-lg font-black text-secondary">-</p>
-              <p id="cal-month-summary" class="text-xs text-slate-400"></p>
-            </div>
-            <button onclick="Controller.calendarNextMonth()" class="w-10 h-10 flex items-center justify-center rounded-xl bg-accent text-secondary font-bold active:scale-95 transition">›</button>
+        <div class="set-toolbar">
+          <button onclick="Controller.calendarPrevMonth()" class="set-btn set-btn-ghost">‹ เดือนก่อน</button>
+          <div style="flex:1 1 auto;text-align:center;min-width:0">
+            <p id="cal-month-label" class="set-card-t" style="margin:0">-</p>
+            <p id="cal-month-summary" class="set-card-sub" style="margin:2px 0 0"></p>
           </div>
-          <div class="grid grid-cols-7 gap-1 mb-1 text-center text-xs font-bold text-slate-400">
+          <button onclick="Controller.calendarNextMonth()" class="set-btn set-btn-ghost">เดือนถัดไป ›</button>
+        </div>
+        <div class="set-card">
+          <div class="cal-week">
             <span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span>
           </div>
-          <div id="cal-grid" class="grid grid-cols-7 gap-1"></div>
+          <div id="cal-grid" class="cal-grid"></div>
         </div>
       </div>
 
