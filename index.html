@@ -538,9 +538,18 @@
           </div>
         </div>
 
+        <div class="set-card">
+          <p class="set-card-t">ตัวอย่างใบเสร็จ</p>
+          <p class="set-card-sub">อัปเดตตามที่แก้ในช่องด้านบนทันที ไม่ต้องพิมพ์จริงเพื่อลอง เป็นใบเดียวกับที่เครื่องพิมพ์ออกมา</p>
+          <div class="receipt-preview">
+            <img id="receipt-preview-img" alt="ตัวอย่างใบเสร็จ" class="hidden">
+            <p id="receipt-preview-note" class="set-row-s">กำลังวาดตัวอย่าง…</p>
+          </div>
+        </div>
+
         <div class="set-card set-card-wide">
           <div class="set-savebar" style="margin-top:0;padding-top:0;border-top:none">
-            <span class="set-save-note">แก้ช่องไหนแล้วอย่าลืมกดบันทึก</span>
+            <span class="set-save-note" id="printer-save-note">แก้ช่องไหนแล้วอย่าลืมกดบันทึก</span>
             <span class="set-spacer"></span>
             <button onclick="Controller.savePrinterSettings()" class="set-btn set-btn-go">บันทึกการตั้งค่าใบเสร็จ</button>
           </div>
@@ -701,15 +710,17 @@
 
         <div class="set-card">
           <p class="set-card-t">QR โต๊ะ / จุดรับสินค้า</p>
-          <p class="set-card-sub">ระบุชื่อโต๊ะแล้วกดสร้าง QR ให้ลูกค้าสแกนสั่งเอง พิมพ์หรือแคปหน้าจอไปแปะที่โต๊ะได้เลย ทำทีละโต๊ะ</p>
+          <p class="set-card-sub">ระบุชื่อโต๊ะแล้วกดสร้าง QR ให้ลูกค้าสแกนสั่งเอง พิมพ์หรือแคปหน้าจอไปแปะที่โต๊ะได้เลย สร้างไว้กี่โต๊ะก็ได้ ออเดอร์ที่เข้ามาจะบอกว่ามาจากโต๊ะไหน</p>
           <div class="set-toolbar" style="margin-bottom:0">
             <input type="text" id="qr-location-input" placeholder="เช่น โต๊ะ 5" class="set-search">
             <button onclick="Controller.generateTableQr()" class="set-btn set-btn-go">สร้าง QR</button>
           </div>
+          <div id="table-qr-list"></div>
           <div id="table-qr-result" class="hidden" style="margin-top:14px;text-align:center;background:var(--color-cream);border:1px solid var(--color-sand);border-radius:18px;padding:18px">
+            <p id="table-qr-title" class="set-row-t" style="margin-bottom:10px"></p>
             <img id="table-qr-image" src="" style="width:220px;height:220px;margin:0 auto 10px;display:block;border:1px solid var(--color-sand);border-radius:14px;background:#fff;padding:8px" alt="">
             <p id="table-qr-url" class="set-row-s" style="word-break:break-all;margin-bottom:10px"></p>
-            <button onclick="Controller.cancelTableQr()" class="set-btn set-btn-sm set-btn-danger">ยกเลิก QR นี้</button>
+            <button onclick="Controller.hideTableQr()" class="set-btn set-btn-sm set-btn-ghost">ปิดตัวอย่าง</button>
           </div>
         </div>
 
@@ -792,20 +803,9 @@
       <div class="mb-3">
         <p id="emp-form-full-access-note" class="hidden text-xs font-bold text-primary bg-accent px-3 py-2 rounded-xl"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg> ตำแหน่งนี้เข้าถึงได้ทุกอย่างเสมอ ไม่สามารถจำกัดสิทธิ์ได้</p>
         <div id="emp-form-permissions-wrap">
-          <label class="text-sm font-bold text-slate-500 mb-2 block">เข้าถึงเมนูไหนได้บ้าง</label>
-          <div class="grid grid-cols-2 gap-2 text-sm">
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="history"> History</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="sales"> ยอดขาย</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="inventory"> Inventory</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="stock"> Available</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="employees"> Employee</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="log"> Log</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="addons"> Add-ons</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="sweetness"> ความหวาน</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="notifications"> แจ้งเตือน</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="payment"> Payment</label>
-            <label class="flex items-center gap-2"><input type="checkbox" class="emp-perm-checkbox" value="backup"> Backup</label>
-          </div>
+          <label class="text-sm font-bold text-slate-500 mb-2 block">เห็นหน้าไหนได้บ้าง</label>
+          <!-- ช่องติ๊กวาดจาก SETTINGS_GROUPS ตอนเปิดฟอร์ม จะได้ครบทุกหน้าและจัดกลุ่มตรงกับเมนูซ้ายเสมอ -->
+          <div id="emp-perm-groups"></div>
         </div>
       </div>
       <div class="mb-5 flex items-center gap-2">

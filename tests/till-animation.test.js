@@ -108,13 +108,13 @@ function loadController(options) {
 
   vm.createContext(sandbox);
   const code = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
-  vm.runInContext(code + '\nglobalThis.__Controller = Controller;', sandbox, { filename: 'app.js' });
+  vm.runInContext(code + '\nglobalThis.__Controller = Controller; globalThis.__ReceiptPrinter = ReceiptPrinter;', sandbox, { filename: 'app.js' });
 
   const C = sandbox.__Controller;
   C.showAlert = () => Promise.resolve(true);
   C.showConfirm = () => Promise.resolve(false);
   C.showLoading = () => {}; C.hideLoading = () => {};
-  return { C, document, calls, timers, frames, el: (id) => document.getElementById(id), views };
+  return { C, document, calls, timers, frames, el: (id) => document.getElementById(id), views, localStorage: sandbox.localStorage, ReceiptPrinter: sandbox.__ReceiptPrinter };
 }
 
 // เดินอนิเมชันตัวนับให้จบในทีเดียว
@@ -466,6 +466,55 @@ test('an employee whose saved permission still says summary can open the sales t
   const allowed = C.getAllowedTabs({ role: 'Staff', permissions: 'history,summary' });
   assert.ok(allowed.includes('sales'), 'สิทธิ์เก่าที่บันทึกไว้ในชีตต้องยังเข้าหน้ายอดขายได้ ได้ ' + allowed.join(','));
   assert.ok(!C.getAllowedTabs({ role: 'Staff', permissions: 'history' }).includes('sales'), 'คนที่ไม่เคยมีสิทธิ์ต้องยังเข้าไม่ได้');
+});
+
+test('every settings page can be granted to an employee', () => {
+  const { C, el } = loadController({});
+  const allTabs = C.getAllowedTabs({ role: 'Owner' });
+
+  C.renderEmployeePermissionGrid(['sales', 'printer']);
+  const html = el('emp-perm-groups').innerHTML;
+
+  const offered = (html.match(/class="emp-perm-checkbox" value="([a-z]+)"/g) || [])
+    .map(m => m.replace(/.*value="/, '').replace('"', ''));
+  const missing = allTabs.filter(t => !offered.includes(t));
+  assert.strictEqual(missing.join(','), '', 'ทุกหน้าที่เข้าได้ต้องติ๊กให้สิทธิ์ได้ ขาด ' + missing.join(','));
+  assert.strictEqual(offered.length, allTabs.length, 'ห้ามมีช่องติ๊กที่ไม่ตรงกับหน้าไหนเลย');
+  C.SETTINGS_GROUPS.forEach(g => assert.ok(html.includes(g.title), 'ต้องจัดกลุ่มตามเมนูซ้าย ขาดกลุ่ม ' + g.title));
+  assert.strictEqual((html.match(/ checked/g) || []).length, 2, 'ต้องติ๊กมาให้ตรงกับสิทธิ์เดิมเท่านั้น');
+});
+
+test('table QRs are kept as a list, and the single one saved by the old build survives', () => {
+  const { C, el, localStorage } = loadController({});
+  localStorage.setItem('pos_lastTableQrLoc', 'โต๊ะ 1');
+
+  assert.strictEqual(C.tableQrList().length, 1, 'QR ที่แปะไว้ที่โต๊ะแล้วต้องไม่หายตอนอัปเดต');
+
+  C.saveTableQrList([{ loc: 'โต๊ะ 1', createdAt: '2026-08-20T03:00:00.000Z' }, { loc: 'กลับบ้าน', createdAt: '' }]);
+  assert.strictEqual(localStorage.getItem('pos_lastTableQrLoc'), null, 'ย้ายเข้ารายการแล้วต้องไม่อ่านของเก่าซ้ำ');
+  assert.strictEqual(C.tableQrList().length, 2, 'เก็บได้หลายโต๊ะพร้อมกัน');
+
+  C.onlineOrderHistory = [{ location: 'โต๊ะ 1' }, { location: 'โต๊ะ 1' }, { location: 'กลับบ้าน' }];
+  C.renderTableQrList();
+  const html = el('table-qr-list').innerHTML;
+  assert.ok(html.includes('โต๊ะ 1') && html.includes('กลับบ้าน'), 'ต้องเห็นทุกโต๊ะที่สร้างไว้');
+  assert.ok(html.includes('2 ออเดอร์ใน 3 รายการล่าสุด'), 'ต้องบอกว่านับจากประวัติกี่รายการ ไม่ใช่ยอดสะสม');
+});
+
+test('the receipt preview is built from the same document that gets printed', async () => {
+  const { C, ReceiptPrinter } = loadController({});
+  const order = C.sampleReceiptOrder();
+  const base = { paperSize: '80mm', header: 'PUKFU COFFEE', address: '123 ถนนสุขุมวิท', phone: '081-234-5678' };
+
+  const shown = await ReceiptPrinter.buildReceiptDoc(order, 'Q07', base);
+  const texts = doc => doc.ops.filter(op => op.t === 'text').map(op => op.str).join('|');
+  assert.ok(texts(shown).includes('PUKFU COFFEE'), 'ชื่อร้านต้องอยู่บนใบ');
+  assert.ok(texts(shown).includes('Q07'), 'ติ๊กแสดงเลขคิวแล้วต้องเห็นเลขคิว');
+
+  const hidden = await ReceiptPrinter.buildReceiptDoc(order, '', { ...base, showAddress: false, showPhone: false });
+  assert.ok(!texts(hidden).includes('123 ถนนสุขุมวิท'), 'ติ๊กที่อยู่ออกแล้วตัวอย่างต้องหายตาม');
+  assert.ok(!texts(hidden).includes('Tel: 081-234-5678'), 'ติ๊กเบอร์โทรออกแล้วตัวอย่างต้องหายตาม');
+  assert.ok(texts(hidden).includes('PUKFU COFFEE'), 'ช่องที่ไม่ได้ติ๊กออกต้องยังอยู่');
 });
 
 test('an empty report renders empty states instead of throwing', () => {
