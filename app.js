@@ -2272,7 +2272,8 @@
         if (tab === 'addons') { this.renderAddonList(); this.fetchAddons(); }
         if (tab === 'sweetness') { this.renderSweetnessList(); this.fetchSweetnessLevels(); }
         if (tab === 'notifications') { this.renderNotificationList(); this.fetchNotifications(); }
-        if (tab === 'payment') this.fetchPaymentMethods();
+        // วาดจากข้อมูลในเครื่องก่อนแล้วค่อยดึงของใหม่ ตอนเน็ตหลุดจะได้ไม่เจอหน้าว่าง (แท็บอื่นทำแบบนี้อยู่แล้ว)
+        if (tab === 'payment') { this.renderPaymentMethodList(); this.fetchPaymentMethods(); }
         if (tab === 'calendar') this.initCalendarTab();
         if (tab === 'backup') { this.fetchBackupList(); this.fetchArchiveList(); }
         if (tab === 'onlineorder') { this.renderPaymentQrPreview(); this.renderQueueSettings(); this.loadOnlineOrderHistory(); this.restoreTableQr(); }
@@ -2562,12 +2563,12 @@
         const btn = document.getElementById('btn-toggle-stock');
         if (!label || !btn) return;
         if (this.isStockMode) {
-          label.innerText = 'กำลังเปิดโหมดจัดการสต๊อกอยู่';
-          label.className = 'text-2xl font-black text-amber-500 mb-4';
+          label.innerText = 'เปิดอยู่';
+          label.className = 'set-tag set-tag-warn';
           btn.innerText = 'ปิดโหมดจัดการสต๊อก';
         } else {
-          label.innerText = 'ปกติ';
-          label.className = 'text-2xl font-black text-secondary mb-4';
+          label.innerText = 'ปิดอยู่';
+          label.className = 'set-tag set-tag-mute';
           btn.innerText = 'เปิดโหมดจัดการสต๊อก';
         }
       },
@@ -3018,33 +3019,27 @@
       renderAddonList() {
         const container = document.getElementById('addon-list');
         if (!container) return;
-        
+
         if (this.addons.length === 0) {
-          container.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></svg>ยังไม่มีข้อมูล Add-on</div>';
+          container.innerHTML = '<div class="set-empty">ยังไม่มีส่วนเสริม กด "+ เพิ่มส่วนเสริม" เพื่อเริ่ม</div>';
           return;
         }
 
-        let html = '';
-        this.addons.forEach(addon => {
-          const priceDisplay = addon.price >= 0 ? `+฿${addon.price}` : `-฿${Math.abs(addon.price)}`;
-          const priceColor = addon.price >= 0 ? 'text-primary' : 'text-emerald-500';
-          html += `
-            <div class="flex items-center justify-between p-4 hover:bg-cream transition-colors">
-              <div>
-                <p class="font-bold text-secondary">${escHtml(addon.name)} <span class="${priceColor} ml-1">(${priceDisplay})</span></p>
-                <div class="flex items-center gap-2 mt-1">
-                  <span class="w-2 h-2 rounded-full ${addon.active ? 'bg-emerald-400' : 'bg-slate-300'}"></span>
-                  <span class="text-xs text-slate-500">${addon.active ? 'ใช้งานอยู่' : 'ปิดใช้งาน'}</span>
-                </div>
+        container.innerHTML = this.addons.map(addon => {
+          const price = Number(addon.price) || 0;
+          const priceText = price >= 0 ? `+฿${price}` : `-฿${Math.abs(price)}`;
+          return `
+            <div class="set-row">
+              <div class="set-row-body">
+                <p class="set-row-t">${escHtml(addon.name)} ${addon.active ? '' : '<span class="set-tag set-tag-mute">ปิดอยู่</span>'}</p>
+                <p class="set-row-s">${priceText}${addon.active ? '' : ' · ไม่แสดงตอนสั่ง'}</p>
               </div>
-              <div class="flex gap-3">
-                <button onclick="Controller.openAddonForm('${addon.id}')" class="text-sm font-bold text-primary hover:underline">แก้ไข</button>
-                <button onclick="Controller.deleteAddon('${addon.id}')" class="text-sm font-bold text-red-400 hover:underline">ลบ</button>
+              <div class="set-row-acts">
+                <button onclick="Controller.openAddonForm('${escAttr(addon.id)}')" class="set-btn set-btn-sm set-btn-soft">แก้ไข</button>
+                <button onclick="Controller.deleteAddon('${escAttr(addon.id)}')" class="set-btn set-btn-sm set-btn-danger">ลบ</button>
               </div>
-            </div>
-          `;
-        });
-        container.innerHTML = html;
+            </div>`;
+        }).join('');
       },
 
       openAddonForm(id = null) {
@@ -3144,27 +3139,23 @@
         const container = document.getElementById('sweetness-list');
         if (!container) return;
 
+        // ลิสต์นี้ว่างแปลว่าหน้าขายกดเพิ่มสินค้าเข้าตะกร้าไม่ได้เลย เพราะความหวานเป็นช่องบังคับ
         if (this.sweetnessLevels.length === 0) {
-          container.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><path d="M12 2s7 8 7 13a7 7 0 0 1-14 0c0-5 7-13 7-13z"/></svg>ยังไม่มีข้อมูลระดับความหวาน</div>';
+          container.innerHTML = '<div class="set-empty" style="color:#ef4444">ยังไม่มีระดับความหวานสักอัน พนักงานจะสั่งของไม่ได้จนกว่าจะเพิ่มอย่างน้อยหนึ่งรายการ</div>';
           return;
         }
 
-        let html = '';
-        this.sweetnessLevels.forEach(sw => {
-          html += `
-            <div class="flex items-center justify-between p-4 hover:bg-cream transition-colors">
-              <div>
-                <p class="font-bold text-secondary">${escHtml(sw.name)}</p>
-                <p class="text-xs text-slate-400 mt-1">ลำดับ: ${sw.sort_order ?? 0}</p>
+        container.innerHTML = this.sweetnessLevels.map(sw => `
+            <div class="set-row">
+              <div class="set-row-body">
+                <p class="set-row-t">${escHtml(sw.name)}</p>
+                <p class="set-row-s">ลำดับ ${sw.sort_order ?? 0}</p>
               </div>
-              <div class="flex gap-3">
-                <button onclick="Controller.openSweetnessForm('${sw.id}')" class="text-sm font-bold text-primary hover:underline">แก้ไข</button>
-                <button onclick="Controller.deleteSweetnessLevel('${sw.id}')" class="text-sm font-bold text-red-400 hover:underline">ลบ</button>
+              <div class="set-row-acts">
+                <button onclick="Controller.openSweetnessForm('${escAttr(sw.id)}')" class="set-btn set-btn-sm set-btn-soft">แก้ไข</button>
+                <button onclick="Controller.deleteSweetnessLevel('${escAttr(sw.id)}')" class="set-btn set-btn-sm set-btn-danger">ลบ</button>
               </div>
-            </div>
-          `;
-        });
-        container.innerHTML = html;
+            </div>`).join('');
       },
 
       openSweetnessForm(id = null) {
@@ -3851,7 +3842,7 @@
           const list = document.getElementById('product-list');
           if (!list) return;
           if (this.menuData.length === 0) {
-            list.innerHTML = '<div class="p-8 text-center text-slate-400 font-bold">ยังไม่มีสินค้า กด "+ เพิ่มสินค้า" เพื่อเริ่มเพิ่มเมนู</div>';
+            list.innerHTML = '<div class="set-empty">ยังไม่มีสินค้า กด "+ เพิ่มสินค้า" เพื่อเริ่มเพิ่มเมนู</div>';
             return;
           }
           const q = (this.productSearchQuery || '').trim().toLowerCase();
@@ -3861,26 +3852,57 @@
             (item.category || '').toLowerCase().includes(q)
           );
           if (filtered.length === 0) {
-            list.innerHTML = '<div class="p-8 text-center text-slate-400 font-bold">ไม่พบสินค้าที่ค้นหา</div>';
+            list.innerHTML = '<div class="set-empty">ไม่พบสินค้าที่ค้นหา</div>';
             return;
           }
           const sorted = [...filtered].sort((a, b) => (a.category || '').localeCompare(b.category || '') || String(a.name || '').localeCompare(String(b.name || '')));
-          list.innerHTML = sorted.map(item => `
-            <div class="p-4 flex items-center justify-between gap-3 hover:bg-slate-50 transition-colors">
-              <div class="flex items-center gap-3 min-w-0">
-                ${item.image ? `<img src="${escHtml(item.image)}" class="w-10 h-10 rounded-lg object-cover shrink-0">` : ''}
-                <div class="min-w-0">
-                  <p class="font-bold text-secondary truncate">${escHtml(item.name)} ${item.isSoldOut ? '<span class="text-xs font-bold text-red-400">(หมด)</span>' : ''}</p>
-                  <p class="text-xs text-slate-400 truncate">${escHtml(item.sku)} · ${escHtml(item.category || 'ไม่มีหมวดหมู่')} · ฿${Number(item.price) || 0}</p>
-                </div>
+          list.innerHTML = sorted.map(item => {
+            const soldOut = this.soldOutItems.includes(item.name);
+            const noCost = !item.cost;
+            return `
+            <div class="set-row">
+              ${item.image ? `<img src="${escAttr(item.image)}" class="set-thumb" alt="">` : ''}
+              <div class="set-row-body">
+                <p class="set-row-t">${escHtml(item.name)} ${soldOut ? '<span class="set-tag set-tag-off">หมด</span>' : '<span class="set-tag set-tag-ok">มีของ</span>'}</p>
+                <p class="set-row-s">${escHtml(item.sku)} · ${escHtml(item.category || 'ไม่มีหมวดหมู่')} · ฿${Number(item.price) || 0}${noCost ? ' · <span style="color:#f97316">ยังไม่ระบุต้นทุน</span>' : ''}</p>
               </div>
-              <div class="shrink-0 flex items-center gap-3">
-                <button onclick="Controller.openRecipeForm('${escHtml(item.sku)}')" class="text-xs font-bold text-emerald-600 hover:underline">สูตร</button>
-                <button onclick='Controller.showProductForm(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="text-xs font-bold text-primary hover:underline">แก้ไข</button>
-                <button onclick="Controller.deleteProductConfirm('${escHtml(item.sku)}')" class="text-xs font-bold text-red-400 hover:text-red-600 hover:underline">ลบ</button>
+              <div class="set-row-acts">
+                <button onclick="Controller.toggleProductSoldOut('${escAttr(item.sku)}')" class="set-btn set-btn-sm ${soldOut ? 'set-btn-soft' : 'set-btn-warn'}">${soldOut ? 'มีของแล้ว' : 'ทำหมด'}</button>
+                <button onclick="Controller.openRecipeForm('${escAttr(item.sku)}')" class="set-btn set-btn-sm set-btn-soft">สูตร</button>
+                <button onclick='Controller.showProductForm(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="set-btn set-btn-sm set-btn-soft">แก้ไข</button>
+                <button onclick="Controller.deleteProductConfirm('${escAttr(item.sku)}')" class="set-btn set-btn-sm set-btn-danger">ลบ</button>
               </div>
-            </div>
-          `).join('');
+            </div>`;
+          }).join('');
+        },
+
+        // สลับหมด/มีของจากแถวในหน้าตั้งค่าได้เลย ไม่ต้องเข้าโหมดจัดการสต๊อกก่อนเหมือนเดิม
+        // ยิงคำสั่งเดียวกับที่หน้าขายใช้ (toggleSoldOut) สถานะจึงตรงกันทั้งสองทาง
+        toggleProductSoldOut(sku) {
+          const item = this.menuData.find(m => m.sku === sku);
+          if (!item) return;
+          const newStatus = !this.soldOutItems.includes(item.name);
+
+          this.setIndicator('syncing');
+          google.script.run
+            .withSuccessHandler(res => {
+              if (res && res.success) {
+                if (newStatus) this.soldOutItems.push(item.name);
+                else this.soldOutItems = this.soldOutItems.filter(name => name !== item.name);
+                localStorage.setItem('pos_soldOut', JSON.stringify(this.soldOutItems));
+                this.renderProductList();
+                this.renderMenu({ noStagger: true });
+                this.setIndicator('synced');
+              } else {
+                this.setIndicator('error');
+                this.showAlert('อัปเดตสถานะสินค้าหมดล้มเหลว กรุณาลองใหม่', '');
+              }
+            })
+            .withFailureHandler(() => {
+              this.setIndicator('error');
+              this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ สถานะสินค้าหมดยังไม่ถูกบันทึก กรุณาลองใหม่', '');
+            })
+            .toggleSoldOut({ sku: item.sku, isSoldOut: newStatus });
         },
 
         showProductForm(item) {
@@ -4414,26 +4436,22 @@ renderReport(r) {
         if (!container) return;
 
         if (this.paymentMethods.length === 0) {
-          container.innerHTML = '<div class="p-8 flex flex-col items-center gap-2 text-center text-slate-400 font-bold"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>ยังไม่มีวิธีชำระเงิน</div>';
+          container.innerHTML = '<div class="set-empty">ยังไม่มีวิธีชำระเงิน กด "+ เพิ่มวิธีชำระเงิน" เพื่อเริ่ม</div>';
           return;
         }
 
         container.innerHTML = this.paymentMethods.map(m => `
-          <div class="flex items-center justify-between p-4 hover:bg-cream transition-colors">
-            <div>
-              <p class="font-bold text-secondary">${escHtml(m.name)} ${m.isCash ? '<span class="text-xs text-emerald-500 ml-1">(เงินสด)</span>' : ''}</p>
-              <div class="flex items-center gap-2 mt-1">
-                <span class="w-2 h-2 rounded-full ${m.enabled ? 'bg-emerald-400' : 'bg-slate-300'}"></span>
-                <span class="text-xs text-slate-500">${m.enabled ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}</span>
+            <div class="set-row">
+              <div class="set-row-body">
+                <p class="set-row-t">${escHtml(m.name)} ${m.isCash ? '<span class="set-tag set-tag-ok">นับเป็นเงินสด</span>' : '<span class="set-tag set-tag-info">ไม่ใช่เงินสด</span>'}</p>
+                <p class="set-row-s">${m.enabled ? 'เปิดใช้งาน' : 'ปิดอยู่ ไม่แสดงในหน้าชำระเงิน'}</p>
               </div>
-            </div>
-            <div class="flex gap-3">
-              <button onclick="Controller.togglePaymentMethodEnabled('${m.id}')" class="text-sm font-bold text-primary hover:underline">${m.enabled ? 'ปิด' : 'เปิด'}</button>
-              <button onclick="Controller.openPaymentMethodForm('${m.id}')" class="text-sm font-bold text-primary hover:underline">แก้ไข</button>
-              <button onclick="Controller.deletePaymentMethodConfirm('${m.id}')" class="text-sm font-bold text-red-400 hover:underline">ลบ</button>
-            </div>
-          </div>
-        `).join('');
+              <div class="set-row-acts">
+                <button onclick="Controller.togglePaymentMethodEnabled('${escAttr(m.id)}')" class="set-btn set-btn-sm ${m.enabled ? 'set-btn-warn' : 'set-btn-soft'}">${m.enabled ? 'ปิด' : 'เปิด'}</button>
+                <button onclick="Controller.openPaymentMethodForm('${escAttr(m.id)}')" class="set-btn set-btn-sm set-btn-soft">แก้ไข</button>
+                <button onclick="Controller.deletePaymentMethodConfirm('${escAttr(m.id)}')" class="set-btn set-btn-sm set-btn-danger">ลบ</button>
+              </div>
+            </div>`).join('');
       },
 
       openPaymentMethodForm(id = null) {

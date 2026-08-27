@@ -546,3 +546,55 @@ test('the open page is marked in the menu', () => {
   const activeChunk = html.slice(html.indexOf('data-tab="history"'), html.indexOf('data-tab="history"') + 160);
   assert.ok(activeChunk.includes('is-on'), 'หน้าที่เปิดอยู่ต้องถูกไฮไลต์ในเมนู');
 });
+
+// ---- หน้ากลุ่มขายหน้าร้าน ----
+test('the product list shows stock state and the buttons to change it', () => {
+  const { C, el } = loadController({});
+  C.menuData = [
+    { sku: 'A', name: 'ลาเต้', price: 55, category: 'กาแฟ', cost: 23 },
+    { sku: 'C', name: 'ชาเขียว', price: 75, category: 'ชา' }
+  ];
+  C.soldOutItems = ['ชาเขียว'];
+  C.productSearchQuery = '';
+
+  C.renderProductList();
+  const html = el('product-list').innerHTML;
+
+  assert.ok(html.includes('มีของ') && html.includes('หมด'), 'ต้องบอกสถานะทั้งสองแบบ');
+  assert.ok(html.includes('ทำหมด') && html.includes('มีของแล้ว'), 'ต้องกดสลับได้จากแถวเลย ไม่ต้องเข้าโหมดก่อน');
+  assert.ok(html.includes('ยังไม่ระบุต้นทุน'), 'สินค้าที่ไม่มีต้นทุนต้องถูกทำเครื่องหมายไว้');
+});
+
+test('an empty sweetness list warns that ordering will be blocked', () => {
+  const { C, el } = loadController({});
+  C.sweetnessLevels = [];
+  C.renderSweetnessList();
+  assert.ok(el('sweetness-list').innerHTML.includes('สั่งของไม่ได้'), 'ต้องเตือนว่าหน้าขายจะใช้ไม่ได้');
+});
+
+test('payment methods say which one counts as cash and which is switched off', () => {
+  const { C, el } = loadController({});
+  C.paymentMethods = [
+    { id: 'cash', name: 'เงินสด', isCash: true, enabled: true },
+    { id: 'card', name: 'บัตรเครดิต', isCash: false, enabled: false }
+  ];
+  C.renderPaymentMethodList();
+  const html = el('payment-method-list').innerHTML;
+  assert.ok(html.includes('นับเป็นเงินสด') && html.includes('ไม่ใช่เงินสด'));
+  assert.ok(html.includes('ปิดอยู่ ไม่แสดงในหน้าชำระเงิน'), 'ตัวที่ปิดต้องบอกว่าจะไม่โผล่ในหน้าชำระเงิน');
+});
+
+test('toggling sold out from the settings row sends the same command the till uses', () => {
+  const { C, calls } = loadController({});
+  C.menuData = [{ sku: 'A', name: 'ลาเต้', price: 55 }];
+  C.soldOutItems = [];
+  C.setIndicator = () => {};
+
+  C.toggleProductSoldOut('A');
+
+  const sent = calls.find(c => c.fn === 'toggleSoldOut');
+  assert.ok(sent, 'ต้องยิงคำสั่งเดียวกับหน้าขาย');
+  // ออบเจกต์มาจาก vm คนละ realm เทียบทั้งก้อนด้วย deepEqual ไม่ผ่าน เทียบทีละช่องแทน
+  assert.equal(sent.args[0].sku, 'A');
+  assert.equal(sent.args[0].isSoldOut, true);
+});
