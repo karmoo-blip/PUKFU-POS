@@ -1285,7 +1285,10 @@
         const prev = this._counters.get(el);
         if (prev) cancelAnimationFrame(prev);
         this._counters.delete(el);
-        if (this.reducedMotion() || typeof requestAnimationFrame !== 'function' || from === to) {
+        // แท็บที่ไม่ได้อยู่หน้าจอ เบราว์เซอร์หยุดจ่ายเฟรม ตัวนับจะค้างและตัวเลขเงินบนจอจะเป็นค่าเก่า
+        // ช่องที่เป็นจำนวนเงินผิดไม่ได้แม้วินาทีเดียว กรณีนี้เขียนค่าจริงทิ้งไว้เลย
+        const hidden = typeof document !== 'undefined' && document.hidden;
+        if (this.reducedMotion() || hidden || typeof requestAnimationFrame !== 'function' || from === to) {
           el.innerText = fmt(to);
           return;
         }
@@ -1316,20 +1319,42 @@
       openModal(id) {
         const el = document.getElementById(id);
         if (!el) return;
+        this.stopModalClosing(el);
         el.classList.remove('hidden');
         // reflow คั่นก่อนใส่คลาสใหม่ ไม่งั้นเปิดหน้าต่างเดิมซ้ำอนิเมชันจะไม่เล่น
         el.classList.remove('modal-opening');
         void el.offsetWidth;
         el.classList.add('modal-opening');
       },
-      // ตอนปิดไม่หน่วง ตั้งใจให้เหมือนเดิมเป๊ะ
+      // ตอนปิดไม่หน่วงการใส่ hidden ตั้งใจให้เหมือนเดิมเป๊ะ
       // มีหลายที่ในแอปที่อ่านคลาส hidden เพื่อดูว่าหน้าต่างเปิดอยู่ไหม (เช่น checkPendingOrders ที่วนเช็คทุก 8 วิ)
       // ถ้าหน่วงการใส่ hidden พวกนั้นจะอ่านค่าผิดช่วงที่กำลังเฟดออก
-      closeModal(id) {
+      //
+      // opts.animated = เล่นจังหวะออก 180ms ให้ดู โดย hidden ยังใส่ทันทีในบรรทัดเดียวกันเหมือนเดิม
+      // ที่ยังเห็นภาพต่อได้เพราะ CSS ฝืน display ไว้เฉพาะตอนมีคลาส modal-closing เท่านั้น พอหมดเวลาก็ถอดทิ้ง
+      closeModal(id, opts) {
         const el = document.getElementById(id);
         if (!el) return;
         el.classList.add('hidden');
         el.classList.remove('modal-opening');
+        if (!opts || !opts.animated || this.reducedMotion()) return;
+
+        this.stopModalClosing(el);
+        el.classList.add('modal-closing');
+        if (!this._modalClosingTimers) this._modalClosingTimers = new Map();
+        this._modalClosingTimers.set(el, setTimeout(() => {
+          el.classList.remove('modal-closing');
+          this._modalClosingTimers.delete(el);
+        }, 200));
+      },
+
+      // เปิดซ้ำตอนจังหวะปิดยังเล่นไม่จบ ต้องล้างของเดิมก่อน ไม่งั้นหน้าต่างค้างเป็นแผ่นจางๆ ที่กดไม่ได้
+      stopModalClosing(el) {
+        if (!el) return;
+        el.classList.remove('modal-closing');
+        if (!this._modalClosingTimers) return;
+        const t = this._modalClosingTimers.get(el);
+        if (t) { clearTimeout(t); this._modalClosingTimers.delete(el); }
       },
       setIndicator(status) {
         const el = document.getElementById('sync-indicator');
@@ -5035,7 +5060,7 @@ renderReport(r) {
         document.getElementById('discount-reason-input').value = '';
         this.setDiscountMode('baht');
         this.updateDiscountButtonLabel();
-        this.updateCheckoutTotalDisplay();
+        this.updateCheckoutTotalDisplay(true);
         this.renderCheckoutPaymentMethods();
         this.openModal('modal-checkout');
       },
@@ -5065,7 +5090,9 @@ renderReport(r) {
           const amountText = this.discountMode === 'percent'
             ? `${this.checkoutDiscountRaw}% (-฿${this.checkoutDiscount.toFixed(0)})`
             : `-฿${this.checkoutDiscount.toFixed(0)}`;
+          const changed = btn.innerText !== `ส่วนลด: ${amountText}`;
           btn.innerText = `ส่วนลด: ${amountText}`;
+          if (changed) this.replayClass(btn, 'is-picked');
         } else {
           btn.innerText = '+ ใส่ส่วนลด';
         }
@@ -5128,10 +5155,14 @@ renderReport(r) {
         this.updateCashUI();
       },
 
-      updateCheckoutTotalDisplay() {
+      // instant = เขียนค่าทันที ใช้ตอนเปิดหน้าต่างใหม่ ไม่งั้นจะไปนับต่อจากยอดของบิลที่แล้ว
+      updateCheckoutTotalDisplay(instant) {
         const subtotal = this.getCartSubtotal();
         const total = Math.max(0, subtotal - this.checkoutDiscount);
-        document.getElementById('checkout-total').innerText = `฿${total.toFixed(2)}`;
+        const el = document.getElementById('checkout-total');
+        if (!el) return;
+        if (instant) el.innerText = `฿${total.toFixed(2)}`;
+        else this.countMoney(el, total);
       },
 
       setPaymentMode(methodId) {
@@ -5149,14 +5180,21 @@ renderReport(r) {
           }
         });
 
+        const picked = document.querySelector(`.pay-method-btn[data-method-id="${method.id}"]`);
+        this.replayClass(picked, 'is-picked');
+
         const numpad = document.getElementById('checkout-numpad');
 
         if (method.isCash) {
+          // เล่นจังหวะโผล่เฉพาะตอนแป้นเพิ่งเปิดจริงๆ กดปุ่มเงินสดซ้ำไม่ต้องเล่นใหม่
+          const wasHidden = numpad.classList.contains('hidden');
           numpad.classList.remove('hidden');
+          if (wasHidden) this.replayClass(numpad, 'numpad-in');
           this.cashInput = '0';
-          this.updateCashUI();
+          this.updateCashUI(true);
         } else {
           numpad.classList.add('hidden');
+          numpad.classList.remove('numpad-in');
           document.getElementById('btn-submit-order').disabled = false;
         }
       },
@@ -5169,13 +5207,29 @@ renderReport(r) {
         this.updateCashUI();
       },
 
-      updateCashUI() {
+      // instant = เพิ่งเปิดแป้นตัวเลข ยังไม่มีใครกดอะไร ไม่ต้องเด้งไม่ต้องนับ
+      updateCashUI(instant) {
         const total = Math.max(0, this.getCartSubtotal() - this.checkoutDiscount);
         const received = parseInt(this.cashInput, 10) || 0;
-        document.getElementById('cash-received').innerText = received;
-        
+
+        // ตัวเลขต้องตรงและขึ้นทันทีเสมอ อนิเมชันเป็นแค่การเด้งย้ำว่ากดติด
+        const receivedEl = document.getElementById('cash-received');
+        if (receivedEl) {
+          // เด้งเฉพาะตอนตัวเลขขยับจริง ไม่งั้นพิมพ์ส่วนลดทีละตัวช่องนี้จะเด้งตามไปด้วยทั้งที่ไม่เกี่ยว
+          const prevReceived = Number(String(receivedEl.innerText).replace(/[^0-9-]/g, '')) || 0;
+          receivedEl.innerText = received;
+          if (!instant && received !== prevReceived) this.replayClass(receivedEl, 'cash-digit-pop');
+        }
+
         const change = received - total;
-        document.getElementById('cash-change').innerText = change >= 0 ? change : 0;
+        const changeVal = change >= 0 ? change : 0;
+        const changeEl = document.getElementById('cash-change');
+        if (changeEl) {
+          // ช่องนี้เป็นจำนวนเต็มล้วน ไม่ใช่ยอดเงินที่มีทศนิยม จึงไม่ส่ง money
+          if (instant) changeEl.innerText = changeVal;
+          else this.countTo(changeEl, Number(String(changeEl.innerText).replace(/[^0-9-]/g, '')) || 0, changeVal, 220);
+        }
+
         document.getElementById('btn-submit-order').disabled = change < 0;
       },
 
@@ -5192,7 +5246,7 @@ renderReport(r) {
         if(this.cart.length === 0) return;
 
         btn.disabled = true;
-        btn.innerText = "Processing...";
+        this.setSubmitButtonState('working');
         
         // สร้างเลขบิลจากหน้าเว็บเองเลย เช่น INV-20231026-143025-X9A
         const now = new Date();
@@ -5253,10 +5307,14 @@ renderReport(r) {
         // เพราะข้างล่างต้องปลดล็อกปุ่ม Confirm Order ให้ทันและต้องเด้งถามพิมพ์บิลต่อทันที
         this.playBillDone(total, qStr);
 
+        // ปุ่มขึ้นติ๊กถูกค้างไว้จนกว่าบล็อก finally ข้างล่างจะคืนเป็น Confirm Order
+        // ห้าม await ตรงนี้ ปุ่มกับหน้าต่างถามพิมพ์บิลต้องมาทันในจังหวะเดียวกัน
+        this.setSubmitButtonState('paid');
+
         this.cart = [];
         if (this.reducedMotion()) this.renderCart();
         else setTimeout(() => this.renderCart(), 300);
-        this.closeModal('modal-checkout');
+        this.closeModal('modal-checkout', { animated: true });
 
         this.processSyncQueue();
 
@@ -5274,7 +5332,21 @@ renderReport(r) {
           }
         } finally {
           document.getElementById('btn-submit-order').disabled = false;
-          document.getElementById('btn-submit-order').innerText = "Confirm Order";
+          this.setSubmitButtonState('idle');
+        }
+      },
+
+      // สามสถานะของปุ่ม Confirm Order: ว่าง / กำลังบันทึก / รับเงินแล้ว
+      // ตัวหมุนใช้คลาส spin-icon ตัวเดียวกับที่แถบ Sync ใช้อยู่ ไม่ได้เขียนใหม่
+      setSubmitButtonState(state) {
+        const btn = document.getElementById('btn-submit-order');
+        if (!btn) return;
+        if (state === 'working') {
+          btn.innerHTML = '<span class="inline-flex items-center justify-center gap-2"><svg class="spin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" style="width:1.1em;height:1.1em;flex:none"><path d="M12 3a9 9 0 1 0 9 9"/></svg>กำลังบันทึก</span>';
+        } else if (state === 'paid') {
+          btn.innerHTML = '<span class="inline-flex items-center justify-center gap-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="width:1.1em;height:1.1em;flex:none"><path d="M20 6L9 17l-5-5"/></svg>รับเงินแล้ว</span>';
+        } else {
+          btn.innerText = 'Confirm Order';
         }
       },
 
@@ -5310,6 +5382,24 @@ renderReport(r) {
           clearTimeout(this._paidMarkTimer);
           this._paidMarkTimer = setTimeout(() => mark.classList.add('hidden'), 1300);
         }
+
+        this.playPaidOverlay(total, queueStr);
+      },
+
+      // แผ่นล้างทั้งจอ อยู่ใต้หน้าต่างถามพิมพ์ใบเสร็จเสมอ (z-40 ต่อ z-50/z-[92]) และไม่รับคลิก
+      // พนักงานจึงกดปุ่มพิมพ์บิลได้ทันทีทั้งที่แสงยังเล่นอยู่
+      playPaidOverlay(total, queueStr) {
+        const overlay = document.getElementById('paid-overlay');
+        if (!overlay) return;
+
+        const qEl = document.getElementById('paid-overlay-queue');
+        const totalEl = document.getElementById('paid-overlay-total');
+        if (qEl) qEl.innerText = queueStr ? 'คิว ' + queueStr : '';
+        if (totalEl) totalEl.innerText = `รับเงินแล้ว ฿${(Number(total) || 0).toFixed(2)}`;
+
+        clearTimeout(this._paidOverlayTimer);
+        this.replayClass(overlay, 'is-on');
+        this._paidOverlayTimer = setTimeout(() => overlay.classList.remove('is-on'), 1100);
       },
 
       // ป้ายเลขคิวค้างไว้จนกว่าจะเริ่มบิลใหม่ พนักงานจะได้ยังเรียกคิวได้หลังหน้าต่างพิมพ์บิลปิดไปแล้ว

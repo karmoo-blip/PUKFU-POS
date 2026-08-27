@@ -1090,6 +1090,28 @@
     </div>
   </div>
 
+  <!-- จังหวะปิดบิล: ล้างทั้งจอชั่วครู่ ไม่รับคลิก และอยู่ใต้หน้าต่างถามพิมพ์ใบเสร็จเสมอ (ดู #paid-overlay ใน style.css) -->
+  <div id="paid-overlay" aria-hidden="true">
+    <!-- แสงต้องแตกออกจากวงกลม ไม่ใช่จากกลางจอ ไม่งั้นเส้นจะพาดทับเลขคิวข้างล่าง -->
+    <div class="paid-ring-wrap">
+      <div class="paid-burst">
+        <span style="transform: rotate(0deg)"></span>
+        <span style="transform: rotate(45deg)"></span>
+        <span style="transform: rotate(90deg)"></span>
+        <span style="transform: rotate(135deg)"></span>
+        <span style="transform: rotate(180deg)"></span>
+        <span style="transform: rotate(225deg)"></span>
+        <span style="transform: rotate(270deg)"></span>
+        <span style="transform: rotate(315deg)"></span>
+      </div>
+      <div class="paid-ring-big">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="width:40px;height:40px"><path class="paid-check" d="M20 6L9 17l-5-5"/></svg>
+      </div>
+    </div>
+    <div id="paid-overlay-queue" class="text-3xl font-black text-secondary"></div>
+    <div id="paid-overlay-total" class="text-sm font-bold text-ink"></div>
+  </div>
+
   <div id="modal-checkout" class="modal-sheet-mobile hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-50 flex items-end lg:items-center justify-center lg:p-4">
     <div class="relative bg-white rounded-t-3xl lg:rounded-2xl shadow-xl w-full lg:max-w-md flex flex-col overflow-hidden max-h-[90vh]">
       <div class="lg:hidden absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1.5 rounded-full bg-white/50 z-10" aria-hidden="true"></div>
@@ -1122,24 +1144,24 @@
           </div>
 
           <div class="grid grid-cols-3 gap-2 mb-2">
-            <button onclick="Controller.numpad('1')" class="bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand">1</button>
-            <button onclick="Controller.numpad('2')" class="bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand">2</button>
-            <button onclick="Controller.numpad('3')" class="bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand">3</button>
-            <button onclick="Controller.numpad('4')" class="bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand">4</button>
-            <button onclick="Controller.numpad('5')" class="bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand">5</button>
-            <button onclick="Controller.numpad('6')" class="bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand">6</button>
-            <button onclick="Controller.numpad('7')" class="bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand">7</button>
-            <button onclick="Controller.numpad('8')" class="bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand">8</button>
-            <button onclick="Controller.numpad('9')" class="bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand">9</button>
-            <button onclick="Controller.numpad('back')" class="bg-red-50 text-red-400 py-3 rounded-2xl text-xl font-bold hover:bg-red-100 active:bg-red-100">⌫</button>
-            <button onclick="Controller.numpad('0')" class="bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand">0</button>
-            <button onclick="Controller.numpad('00')" class="bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand">00</button>
+            <button onclick="Controller.numpad('1')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">1</button>
+            <button onclick="Controller.numpad('2')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">2</button>
+            <button onclick="Controller.numpad('3')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">3</button>
+            <button onclick="Controller.numpad('4')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">4</button>
+            <button onclick="Controller.numpad('5')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">5</button>
+            <button onclick="Controller.numpad('6')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">6</button>
+            <button onclick="Controller.numpad('7')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">7</button>
+            <button onclick="Controller.numpad('8')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">8</button>
+            <button onclick="Controller.numpad('9')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">9</button>
+            <button onclick="Controller.numpad('back')" class="numpad-key bg-red-50 text-red-400 py-3 rounded-2xl text-xl font-bold hover:bg-red-100 active:bg-red-100 active:scale-95 transition-transform">⌫</button>
+            <button onclick="Controller.numpad('0')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">0</button>
+            <button onclick="Controller.numpad('00')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">00</button>
           </div>
         </div>
 
       </div>
       <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-between gap-3 shrink-0" style="padding-bottom: max(1rem, env(safe-area-inset-bottom))">
-        <button onclick="Controller.closeModal('modal-checkout')" class="flex-1 py-3 border border-sand bg-white rounded-2xl text-slate-500 font-bold hover:bg-accent active:scale-95 transition-all">Cancel</button>
+        <button onclick="Controller.closeModal('modal-checkout', { animated: true })" class="flex-1 py-3 border border-sand bg-white rounded-2xl text-slate-500 font-bold hover:bg-accent active:scale-95 transition-all">Cancel</button>
         <button onclick="Controller.submitOrder()" id="btn-submit-order" class="flex-[1.5] py-3 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl font-bold shadow-md shadow-primary/30 hover:brightness-110 active:scale-95 transition-all"> Confirm Order </button>
       </div>
     </div>

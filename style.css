@@ -538,3 +538,194 @@
       from { opacity: .65; transform: scale(1); }
       to   { opacity: 0;   transform: scale(2.3); }
     }
+
+    /* ===== หน้าชำระเงิน =====
+       ชุดนี้เพิ่มทีหลังตามที่เจ้าของร้านเลือกจากหน้าทดลอง Checkout Motion
+       ค่าเวลาและเส้นโค้งใช้ชุดเดียวกับอนิเมชันหน้าขายทั้งหมด ไม่ตั้งใหม่ */
+
+    /* ---- ตัวเลขเงินที่รับมา เขียนค่าจริงทันทีเสมอ เด้งแค่ย้ำว่ากดติด ---- */
+    .cash-digit-pop { display: inline-block; animation: cash-digit-pop .14s ease-out; }
+    @keyframes cash-digit-pop {
+      0%   { transform: scale(1); }
+      45%  { transform: scale(1.12); }
+      100% { transform: scale(1); }
+    }
+
+    /* ---- ปุ่มที่เพิ่งถูกเลือก (วิธีชำระเงิน, ป้ายส่วนลด) ---- */
+    .is-picked { animation: picked-pop .22s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes picked-pop {
+      0%   { transform: scale(1); }
+      45%  { transform: scale(1.06); }
+      100% { transform: scale(1); }
+    }
+
+    /* ---- แป้นตัวเลขเงินสดโผล่ ปุ่มไล่กันทีละแถว ---- */
+    #checkout-numpad.numpad-in { animation: numpad-in .28s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    @keyframes numpad-in {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: none; }
+    }
+    #checkout-numpad.numpad-in .numpad-key {
+      animation: numpad-key-in .26s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+    }
+    #checkout-numpad.numpad-in .numpad-key:nth-child(3n+1) { animation-delay: 40ms; }
+    #checkout-numpad.numpad-in .numpad-key:nth-child(3n+2) { animation-delay: 55ms; }
+    #checkout-numpad.numpad-in .numpad-key:nth-child(3n+3) { animation-delay: 70ms; }
+    #checkout-numpad.numpad-in .numpad-key:nth-child(n+7)  { animation-delay: 95ms; }
+    #checkout-numpad.numpad-in .numpad-key:nth-child(n+10) { animation-delay: 125ms; }
+    @keyframes numpad-key-in {
+      from { opacity: 0; transform: translateY(10px) scale(.96); }
+      to   { opacity: 1; transform: none; }
+    }
+
+    /* ---- หน้าต่างชำระเงินตอนปิด ----
+       คลาส hidden ยังใส่ทันทีเหมือนเดิม (มีโค้ดอ่านคลาสนี้เป็นสถานะจริง)
+       ตรงนี้แค่ฝืนให้ยังวาดอยู่อีก 180ms เพื่อเล่นจังหวะออก แล้ว JS ถอดคลาสทิ้ง */
+    .modal-closing.hidden {
+      display: flex !important;
+      pointer-events: none;
+      animation: modal-backdrop-out .18s ease-in forwards;
+    }
+    @keyframes modal-backdrop-out {
+      from { opacity: 1; }
+      to   { opacity: 0; }
+    }
+    .modal-closing.hidden > * {
+      animation: modal-panel-out .18s ease-in forwards;
+    }
+    @keyframes modal-panel-out {
+      from { opacity: 1; transform: none; }
+      to   { opacity: 0; transform: scale(.94) translateY(8px); }
+    }
+    /* จอเล็กหน้าต่างติดขอบล่าง ให้ไหลลงไปทางเดิมที่มันขึ้นมา */
+    @media (max-width: 1023px) {
+      .modal-sheet-mobile.modal-closing.hidden > *,
+      .modal-sheet.modal-closing.hidden > * {
+        animation: modal-sheet-out .18s ease-in forwards;
+      }
+    }
+    @keyframes modal-sheet-out {
+      from { opacity: 1; transform: none; }
+      to   { opacity: 0; transform: translateY(90px); }
+    }
+
+    /* ---- จังหวะปิดบิล: ล้างทั้งจอ ----
+       z-index ต่ำกว่าหน้าต่างถามพิมพ์ใบเสร็จ (z-50/z-[92]) และไม่รับคลิกเลย
+       พนักงานต้องกดปุ่มพิมพ์บิลได้ทันทีทั้งที่แสงยังเล่นอยู่ */
+    #paid-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 40;
+      pointer-events: none;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: rgba(255, 253, 245, 0.92);
+    }
+    /* คุมการโชว์ด้วยคลาสของตัวเอง ไม่ใช้ hidden เพราะ id ชนะ .hidden ของ Tailwind ด้านความจำเพาะ */
+    #paid-overlay.is-on {
+      display: flex;
+      animation: paid-overlay-in .9s ease-out forwards;
+    }
+    @keyframes paid-overlay-in {
+      0%   { opacity: 0; }
+      12%  { opacity: 1; }
+      70%  { opacity: 1; }
+      100% { opacity: 0; }
+    }
+
+    /* จอเล็กหน้าต่างถามพิมพ์บิลกว้างเกือบเต็มจอ ถ้าวางกลางจอเหมือนเดิมการ์ดจะบังวงติ๊กถูกจนหมด
+       ดันขึ้นไปอยู่ช่วงบนแทน เครื่องหมายถูกกับเลขคิวจะโผล่เหนือการ์ดพอดี */
+    @media (max-width: 1023px) {
+      #paid-overlay {
+        justify-content: flex-start;
+        padding-top: 56px;
+      }
+      /* พื้นที่เหนือการ์ดพอแค่วงติ๊กถูกกับเลขคิว ซึ่งเป็นตัวที่พนักงานต้องใช้เรียกคิวจริงๆ
+         ยอดเงินตัดทิ้งบนจอเล็ก ไม่งั้นบรรทัดนี้จะไปมุดใต้การ์ด */
+      #paid-overlay-total { display: none; }
+    }
+
+    #paid-overlay .paid-ring-wrap {
+      position: relative;
+      /* เว้นให้พ้นปลายแสง ไม่งั้นเส้นล่างสุดพาดทับเลขคิว */
+      margin-bottom: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #paid-overlay .paid-burst {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      margin: -72px 0 0 -72px;
+      width: 144px;
+      height: 144px;
+      animation: paid-burst .85s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    }
+    @keyframes paid-burst {
+      0%   { opacity: 0; transform: scale(.4) rotate(0deg); }
+      35%  { opacity: .9; transform: scale(1) rotate(12deg); }
+      100% { opacity: 0; transform: scale(1.25) rotate(18deg); }
+    }
+    #paid-overlay .paid-burst span {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 3px;
+      height: 18px;
+      margin: -72px 0 0 -1.5px;
+      border-radius: 2px;
+      background: var(--color-mustard);
+      transform-origin: 50% 72px;
+    }
+
+    #paid-overlay .paid-ring-big {
+      position: relative;
+      width: 84px;
+      height: 84px;
+      border-radius: 50%;
+      background: #10b981;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: paid-ring-big .55s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+    }
+    @keyframes paid-ring-big {
+      0%   { opacity: 0; transform: scale(.6); }
+      55%  { opacity: 1; transform: scale(1.1); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+    #paid-overlay .paid-check {
+      stroke-dasharray: 26;
+      stroke-dashoffset: 26;
+      animation: paid-check-draw .34s ease-out .18s forwards;
+    }
+    @keyframes paid-check-draw {
+      to { stroke-dashoffset: 0; }
+    }
+
+    /* เครื่องที่ตั้งค่าลดการเคลื่อนไหว: ชุดหน้าชำระเงิน
+       ต้องอยู่ท้ายไฟล์ เพราะกฎ .modal-closing.hidden ข้างบนใช้ !important ทับกันเอง */
+    @media (prefers-reduced-motion: reduce) {
+      .cash-digit-pop,
+      .is-picked,
+      #checkout-numpad.numpad-in,
+      #checkout-numpad.numpad-in .numpad-key { animation: none; }
+
+      /* ไม่ต้องฝืนให้วาดต่อ ปิดแล้วหายไปเลยเหมือนเดิม */
+      .modal-closing.hidden {
+        display: none !important;
+        animation: none;
+      }
+      .modal-closing.hidden > * { animation: none; }
+
+      #paid-overlay.is-on,
+      #paid-overlay .paid-burst,
+      #paid-overlay .paid-ring-big,
+      #paid-overlay .paid-check { animation: none; }
+      #paid-overlay.is-on { display: none; }
+    }

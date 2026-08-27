@@ -212,3 +212,61 @@ test('marking one item sold out does not replay the whole grid entrance', () => 
     assert.ok(!grid.classList.contains('is-entering'), 'กดสินค้าหมดต้องไม่ทำให้การ์ดทั้งกระดานไล่กันขึ้นมาใหม่');
   });
 });
+
+test('closing the payment sheet with an exit animation still hides it in the same tick', () => {
+  const { C, el } = loadController({});
+  const modal = el('modal-checkout');
+
+  C.closeModal('modal-checkout', { animated: true });
+
+  assert.ok(modal.classList.contains('hidden'), 'คลาส hidden ต้องใส่ทันที ห้ามรอให้อนิเมชันจบ');
+  assert.ok(modal.classList.contains('modal-closing'), 'ต้องมีคลาสที่ฝืนให้ยังวาดอยู่ระหว่างเล่นจังหวะออก');
+});
+
+test('reopening the payment sheet clears a half-played exit', () => {
+  const { C, el } = loadController({});
+  const modal = el('modal-checkout');
+
+  C.closeModal('modal-checkout', { animated: true });
+  C.openModal('modal-checkout');
+
+  assert.ok(!modal.classList.contains('modal-closing'), 'เปิดใหม่ต้องล้างจังหวะปิดที่ค้างอยู่ ไม่งั้นหน้าต่างจางค้างกดไม่ได้');
+  assert.ok(!modal.classList.contains('hidden'), 'เปิดใหม่ต้องเห็นหน้าต่างจริงๆ');
+});
+
+test('a reduced-motion machine closes the payment sheet with no exit animation at all', () => {
+  const { C, el } = loadController({ reducedMotion: true });
+  const modal = el('modal-checkout');
+
+  C.closeModal('modal-checkout', { animated: true });
+
+  assert.ok(modal.classList.contains('hidden'), 'ยังต้องปิด');
+  assert.ok(!modal.classList.contains('modal-closing'), 'เครื่องที่ลดการเคลื่อนไหวต้องหายไปเลย ไม่ต้องฝืนวาดต่อ');
+});
+
+test('the paid overlay carries the queue number, and stays away under reduced motion', () => {
+  const full = loadController({});
+  full.C.playPaidOverlay(110, 'PK07');
+  assert.ok(full.el('paid-overlay').classList.contains('is-on'), 'แผ่นฉลองต้องโผล่');
+  assert.ok(full.el('paid-overlay-queue').innerText.includes('PK07'), 'ได้ ' + full.el('paid-overlay-queue').innerText);
+  assert.ok(full.el('paid-overlay-total').innerText.includes('110.00'), 'ได้ ' + full.el('paid-overlay-total').innerText);
+
+  const reduced = loadController({ reducedMotion: true });
+  reduced.C.playPaidOverlay(110, 'PK07');
+  assert.ok(!reduced.el('paid-overlay').classList.contains('is-on'), 'เครื่องที่ลดการเคลื่อนไหวต้องไม่เห็นแผ่นนี้');
+});
+
+test('the cash keypad writes the exact figures first, and only then animates', () => {
+  const { C, el, frames } = loadController({});
+  C.cart = [{ sku: 'A', name: 'ลาเต้', price: 55, qty: 2, note: '' }];
+  C.checkoutDiscount = 0;
+
+  C.cashInput = '200';
+  C.updateCashUI();
+
+  assert.equal(el('cash-received').innerText, 200, 'ยอดที่รับมาต้องตรงและขึ้นทันที');
+  assert.ok(el('cash-received').classList.contains('cash-digit-pop'), 'ต้องเด้งย้ำว่ากดติด');
+  runFrames(frames);
+  assert.equal(el('cash-change').innerText, '90', 'เงินทอนต้องนับไปจบที่ค่าจริง ได้ ' + el('cash-change').innerText);
+  assert.equal(el('btn-submit-order').disabled, false, 'จ่ายพอแล้วปุ่มต้องกดได้');
+});
