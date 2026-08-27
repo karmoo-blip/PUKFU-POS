@@ -1178,3 +1178,15 @@
     @media (min-width: 1024px) {
       .set-seg { flex: 0 1 auto; }
     }
+
+    /* ---------- ช่องติ๊กและอัปโหลดในหน้าตั้งค่า ---------- */
+    .set-check { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 700; color: var(--color-secondary); min-height: 32px; }
+    .set-check input[type="checkbox"] { width: 18px; height: 18px; border-radius: 5px; accent-color: var(--color-primary); flex: none; }
+    .set-checkgrid { display: grid; grid-template-columns: 1fr; gap: 4px 16px; }
+    .set-file { font-size: 12px; color: #64748b; }
+    .set-file::file-selector-button { margin-right: 10px; padding: 9px 12px; border: none; border-radius: 12px; background: rgba(21,67,96,.1); color: var(--color-primary); font-family: inherit; font-weight: 700; }
+    .set-spacer { flex: 1 1 auto; }
+
+    @media (min-width: 1024px) {
+      .set-checkgrid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
