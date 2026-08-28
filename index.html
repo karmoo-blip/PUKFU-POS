@@ -180,20 +180,12 @@
           <button onclick="Controller.toggleStockMode()" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg text-sm">Finish</button>
         </div>
 
-        <div id="pos-notification-alert" class="hidden mb-4 bg-red-500 text-white font-bold px-4 py-3 rounded-xl shadow-md flex justify-between items-center gap-3">
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M12 3l9 16H3z"/><path d="M12 9v5M12 17h.01"/></svg> <span id="pos-notification-alert-text"></span></span>
-          <div class="flex items-center gap-2 shrink-0">
-            <button onclick="Controller.openSettings().then(() => Controller.switchSettingsTab('notifications'))" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg text-sm whitespace-nowrap">ดูรายการ</button>
-            <button onclick="Controller.dismissNotificationAlert()" class="bg-white/20 hover:bg-white/30 w-7 h-7 rounded-lg text-sm font-bold leading-none" title="ปิดแจ้งเตือนชั่วคราว">✕</button>
-          </div>
-        </div>
-
         <div id="menu-categories" class="mb-4 overflow-x-auto pb-2 hide-scroll scroll-fade at-start hidden" style="--fade-color:var(--color-cream)">
           <div id="menu-cat-indicator"></div>
           <div id="menu-categories-track"></div>
         </div>
 
-        <div id="menu-grid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+        <div id="menu-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
           </div>
       </div>
 
@@ -220,7 +212,7 @@
         </div>
         
         <!-- Cart Items -->
-        <div id="cart-items" class="flex-1 overflow-y-auto p-5 flex flex-col gap-3 bg-cream">
+        <div id="cart-items" class="flex-1 overflow-y-auto px-5 py-1 flex flex-col bg-white">
         </div>
 
         <!-- เครื่องหมายถูกตอนปิดบิล วางทับกลางคอลัมน์ตะกร้า ไม่ใช่กลางจอ เพราะหน้าต่างถามพิมพ์บิลเด้งทับกลางจอทันที -->
@@ -229,10 +221,11 @@
         </div>
         
         <!-- Cart Footer -->
-        <div class="p-5 border-t border-sand bg-white shrink-0">
-          <div class="flex justify-between font-bold text-xl mb-4">
-            <span class="text-slate-500">Total:</span>
-            <span id="cart-total" class="text-primary text-2xl">฿0.00</span>
+        <div class="p-5 border-t border-dashed border-sand bg-white shrink-0">
+          <div class="pos-sum-cups"><span>จำนวน</span><span id="cart-cups">0 แก้ว</span></div>
+          <div class="pos-sum-total mb-4">
+            <span>รวมสุทธิ</span>
+            <span id="cart-total" class="text-primary text-2xl font-black">฿0.00</span>
           </div>
           <div class="flex gap-2">
             <button id="btn-print-order-slip" onclick="Controller.printOrderSlipNow()" class="hidden shrink-0 w-14 bg-slate-500 hover:bg-slate-600 text-white py-4 rounded-2xl shadow-md transition-all" title="พิมพ์ใบสั่ง (ก่อนชำระเงิน)">🖨️</button>
