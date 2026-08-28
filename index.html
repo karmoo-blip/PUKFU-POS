@@ -175,11 +175,6 @@
     <div id="view-pos" class="view hidden h-full flex flex-col lg:flex-row">
       <div id="pos-content-scroll" class="flex-1 overflow-y-auto p-4 lg:p-6 bg-cream relative">
         
-        <div id="stock-mode-alert" class="hidden mb-4 bg-amber-500 text-white font-bold px-4 py-3 rounded-xl shadow-md flex justify-between items-center">
-          <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M12 3l9 16H3z"/><path d="M12 9v5M12 17h.01"/></svg> อยู่ในโหมดจัดการสต๊อก: คลิกที่สินค้าเพื่อสลับสถานะ Sold Out</span>
-          <button onclick="Controller.toggleStockMode()" class="bg-white/20 hover:bg-white/30 px-3 py-1 rounded-lg text-sm">Finish</button>
-        </div>
-
         <div id="menu-categories" class="mb-4 overflow-x-auto pb-2 hide-scroll scroll-fade at-start hidden" style="--fade-color:var(--color-cream)">
           <div id="menu-cat-indicator"></div>
           <div id="menu-categories-track"></div>
@@ -425,13 +420,7 @@
       </div>
 
       <div id="settings-panel-stock" class="settings-panel hidden">
-        <div class="set-card">
-          <p class="set-card-t">โหมดจัดการสต๊อก — <span id="stock-status-label">ปิดอยู่</span></p>
-          <p class="set-card-sub">เปิดแล้วแตะสินค้าในหน้าขายเพื่อสลับ "หมด/มีของ" ได้เลย ไม่ต้องเข้ามาหน้านี้ เหมาะกับตอนเช็คของรัวๆ หน้าร้าน</p>
-          <button id="btn-toggle-stock" onclick="Controller.toggleStockMode()" class="set-btn set-btn-warn" style="width:100%">เปิดโหมดจัดการสต๊อก</button>
-        </div>
-
-        <div class="set-toolbar" style="margin-top:14px">
+        <div class="set-toolbar">
           <input id="product-search" type="text" placeholder="ค้นหาสินค้า..." oninput="Controller.filterProductList(this.value)" class="set-search">
           <button onclick="Controller.fetchMenuForAdmin(this)" class="set-btn set-btn-ghost">รีเฟรช</button>
           <button onclick="Controller.showProductForm(null)" class="set-btn set-btn-go">+ เพิ่มสินค้า</button>

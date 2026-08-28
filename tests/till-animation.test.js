@@ -199,18 +199,20 @@ test('closing a bill shows the queue number and still frees the confirm button',
 
 test('marking one item sold out does not replay the whole grid entrance', () => {
   const { C, el } = loadController({});
-  C.isStockMode = true;
   C.menuData = [{ sku: 'A', name: 'ลาเต้', price: 55, category: 'กาแฟ' }];
   C.soldOutItems = [];
   C.activeCategory = 'All';
   C.setIndicator = () => {};
+  C.renderProductList = () => {};
   const grid = el('menu-grid');
 
   C.renderMenu();
   assert.ok(grid.classList.contains('is-entering'), 'วาดปกติต้องมีอนิเมชัน');
 
-  C.selectProduct(0);
+  // ทำหมดได้ที่เดียวแล้ว คือปุ่มในหน้าสินค้าในเมนู (โหมดจัดการสต๊อกถูกเอาออก)
+  C.toggleProductSoldOut('A');
   return new Promise(r => queueMicrotask(r)).then(() => {
+    assert.ok(C.soldOutItems.includes('ลาเต้'), 'กดทำหมดแล้วต้องบันทึกว่าหมด');
     assert.ok(!grid.classList.contains('is-entering'), 'กดสินค้าหมดต้องไม่ทำให้การ์ดทั้งกระดานไล่กันขึ้นมาใหม่');
   });
 });
@@ -817,6 +819,15 @@ test('the sales panel pins its column width, so it cannot overflow the card agai
   assert.ok(rule.includes('grid-template-columns: minmax(0, 1fr)'),
     'ถ้าไม่กำหนดคอลัมน์ คอลัมน์เดียวจะกว้างตาม max-content ทะลุกรอบ แล้ว overflow:hidden จะเฉือนขอบขวาทิ้งเงียบๆ');
   assert.ok(rule.includes('overflow: hidden'), 'กฎที่ทำให้บั๊กนี้เงียบยังอยู่ ตัวบนจึงยังจำเป็น');
+});
+
+test('a settings page that is hidden stays hidden, even one styled by id', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
+  assert.ok(css.includes('.settings-panel.hidden { display: none !important; }'),
+    'กฎที่เจาะจงด้วย id ชนะ .hidden ของ Tailwind ต้องมีบรรทัดนี้กันหน้าที่ปิดอยู่โผล่ต่อท้ายหน้าที่เปิด');
+
+  const byId = (css.match(/#settings-panel-[a-z]+ \{[^}]*display:\s*(grid|flex|block)/g) || []).length;
+  assert.ok(byId > 0, 'มีหน้าที่ตั้ง display ด้วย id อยู่จริง กฎข้างบนจึงจำเป็น');
 });
 
 test('the printer page marks its wide cards in the markup, not by card order', () => {
