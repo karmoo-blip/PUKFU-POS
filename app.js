@@ -4978,7 +4978,7 @@ renderReport(r) {
       renderMenu(opts) {
         const _o = opts || {};
         const grid = document.getElementById('menu-grid');
-        
+
         const filteredItems = this.activeCategory === 'All'
           ? this.menuData
           : this.menuData.filter(item => (item.category || 'อื่นๆ') === this.activeCategory);
@@ -4989,45 +4989,30 @@ renderReport(r) {
           // ไม่งั้นหมวดที่มีของเยอะ ใบท้ายๆ จะโผล่ช้ากว่าใบแรกเกินวินาทีครึ่ง
           const staggerIdx = Math.min(gridIdx, 12);
           const isSoldOut = this.soldOutItems.includes(item.name);
-          
-          let cardStyle = "bg-white rounded-3xl shadow-md border border-sand cursor-pointer overflow-hidden flex flex-col relative group transition-all duration-200 ";
-          
-          if (this.isStockMode) {
-             cardStyle += "border-amber-400 border-2 hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] ";
-          } else {
-             cardStyle += "hover:shadow-lg hover:shadow-primary/10 hover:border-primary/40 hover:-translate-y-0.5 active:scale-[0.98] ";
-          }
 
-          if (isSoldOut && !this.isStockMode) {
-             cardStyle += "opacity-60 grayscale ";
-          }
+          const cls = 'pos-card'
+            + (this.isStockMode ? ' is-stock' : '')
+            + (isSoldOut && !this.isStockMode ? ' is-out' : '');
 
-          const soldOutBadge = isSoldOut 
-            ? `<div class="absolute inset-0 bg-white/50 backdrop-blur-[1px] z-10 flex items-center justify-center">
-                 <span class="bg-red-500 text-white font-black px-4 py-1.5 rounded-lg shadow-xl -rotate-6 text-xl tracking-wider border-2 border-white">SOLD OUT</span>
-               </div>` 
-            : ``;
+          // แถวเตี้ย ป้าย SOLD OUT เอียงๆ ใบใหญ่ใส่ไม่ลง ใช้ป้ายเล็กทับช่องรูปกับราคาขีดฆ่าแทน
+          const thumb = `<div class="pos-th"${item.image ? ` style="background-image:url('${escAttr(item.image)}')"` : ''}>
+              ${item.image ? '' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l-1.2 11a2 2 0 0 1-2 1.8H9.2a2 2 0 0 1-2-1.8L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M9.5 12.5c1 .8 2 .8 3 0s2-.8 3 0"/></svg>'}
+              ${isSoldOut ? '<span class="pos-th-out">หมด</span>' : ''}
+            </div>`;
+
+          const right = this.isStockMode
+            ? `<span class="pos-stock-tag ${isSoldOut ? 'off' : 'on'}">${isSoldOut ? 'หมด' : 'มีของ'}</span>`
+            : (isSoldOut ? '' : '<span class="pos-add">+</span>');
 
           return `
-            <div onclick="Controller.selectProduct(${originalIdx})" class="${cardStyle}" style="--i:${staggerIdx}" data-menu-idx="${originalIdx}">
-              ${soldOutBadge}
-              <div class="h-32 bg-gradient-to-br from-accent to-sand w-full relative overflow-hidden">
-                ${item.image
-                  ? `<div class="absolute inset-0 bg-cover bg-center transition-transform duration-300 ${!isSoldOut && !this.isStockMode ? 'group-hover:scale-105' : ''}" style="background-image: url('${item.image}');"></div>`
-                  : `<div class="absolute inset-0 flex items-center justify-center text-primary/25"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.75rem;height:2.75rem"><path d="M6 8h12l-1.2 11a2 2 0 0 1-2 1.8H9.2a2 2 0 0 1-2-1.8L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M9.5 12.5c1 .8 2 .8 3 0s2-.8 3 0" /></svg></div>`
-                }
+            <div onclick="Controller.selectProduct(${originalIdx})" class="${cls}" style="--i:${staggerIdx}" data-menu-idx="${originalIdx}">
+              ${thumb}
+              <div class="pos-body">
+                <p class="pos-name">${escHtml(item.name)}</p>
+                <p class="pos-sub">${escHtml(item.lang2 || '')}&nbsp;</p>
               </div>
-              <div class="p-4 flex flex-col justify-between flex-1">
-                <div>
-                  <p class="font-bold text-secondary text-sm leading-tight line-clamp-2">${escHtml(item.name)}</p>
-                  <p class="text-xs text-slate-400 mt-1">${item.lang2 || '&nbsp;'}</p>
-                </div>
-                <div class="flex justify-between items-center mt-3 pt-3 border-t border-sand relative z-20">
-                  <p class="text-primary font-black text-lg">฿${item.price}</p>
-                  ${!this.isStockMode && !isSoldOut ? `<div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-lg group-hover:bg-primary group-hover:text-white group-active:bg-primary group-active:text-white transition-colors">+</div>` : ''}
-                  ${this.isStockMode ? `<div class="text-xs font-bold ${isSoldOut ? 'text-red-500' : 'text-emerald-500'}">${isSoldOut ? ' หมด' : ' มีของ'}</div>` : ''}
-                </div>
-              </div>
+              <span class="pos-price${isSoldOut ? ' is-out' : ''}">฿${item.price}</span>
+              ${right}
             </div>
           `;
         }).join('');
@@ -5404,22 +5389,25 @@ renderReport(r) {
             const enterCls = idx === o.newIdx ? ' cart-line-in' : '';
             const qtyCls = idx === o.popIdx ? ' cart-qty-pop' : '';
             return `
-              <div data-cart-idx="${idx}" class="flex justify-between items-start bg-white p-3 rounded-2xl border border-sand shadow-sm gap-2${enterCls}">
-                <div class="flex-1 min-w-0">
-                  <p class="font-bold text-sm text-secondary truncate">${escHtml(item.name)}</p>
-                  <p class="text-xs text-slate-400 mt-0.5">${escHtml(item.note || '-')}</p>
-                  <p class="font-black text-sm text-primary mt-1">฿${(item.price * item.qty).toFixed(2)}</p>
+              <div data-cart-idx="${idx}" class="pos-line${enterCls}">
+                <div class="pos-line-top">
+                  <span class="pos-line-name">${escHtml(item.name)}</span>
+                  <span class="pos-line-sum">฿${(item.price * item.qty).toFixed(2)}</span>
                 </div>
-                <div class="flex flex-col items-end gap-2 shrink-0">
-                  <div class="flex items-center bg-slate-50 rounded-lg p-1 border border-slate-100">
-                    <button onclick="Controller.updateQty(${idx}, -1)" class="w-9 h-9 flex items-center justify-center bg-white rounded-full hover:bg-slate-200 active:bg-slate-300 active:scale-95 font-bold text-slate-600 shadow-sm">-</button>
-                    <span class="w-6 text-center font-bold text-sm"><span class="${qtyCls}">${item.qty}</span></span>
-                    <button onclick="Controller.updateQty(${idx}, 1)" class="w-9 h-9 flex items-center justify-center bg-white rounded-full hover:bg-slate-200 active:bg-slate-300 active:scale-95 font-bold text-slate-600 shadow-sm">+</button>
+                <div class="pos-line-bot">
+                  <span class="pos-line-note">${escHtml(item.note || '-')}</span>
+                  <div class="pos-step">
+                    <button onclick="Controller.updateQty(${idx}, -1)" aria-label="ลดจำนวน">−</button>
+                    <span class="pos-qty"><span class="${qtyCls}">${item.qty}</span></span>
+                    <button onclick="Controller.updateQty(${idx}, 1)" aria-label="เพิ่มจำนวน">+</button>
                   </div>
-                            <div class="flex items-center gap-1">
-                                <button onclick="Controller.editCartItem(${idx})" class="text-primary text-xs font-bold underline p-2">แก้ไข</button>
-                                <button onclick="Controller.removeFromCart(${idx})" class="text-red-400 hover:text-red-600 active:text-red-600 text-xs font-bold underline p-2">Remove</button>
-                            </div>
+                </div>
+                <div class="pos-line-bot" style="margin-top:2px">
+                  <span></span>
+                  <div class="pos-line-acts">
+                    <button onclick="Controller.editCartItem(${idx})">แก้ไข</button>
+                    <button onclick="Controller.removeFromCart(${idx})" class="is-del">ลบ</button>
+                  </div>
                 </div>
               </div>
             `;
@@ -5437,6 +5425,8 @@ renderReport(r) {
         
         const badge = document.getElementById('cart-badge-mobile');
         const totalItems = this.cart.reduce((s, i) => s + i.qty, 0);
+        const cups = document.getElementById('cart-cups');
+        if (cups) cups.innerText = `${totalItems} แก้ว`;
         if (badge) {
           if (totalItems > 0) {
             badge.innerText = totalItems;

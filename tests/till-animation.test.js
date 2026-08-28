@@ -559,6 +559,37 @@ test('unlocking hides the lock screen at once, animation or not', () => {
   assert.ok(!el2('pin-lock-screen').classList.contains('is-unlocking'), 'เครื่องที่ปิดอนิเมชันต้องเข้าตรงๆ ไม่ต้องรอ');
 });
 
+test('the redesigned menu and cart keep the hooks the rest of the app reads', () => {
+  const { C, el } = loadController({});
+  C.menuData = [
+    { name: 'ลาเต้', lang2: 'Latte', price: 55, category: 'กาแฟ' },
+    { name: 'ชาไทย', lang2: 'Thai Tea', price: 45, category: 'ชา' },
+  ];
+  C.soldOutItems = ['ชาไทย'];
+  C.activeCategory = 'All';
+  C.renderMenu();
+  const menu = el('menu-grid').innerHTML;
+
+  assert.ok(menu.includes('data-menu-idx="0"') && menu.includes('data-menu-idx="1"'), 'ทุกใบต้องมี data-menu-idx ไว้ให้ของบินเข้าตะกร้าหาเจอ');
+  assert.ok(menu.includes('--i:0') && menu.includes('--i:1'), 'ต้องคงลำดับหน่วงอนิเมชันไว้');
+  assert.ok(menu.includes('Controller.selectProduct(0)'), 'กดการ์ดต้องเปิดหน้าต่างเลือกความหวานเหมือนเดิม');
+  assert.ok(menu.includes('หมด'), 'สินค้าหมดต้องเห็นว่าหมด');
+  assert.ok(menu.includes('pos-add'), 'ของที่ยังมีต้องมีปุ่มเพิ่ม');
+
+  C.cart = [{ name: 'ลาเต้', price: 55, qty: 2, note: 'หวานน้อย' }];
+  C.heldOrders = [];
+  C.renderCart({ newIdx: 0, popIdx: 0 });
+  const cart = el('cart-items').innerHTML;
+
+  assert.ok(cart.includes('data-cart-idx="0"'), 'แถวตะกร้าต้องมี data-cart-idx ไว้ให้อนิเมชันปิดบิลกวาดทีละแถว');
+  assert.ok(cart.includes('cart-line-in'), 'แถวที่เพิ่งเพิ่มต้องเล่นอนิเมชันเข้า');
+  assert.ok(cart.includes('cart-qty-pop'), 'จำนวนที่เพิ่งเปลี่ยนต้องเด้ง');
+  assert.ok(cart.includes('Controller.updateQty(0, -1)') && cart.includes('Controller.updateQty(0, 1)'), 'ปุ่มเพิ่ม/ลดต้องยังอยู่');
+  assert.strictEqual(el('cart-total').innerText, '฿110.00', 'ยอดรวมต้องถูก');
+  assert.strictEqual(el('cart-cups').innerText, '2 แก้ว', 'ต้องบอกจำนวนแก้วท้ายตะกร้า');
+  assert.ok(el('cart-badge-mobile').classList.contains('is-on'), 'ป้ายจำนวนบนมือถือต้องขึ้น');
+});
+
 test('an empty report renders empty states instead of throwing', () => {
   const { C, el } = loadController({});
   C.renderReport({ total: 0, totalProfit: 0, totalCost: 0, billCount: 0, cupCount: 0, avgPerBill: 0, wasteCost: 0, refundedTotal: 0, cash: 0, other: 0, byType: {}, topSellers: [], byWeekday: [], byHour: [], daily: [] });
