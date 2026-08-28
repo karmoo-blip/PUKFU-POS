@@ -3978,15 +3978,17 @@
           list.innerHTML = sorted.map(item => {
             const soldOut = this.soldOutItems.includes(item.name);
             const noCost = !item.cost;
+            // ป้ายบอกสถานะตอนนี้ (In stock / Sold out) กับปุ่มบอกสถานะหลังกด (Available / Not available)
+            // จงใจใช้คำคนละชุด ถ้าใช้คำเดียวกันสองที่จะอ่านสลับกันว่าอันไหนคือของตอนนี้
             return `
             <div class="set-row">
               ${item.image ? `<img src="${escAttr(item.image)}" class="set-thumb" alt="">` : ''}
               <div class="set-row-body">
-                <p class="set-row-t">${escHtml(item.name)} ${soldOut ? '<span class="set-tag set-tag-off">หมด</span>' : '<span class="set-tag set-tag-ok">มีของ</span>'}</p>
+                <p class="set-row-t">${escHtml(item.name)} ${soldOut ? '<span class="set-tag set-tag-off">Sold out</span>' : '<span class="set-tag set-tag-ok">In stock</span>'}</p>
                 <p class="set-row-s">${escHtml(item.sku)} · ${escHtml(item.category || 'ไม่มีหมวดหมู่')} · ฿${Number(item.price) || 0}${noCost ? ' · <span style="color:#f97316">ยังไม่ระบุต้นทุน</span>' : ''}</p>
               </div>
               <div class="set-row-acts">
-                <button onclick="Controller.toggleProductSoldOut('${escAttr(item.sku)}')" class="set-btn set-btn-sm ${soldOut ? 'set-btn-soft' : 'set-btn-warn'}">${soldOut ? 'มีของแล้ว' : 'ทำหมด'}</button>
+                <button onclick="Controller.toggleProductSoldOut('${escAttr(item.sku)}')" class="set-btn set-btn-sm ${soldOut ? 'set-btn-soft' : 'set-btn-warn'}">${soldOut ? 'Available' : 'Not available'}</button>
                 <button onclick="Controller.openRecipeForm('${escAttr(item.sku)}')" class="set-btn set-btn-sm set-btn-soft">สูตร</button>
                 <button onclick='Controller.showProductForm(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="set-btn set-btn-sm set-btn-soft">แก้ไข</button>
                 <button onclick="Controller.deleteProductConfirm('${escAttr(item.sku)}')" class="set-btn set-btn-sm set-btn-danger">ลบ</button>

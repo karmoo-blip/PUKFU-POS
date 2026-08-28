@@ -684,8 +684,8 @@ test('the product list shows stock state and the buttons to change it', () => {
   C.renderProductList();
   const html = el('product-list').innerHTML;
 
-  assert.ok(html.includes('มีของ') && html.includes('หมด'), 'ต้องบอกสถานะทั้งสองแบบ');
-  assert.ok(html.includes('ทำหมด') && html.includes('มีของแล้ว'), 'ต้องกดสลับได้จากแถวเลย ไม่ต้องเข้าโหมดก่อน');
+  assert.ok(html.includes('In stock') && html.includes('Sold out'), 'ต้องบอกสถานะทั้งสองแบบ');
+  assert.ok(html.includes('Not available') && html.includes('Available'), 'ต้องกดสลับได้จากแถวเลย ไม่ต้องเข้าโหมดก่อน');
   assert.ok(html.includes('ยังไม่ระบุต้นทุน'), 'สินค้าที่ไม่มีต้นทุนต้องถูกทำเครื่องหมายไว้');
 });
 
