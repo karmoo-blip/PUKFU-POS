@@ -1363,26 +1363,28 @@
 
     /* ===== หน้าขายหลัก: การ์ดเมนูแนวนอน + ตะกร้าแบบใบเสร็จ =====
        ของเดิมเป็นการ์ดสูง รูปครึ่งบน จอ Mac เห็นได้ 5 เมนูเท่าจอมือถือ ทั้งที่มีที่เหลืออีกครึ่งจอ
-       แถวนอนสูง ~66px เห็นได้ 12 เมนูโดยไม่ต้องเลื่อน และปุ่มกดยังใหญ่เท่าเดิมเพราะกดได้ทั้งแถว */
+       แถวนอนสูง 94px เห็นได้หลายเมนูโดยไม่ต้องเลื่อน และปุ่มกดใหญ่กว่าเดิมเพราะกดได้ทั้งแถว
+       ขนาดนี้เจ้าของร้านเลือกเองจากที่วาดเทียบสามขนาดบนหน้าจอจริง (66 / 80 / 94)
+       จอ Mac เป็นสามคอลัมน์อยู่แล้วจึงไม่เสียอะไร ที่แลกไปคือมือถือเห็น 6 เมนูแทน 8 */
     .pos-card {
       display: flex; align-items: center; gap: 11px;
       background: #ffffff;
       border: 1px solid var(--color-sand);
       border-radius: 16px;
-      padding: 10px 12px;
+      padding: 16px;
       box-shadow: 0 1px 2px rgba(15, 53, 80, .05);
       cursor: pointer;
       transition: border-color .18s ease, box-shadow .18s ease, transform .12s ease;
     }
     .pos-card:hover { border-color: color-mix(in srgb, var(--color-primary) 40%, transparent); box-shadow: 0 6px 14px -8px rgba(21, 67, 96, .45); }
     .pos-card:active { transform: scale(.985); }
-    .pos-card.is-stock { border: 2px solid #fbbf24; padding: 9px 11px; }
+    .pos-card.is-stock { border: 2px solid #fbbf24; padding: 15px; }
     .pos-card.is-out { opacity: .55; }
 
     /* ช่องรูปเป็นสีครีมเรียบสีเดียวกันทุกแก้ว เมนูที่มีรูปจริงรูปจะทับช่องนี้ */
     .pos-th {
-      width: 46px; height: 46px; flex: none;
-      border-radius: 13px;
+      width: 62px; height: 62px; flex: none;
+      border-radius: 17px;
       background: var(--color-accent);
       border: 1px solid var(--color-sand);
       background-size: cover; background-position: center;
@@ -1390,29 +1392,29 @@
       color: color-mix(in srgb, var(--color-primary) 32%, transparent);
       position: relative; overflow: hidden;
     }
-    .pos-th svg { width: 22px; height: 22px; }
+    .pos-th svg { width: 30px; height: 30px; }
     .pos-th-out {
       position: absolute; inset: 0;
       background: rgba(239, 68, 68, .9); color: #fff;
       display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 800;
+      font-size: 13px; font-weight: 800;
     }
 
     .pos-body { flex: 1; min-width: 0; }
-    .pos-name { font-size: 13.5px; font-weight: 700; color: var(--color-secondary); line-height: 1.35; }
-    .pos-sub { font-size: 10.5px; font-weight: 700; color: #94a3b8; margin-top: 1px; }
-    .pos-price { font-size: 14.5px; font-weight: 800; color: var(--color-primary); flex: none; }
+    .pos-name { font-size: 16.5px; font-weight: 700; color: var(--color-secondary); line-height: 1.35; }
+    .pos-sub { font-size: 12.5px; font-weight: 700; color: #94a3b8; margin-top: 1px; }
+    .pos-price { font-size: 18px; font-weight: 800; color: var(--color-primary); flex: none; }
     .pos-price.is-out { color: #94a3b8; text-decoration: line-through; }
     .pos-add {
-      width: 30px; height: 30px; flex: none;
-      border-radius: 10px;
+      width: 40px; height: 40px; flex: none;
+      border-radius: 13px;
       background: var(--color-accent); color: var(--color-primary);
       display: flex; align-items: center; justify-content: center;
-      font-size: 17px; font-weight: 700;
+      font-size: 22px; font-weight: 700;
       transition: background-color .15s ease, color .15s ease;
     }
     .pos-card:hover .pos-add, .pos-card:active .pos-add { background: var(--color-primary); color: #fff; }
-    .pos-stock-tag { font-size: 11px; font-weight: 800; flex: none; }
+    .pos-stock-tag { font-size: 13px; font-weight: 800; flex: none; }
     .pos-stock-tag.on { color: #10b981; }
     .pos-stock-tag.off { color: #ef4444; }
 
