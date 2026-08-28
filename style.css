@@ -128,61 +128,155 @@
     label:has(> input.emp-perm-checkbox):active { transform: scale(0.96); }
 
 
-    /* ===== หน้าจอล็อก PIN: ช่องกรอกแบบมีอนิเมชัน ===== */
-    /* เดิมเป็นจุดกลมธรรมดา 6 จุด เปลี่ยนเป็นช่องสี่เหลี่ยมที่บอกสถานะได้ว่ากำลังรอหลักไหน
-       และตอบสนองตอนกด/ตอนผิด ตัวเลขจริงจะโชว์แวบนึงแล้วเปลี่ยนเป็นจุด เหมือนหน้าล็อกมือถือ */
-    #pin-slots { display: flex; justify-content: center; gap: .5rem; margin: 0 0 1.5rem; }
-
-    .pin-slot {
-      position: relative;
-      width: 3rem; height: 3.25rem;
-      border-radius: 1rem;
-      background: #fff;
-      border: 2px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
-      display: flex; align-items: center; justify-content: center;
-      transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease, transform .12s ease;
-    }
-
-    /* ช่องที่กำลังรอรับตัวเลข: ขอบเข้ม + เรืองแสงรอบๆ */
-    .pin-slot.is-active {
-      border-color: var(--color-primary);
-      box-shadow:
-        0 0 0 4px color-mix(in srgb, var(--color-primary) 12%, transparent),
-        0 6px 18px -6px color-mix(in srgb, var(--color-primary) 45%, transparent);
-    }
-
-    /* เคอร์เซอร์กะพริบในช่องที่กำลังรอ ไม่ต้องเพิ่ม element */
-    .pin-slot.is-active::after {
-      content: '';
-      position: absolute;
-      width: 2px; height: 1.5rem;
-      border-radius: 1px;
+    /* ===== หน้าจอล็อก PIN =====
+       แก้วกาแฟใบใหญ่ทำหน้าที่แทนช่องกรอกหกช่อง กดหนึ่งหลักกาแฟขึ้นหนึ่งขีด
+       จอกลับด้านเป็นกรมท่า อ่านง่ายกว่าครีมตอนแดดส่องเข้าร้าน แป้นตัวเลขอยู่บนแผ่นครีมที่โค้งขึ้นมา */
+    #pin-lock-screen {
       background: var(--color-primary);
-      animation: pin-caret-blink 1s step-end infinite;
-    }
-    .pin-slot.is-filled::after { display: none; }
-    .pin-slot.is-filled { border-color: var(--color-primary); background: #fff; }
-
-    .pin-slot__char { font-size: 1.375rem; font-weight: 700; line-height: 1; color: var(--color-primary); }
-    .pin-slot.is-masked .pin-slot__char { font-size: 1.75rem; }
-
-    .pin-slot.is-pop { animation: pin-slot-pop .22s ease-out; }
-    .pin-slot.is-pop .pin-slot__char { animation: pin-char-in .18s ease-out; }
-
-    /* ไพ่แจกลงโต๊ะ: ช่องไล่กันเข้ามาทีละใบตอนหน้าล็อกโผล่ */
-    #pin-slots.is-dealing .pin-slot {
-      animation: pin-deal .42s cubic-bezier(.2, .8, .3, 1) backwards;
-      animation-delay: calc(var(--i) * .045s);
+      color: var(--color-cream);
+      overflow: hidden;
     }
 
-    #pin-slots.is-shaking { animation: pin-shake .48s ease-in-out; }
-    .pin-slot.is-error { border-color: #ef4444; background: #fef2f2; box-shadow: none; }
-    .pin-slot.is-error .pin-slot__char { color: #ef4444; }
+    #pin-stage {
+      position: absolute; left: 0; right: 0; top: 0; height: 51vh; min-height: 300px;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 0 24px;
+    }
+    #pin-shop { font-size: 12.5px; font-weight: 700; opacity: .6; letter-spacing: .08em; margin: 0 0 18px; }
 
-    @keyframes pin-caret-blink { 0%, 50% { opacity: 1; } 50.01%, 100% { opacity: 0; } }
-    @keyframes pin-slot-pop { 0% { transform: scale(1); } 45% { transform: scale(1.12); } 100% { transform: scale(1); } }
-    @keyframes pin-char-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
-    @keyframes pin-deal { from { opacity: 0; transform: translateY(14px) rotate(-6deg); } to { opacity: 1; transform: translateY(0) rotate(0); } }
+    #pin-cup { position: relative; width: 132px; height: 172px; flex: none; }
+    #pin-glass {
+      position: absolute; inset: 0;
+      border: 3px solid rgba(255, 253, 245, .85);
+      border-radius: 10px 10px 30px 30px;
+      background: rgba(255, 253, 245, .05);
+      overflow: hidden;
+    }
+    #pin-handle {
+      position: absolute; right: -30px; top: 44px; width: 34px; height: 62px;
+      border: 3px solid rgba(255, 253, 245, .85); border-left: none; border-radius: 0 22px 22px 0;
+    }
+    /* กาแฟในแก้ว ความสูงเป็นเปอร์เซ็นต์ที่ JS ตั้งตามจำนวนหลักที่กรอกแล้ว
+       (ไม่ใช้ calc(var(--level) * 100%) เพราะเบราว์เซอร์ทิ้งค่านั้นแล้วความสูงกลายเป็น auto = 0) */
+    #pin-fill {
+      position: absolute; left: 0; right: 0; bottom: 0; height: 0;
+      background: linear-gradient(180deg, var(--color-mustard) 0 6px, #e0a03a 6px);
+      transition: height .3s cubic-bezier(.3, .9, .35, 1), background .2s ease;
+    }
+    /* ฟองนมอยู่บนผิวกาแฟ ตอนเข้าได้แก้วเต็มพอดี จึงเกาะขอบบนของแก้ว */
+    #pin-foam {
+      position: absolute; left: 0; right: 0; top: 0; height: 0; opacity: 0;
+      background: rgba(255, 253, 245, .92);
+      transition: height .34s ease, opacity .2s ease;
+    }
+    /* ขีดบอกระดับหกขั้น = หกหลัก */
+    #pin-ticks { position: absolute; inset: 0; }
+    #pin-ticks i {
+      position: absolute; right: 8px; width: 14px; height: 2px;
+      background: rgba(255, 253, 245, .35);
+      bottom: calc(12px + var(--i) * 26px);
+      transition: width .18s ease, background-color .18s ease;
+    }
+    #pin-ticks i.is-on { width: 20px; background: var(--color-cream); }
+
+    /* จุดหกจุดใต้แก้ว โชว์ตัวเลขที่เพิ่งกดแวบหนึ่งแล้วกลับเป็นจุด */
+    #pin-count {
+      display: flex; gap: 10px; margin: 20px 0 0;
+      font-size: 15px; font-weight: 700; letter-spacing: .04em;
+    }
+    #pin-count span {
+      width: 14px; text-align: center; color: rgba(255, 253, 245, .35);
+      transition: color .16s ease;
+    }
+    #pin-count span.is-on { color: var(--color-cream); }
+    #pin-count span.is-pop { animation: pin-count-pop .2s ease-out; }
+
+    /* คำใบ้กับข้อความผิดใช้ที่เดียวกัน สลับกันแสดง แป้นตัวเลขจะได้ไม่ขยับ */
+    #pin-hint {
+      margin: 12px 0 -1.25rem; min-height: 1.25rem;
+      font-size: 13px; font-weight: 700; color: rgba(255, 253, 245, .55);
+    }
+    #pin-hint.is-off { visibility: hidden; }
+
+    #pin-lock-error {
+      min-height: 1.25rem; margin: 12px 0 0;
+      font-size: 13px; font-weight: 700; color: #ffb4b4;
+      visibility: hidden;
+    }
+    #pin-lock-error.is-shown { visibility: visible; }
+
+    /* ผิด: กาแฟเปลี่ยนเป็นแดงแล้วแก้วสั่น */
+    #pin-cup.is-error #pin-fill { background: #e05a5a; }
+    #pin-cup.is-shaking { animation: pin-shake .48s ease-in-out; }
+
+    /* เปิดหน้าล็อก: แก้วลอยขึ้นมา แผ่นปุ่มดันขึ้นตาม */
+    #pin-lock-screen.is-dealing #pin-cup { animation: pin-glass-in .42s cubic-bezier(.2, .8, .3, 1) backwards; }
+    #pin-lock-screen.is-dealing #pin-sheet { animation: pin-sheet-in .42s cubic-bezier(.2, .8, .3, 1) backwards; }
+
+    #pin-sheet {
+      position: absolute; left: 0; right: 0; bottom: 0; top: 51vh;
+      min-height: 400px;
+      background: var(--color-cream);
+      border-radius: 34px 34px 0 0;
+      box-shadow: 0 -14px 40px rgba(0, 0, 0, .16);
+      padding: 26px 30px calc(26px + env(safe-area-inset-bottom, 0px));
+      display: flex; align-items: center; justify-content: center;
+      transition: transform .5s cubic-bezier(.65, 0, .2, 1);
+    }
+    #pin-pad {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px 18px;
+      width: 100%; max-width: 320px;
+    }
+    .pin-key {
+      min-height: 64px; border: none; border-radius: 999px; background: transparent;
+      font-family: inherit; font-size: 26px; font-weight: 700; color: var(--color-primary);
+      transition: transform .1s ease, background-color .14s ease;
+    }
+    .pin-key:active { background: var(--color-accent); transform: scale(.9); }
+    .pin-key-del { font-size: 21px; color: #f87171; }
+    .pin-key-clear { font-size: 14px; color: #94a3b8; }
+
+    /* เข้าได้: ฟองนมขึ้น ควันลอย แผ่นปุ่มเลื่อนลง แล้วทักชื่อ */
+    #pin-hello {
+      position: absolute; left: 24px; right: 24px; top: 58%;
+      text-align: center; font-size: 21px; font-weight: 700; color: var(--color-cream);
+      opacity: 0; margin: 0;
+    }
+    #pin-hello small { display: block; font-size: 12.5px; font-weight: 700; opacity: .6; margin-top: 4px; }
+
+    #pin-steam { position: absolute; top: -46px; left: 50%; width: 60px; height: 42px; transform: translateX(-50%); }
+    #pin-steam i {
+      position: absolute; bottom: 0; width: 6px; height: 22px; border-radius: 3px;
+      background: rgba(255, 253, 245, .75); opacity: 0;
+    }
+    #pin-steam i:nth-child(1) { left: 10px; }
+    #pin-steam i:nth-child(2) { left: 27px; }
+    #pin-steam i:nth-child(3) { left: 44px; }
+
+    #pin-lock-screen.is-go #pin-foam { height: 26px; opacity: 1; }
+    #pin-lock-screen.is-go #pin-sheet { transform: translateY(105%); }
+    #pin-lock-screen.is-go #pin-stage { animation: pin-stage-rise .5s cubic-bezier(.3, .8, .3, 1) forwards; }
+    #pin-lock-screen.is-go #pin-hello { animation: pin-hello-in .45s ease-out .28s forwards; }
+    #pin-lock-screen.is-go #pin-steam i { animation: pin-steam 1s ease-out forwards; }
+    #pin-lock-screen.is-go #pin-steam i:nth-child(2) { animation-delay: .1s; }
+    #pin-lock-screen.is-go #pin-steam i:nth-child(3) { animation-delay: .2s; }
+
+    /* is-unlocking = ยังต้องแสดงอยู่แม้ใส่ hidden แล้ว, is-go = เริ่มขยับ
+       แยกสองคลาสเพราะถ้าใส่พร้อมกัน เบราว์เซอร์จะคิดค่าปลายทางเป็นค่าเริ่มต้น แล้วกระโดดข้ามอนิเมชันไปเลย */
+    /* ปิดหน้าล็อกต้องใส่คลาส hidden ทันทีเสมอ (มีโค้ดอ่านคลาสนี้เป็นสถานะจริง)
+       จึงบังคับให้ยังแสดงอยู่ระหว่างอนิเมชันแทนการหน่วงใส่ hidden */
+    #pin-lock-screen.is-unlocking.hidden { display: block !important; }
+
+    @keyframes pin-count-pop { 0% { transform: scale(1); } 45% { transform: scale(1.35); } 100% { transform: scale(1); } }
+    @keyframes pin-glass-in { from { opacity: 0; transform: translateY(16px) scale(.96); } to { opacity: 1; transform: none; } }
+    @keyframes pin-sheet-in { from { transform: translateY(40px); } to { transform: none; } }
+    @keyframes pin-stage-rise { to { transform: translateY(90px) scale(1.06); } }
+    @keyframes pin-hello-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    @keyframes pin-steam {
+      0% { opacity: 0; transform: translateY(8px) scaleY(.6); }
+      40% { opacity: .8; }
+      100% { opacity: 0; transform: translateY(-28px) scaleY(1.4); }
+    }
     @keyframes pin-shake {
       0%, 100% { transform: translateX(0); }
       15% { transform: translateX(-8px); }
@@ -193,9 +287,21 @@
       90% { transform: translateX(3px); }
     }
 
-    /* กันแป้นตัวเลขกระโดดตอนข้อความ error โผล่: จองที่ไว้ตลอด ซ่อนด้วย visibility ไม่ใช่ display */
-    #pin-lock-error { min-height: 1.25rem; visibility: hidden; }
-    #pin-lock-error.is-shown { visibility: visible; }
+    /* จอกว้าง (แท็บเล็ต/Mac): แผ่นปุ่มไม่ยืดเต็มจอ ไม่งั้นเป็นแผ่นครีมว่างๆ ยาวทั้งหน้า
+       ใช้ margin auto ไม่ใช้ transform เพราะ transform ถูกใช้ตอนเลื่อนแผ่นลงแล้ว */
+    @media (min-width: 700px) {
+      #pin-sheet {
+        max-width: 460px; margin: 0 auto;
+        border-radius: 34px 34px 0 0;
+        box-shadow: 0 -14px 60px rgba(0, 0, 0, .22);
+      }
+    }
+
+    /* จอสูงพอ ให้แก้วมีที่หายใจมากขึ้น */
+    @media (min-height: 900px) {
+      #pin-stage { height: 46vh; }
+      #pin-sheet { top: 46vh; }
+    }
 
     /* เครื่องที่ตั้งค่าลดการเคลื่อนไหว ให้เห็นสถานะครบเหมือนเดิมแต่ไม่ต้องขยับ */
     @media (prefers-reduced-motion: reduce) {
@@ -238,11 +344,16 @@
       .status-ring::before,
       .status-ring::after { display: none; }
 
-      #pin-slots.is-dealing .pin-slot,
-      .pin-slot.is-pop,
-      .pin-slot.is-pop .pin-slot__char,
-      #pin-slots.is-shaking { animation: none; }
-      .pin-slot.is-active::after { animation: none; opacity: 1; }
+      /* หน้าล็อก PIN: เห็นสถานะครบเหมือนเดิม แค่ไม่ขยับ */
+      #pin-lock-screen.is-dealing #pin-cup,
+      #pin-lock-screen.is-dealing #pin-sheet,
+      #pin-lock-screen.is-go #pin-stage,
+      #pin-lock-screen.is-go #pin-hello,
+      #pin-lock-screen.is-go #pin-steam i,
+      #pin-count span.is-pop,
+      #pin-cup.is-shaking { animation: none; }
+      #pin-fill, #pin-foam, #pin-sheet { transition: none; }
+      #pin-lock-screen.is-go #pin-hello { opacity: 1; }
     }
 
     /* ===== อนิเมชันหน้าขายหลัก =====

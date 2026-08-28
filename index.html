@@ -83,36 +83,48 @@
   </div>
 
   <!--  หน้าจอล็อก PIN (แสดงทับทุกอย่างจนกว่าจะใส่ PIN ถูก) -->
-  <div id="pin-lock-screen" class="fixed inset-0 bg-cream z-[100] flex flex-col items-center justify-center p-6">
-    <div class="w-full max-w-xs text-center">
-      <div class="w-16 h-16 bg-primary/15 rounded-3xl flex items-center justify-center text-primary font-bold text-2xl mx-auto mb-4"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M5 8h11v6a5 5 0 0 1-10 0z"/><path d="M16 9h2a2 2 0 0 1 0 4h-2"/><path d="M4 21h14"/></svg></div>
-      <h2 class="text-xl font-bold text-secondary mb-1">POS Pukfu</h2>
-      <p class="text-sm text-slate-400 mb-6">ใส่ PIN เพื่อเข้าใช้งาน</p>
+  <!-- หน้าล็อก PIN: แก้วกาแฟใบใหญ่ทำหน้าที่แทนช่องหกช่อง กาแฟขึ้นหนึ่งขีดต่อหนึ่งหลัก -->
+  <div id="pin-lock-screen" class="fixed inset-0 z-[100]">
+    <div id="pin-stage">
+      <p id="pin-shop">PUKFU COFFEE</p>
 
-      <div id="pin-slots">
-        <div id="pin-slot-0" class="pin-slot" style="--i:0"><span class="pin-slot__char"></span></div>
-        <div id="pin-slot-1" class="pin-slot" style="--i:1"><span class="pin-slot__char"></span></div>
-        <div id="pin-slot-2" class="pin-slot" style="--i:2"><span class="pin-slot__char"></span></div>
-        <div id="pin-slot-3" class="pin-slot" style="--i:3"><span class="pin-slot__char"></span></div>
-        <div id="pin-slot-4" class="pin-slot" style="--i:4"><span class="pin-slot__char"></span></div>
-        <div id="pin-slot-5" class="pin-slot" style="--i:5"><span class="pin-slot__char"></span></div>
+      <!-- หูแก้วกับควันต้องอยู่นอกกรอบที่ตัดขอบ ไม่งั้นถูก overflow:hidden ของแก้วตัดหาย -->
+      <div id="pin-cup">
+        <div id="pin-steam"><i></i><i></i><i></i></div>
+        <div id="pin-handle"></div>
+        <div id="pin-glass">
+          <div id="pin-fill"></div>
+          <div id="pin-foam"></div>
+          <div id="pin-ticks">
+            <i style="--i:0"></i><i style="--i:1"></i><i style="--i:2"></i>
+            <i style="--i:3"></i><i style="--i:4"></i><i style="--i:5"></i>
+          </div>
+        </div>
       </div>
 
-      <p id="pin-lock-error" class="text-red-500 text-sm font-bold mb-4">PIN ไม่ถูกต้อง กรุณาลองใหม่</p>
+      <p id="pin-count">
+        <span></span><span></span><span></span><span></span><span></span><span></span>
+      </p>
+      <p id="pin-hint">ใส่ PIN 6 หลักเพื่อเข้าใช้งาน</p>
+      <p id="pin-lock-error">PIN ไม่ถูกต้อง กรุณาลองใหม่</p>
+    </div>
 
-      <div class="grid grid-cols-3 gap-3">
-        <button onclick="Controller.pinKeyPress('1')" class="bg-white border border-sand py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">1</button>
-        <button onclick="Controller.pinKeyPress('2')" class="bg-white border border-sand py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">2</button>
-        <button onclick="Controller.pinKeyPress('3')" class="bg-white border border-sand py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">3</button>
-        <button onclick="Controller.pinKeyPress('4')" class="bg-white border border-sand py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">4</button>
-        <button onclick="Controller.pinKeyPress('5')" class="bg-white border border-sand py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">5</button>
-        <button onclick="Controller.pinKeyPress('6')" class="bg-white border border-sand py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">6</button>
-        <button onclick="Controller.pinKeyPress('7')" class="bg-white border border-sand py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">7</button>
-        <button onclick="Controller.pinKeyPress('8')" class="bg-white border border-sand py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">8</button>
-        <button onclick="Controller.pinKeyPress('9')" class="bg-white border border-sand py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">9</button>
-        <button onclick="Controller.pinBackspace()" class="bg-red-50 text-red-400 py-4 rounded-2xl text-lg font-bold hover:bg-red-100 active:bg-red-100">⌫</button>
-        <button onclick="Controller.pinKeyPress('0')" class="bg-white border border-sand py-4 rounded-2xl text-xl font-bold text-secondary hover:bg-accent active:bg-accent shadow-sm">0</button>
-        <button onclick="Controller.pinClear()" class="bg-slate-100 text-slate-400 py-4 rounded-2xl text-sm font-bold hover:bg-slate-200 active:bg-slate-200">ล้าง</button>
+    <p id="pin-hello"></p>
+
+    <div id="pin-sheet">
+      <div id="pin-pad">
+        <button onclick="Controller.pinKeyPress('1')" class="pin-key">1</button>
+        <button onclick="Controller.pinKeyPress('2')" class="pin-key">2</button>
+        <button onclick="Controller.pinKeyPress('3')" class="pin-key">3</button>
+        <button onclick="Controller.pinKeyPress('4')" class="pin-key">4</button>
+        <button onclick="Controller.pinKeyPress('5')" class="pin-key">5</button>
+        <button onclick="Controller.pinKeyPress('6')" class="pin-key">6</button>
+        <button onclick="Controller.pinKeyPress('7')" class="pin-key">7</button>
+        <button onclick="Controller.pinKeyPress('8')" class="pin-key">8</button>
+        <button onclick="Controller.pinKeyPress('9')" class="pin-key">9</button>
+        <button onclick="Controller.pinBackspace()" class="pin-key pin-key-del" aria-label="ลบหนึ่งหลัก">⌫</button>
+        <button onclick="Controller.pinKeyPress('0')" class="pin-key">0</button>
+        <button onclick="Controller.pinClear()" class="pin-key pin-key-clear">ล้าง</button>
       </div>
     </div>
   </div>
