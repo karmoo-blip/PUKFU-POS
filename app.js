@@ -6344,6 +6344,7 @@ renderReport(r) {
 
       // เวลาที่โชว์ตัวเลขจริงก่อนเปลี่ยนเป็นจุด และเวลาสั่นตอน PIN ผิด
       PIN_REVEAL_MS: 600,
+      PIN_UNLOCK_MS: 1200,
       PIN_SHAKE_MS: 480,
 
       showPinLockScreen() {
@@ -6357,13 +6358,18 @@ renderReport(r) {
         this.hidePinError();
         this.bindPinKeyboard();
 
-        // เล่นอนิเมชันแจกช่องใหม่ทุกครั้งที่ล็อก ไม่ใช่แค่ตอนเปิดแอปครั้งแรก
-        const slots = document.getElementById('pin-slots');
-        if (slots) {
-          slots.classList.remove('is-dealing');
-          void slots.offsetWidth; // บังคับ reflow ไม่งั้นอนิเมชันไม่เล่นซ้ำ
-          slots.classList.add('is-dealing');
+        // แก้วลอยขึ้นมาใหม่ทุกครั้งที่ล็อก ไม่ใช่แค่ตอนเปิดแอปครั้งแรก
+        if (el) {
+          // ถ้าโดนล็อกซ้ำระหว่างอนิเมชันเข้าระบบยังเล่นอยู่ ต้องล้างคลาสทั้งคู่ ไม่งั้นแผ่นปุ่มค้างอยู่นอกจอ
+          clearTimeout(this.pinUnlockTimer);
+          clearTimeout(this.pinUnlockGoTimer);
+          el.classList.remove('is-unlocking', 'is-go');
+          el.classList.remove('is-dealing');
+          void el.offsetWidth; // บังคับ reflow ไม่งั้นอนิเมชันไม่เล่นซ้ำ
+          el.classList.add('is-dealing');
         }
+        const hello = document.getElementById('pin-hello');
+        if (hello) hello.innerHTML = '';
       },
 
       hidePinLockScreen() {
@@ -6379,8 +6385,15 @@ renderReport(r) {
 
       hidePinError() {
         this.pinErrorActive = false;
+        this.showPinError(false);
+      },
+
+      // คำใบ้กับข้อความผิดอยู่ที่เดียวกัน สลับกันทีละอัน
+      showPinError(on) {
         const err = document.getElementById('pin-lock-error');
-        if (err) err.classList.remove('is-shown');
+        if (err) err.classList.toggle('is-shown', !!on);
+        const hint = document.getElementById('pin-hint');
+        if (hint) hint.classList.toggle('is-off', !!on);
       },
 
       pinKeyPress(digit) {
@@ -6418,30 +6431,69 @@ renderReport(r) {
         this.updatePinSlots();
       },
 
-      // ตัวเดียวที่วาดช่อง PIN ทั้งหมด อ่านจาก state ล้วนๆ
-      // ใช้ classList.toggle ไม่เขียนทับ className ทั้งก้อน ไม่งั้นคลาสอนิเมชันหายทุกครั้งที่กด
+      // ตัวเดียวที่วาดหน้าล็อกทั้งหน้า อ่านจาก state ล้วนๆ
+      // ระดับกาแฟ ขีดบอกระดับ และจุดหกจุด มาจาก pinBuffer ชุดเดียวกัน ไม่มีสถานะซ้อน
       updatePinSlots(opts) {
         const popIndex = opts && typeof opts.popIndex === 'number' ? opts.popIndex : -1;
-        for (let i = 0; i < 6; i++) {
-          const slot = document.getElementById(`pin-slot-${i}`);
-          if (!slot) continue;
-          const filled = i < this.pinBuffer.length;
+        const len = this.pinBuffer.length;
+
+        const fill = document.getElementById('pin-fill');
+        if (fill) fill.style.height = (len / 6 * 100).toFixed(2) + '%';
+
+        const cup = document.getElementById('pin-cup');
+        if (cup) cup.classList.toggle('is-error', this.pinErrorActive && len > 0);
+
+        const ticks = document.querySelectorAll('#pin-ticks i');
+        ticks.forEach((tick, i) => tick.classList.toggle('is-on', i < len));
+
+        const dots = document.querySelectorAll('#pin-count span');
+        dots.forEach((dot, i) => {
+          const filled = i < len;
           const revealed = filled && i === this.pinRevealIndex;
-
-          slot.classList.toggle('is-filled', filled);
-          slot.classList.toggle('is-masked', filled && !revealed);
-          slot.classList.toggle('is-active', !this.pinErrorActive && i === this.pinBuffer.length);
-          slot.classList.toggle('is-error', this.pinErrorActive && filled);
-
-          const char = slot.querySelector('.pin-slot__char');
-          if (char) char.textContent = filled ? (revealed ? this.pinBuffer[i] : '•') : '';
-
+          dot.textContent = filled ? (revealed ? this.pinBuffer[i] : '\u25cf') : '\u25cb';
+          dot.classList.toggle('is-on', filled);
           if (i === popIndex) {
-            slot.classList.remove('is-pop');
-            void slot.offsetWidth;
-            slot.classList.add('is-pop');
+            dot.classList.remove('is-pop');
+            void dot.offsetWidth;
+            dot.classList.add('is-pop');
           }
+        });
+      },
+
+      // เข้าได้: ฟองนมขึ้น ควันลอย แผ่นปุ่มเลื่อนลง แล้วทักชื่อ
+      // ใส่คลาส hidden ทันทีตั้งแต่ต้น เพราะมีโค้ดอื่นอ่านคลาสนี้เป็นสถานะว่าล็อกอยู่ไหม
+      // CSS บังคับให้ยังแสดงระหว่างอนิเมชัน (#pin-lock-screen.is-unlocking.hidden)
+      playPinUnlock(user) {
+        const el = document.getElementById('pin-lock-screen');
+        if (!el || this.reducedMotion()) {
+          this.hidePinLockScreen();
+          return;
         }
+
+        const hello = document.getElementById('pin-hello');
+        if (hello) {
+          const now = new Date();
+          const time = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+          hello.innerHTML = 'สวัสดี ' + escHtml((user && user.name) || '') +
+            '<small>เข้าใช้งาน ' + time + ' น.</small>';
+        }
+
+        // is-unlocking บอกว่ายังต้องแสดงอยู่ ส่วน is-go คือเริ่มขยับ
+        // ใส่พร้อมกันไม่ได้ เบราว์เซอร์จะคิดค่าปลายทางเป็นค่าเริ่มต้นแล้วกระโดดข้ามอนิเมชัน
+        el.classList.remove('is-dealing');
+        el.classList.add('is-unlocking');
+        this.hidePinLockScreen();
+        void el.offsetWidth;
+        // ใช้ setTimeout ไม่ใช้ requestAnimationFrame เพราะแท็บที่ไม่ได้เปิดอยู่ rAF ไม่ทำงาน
+        // แล้วหน้าล็อกจะค้างอยู่จนกว่าตัวจับเวลาจะเก็บกวาด
+        clearTimeout(this.pinUnlockGoTimer);
+        this.pinUnlockGoTimer = setTimeout(() => el.classList.add('is-go'), 20);
+
+        clearTimeout(this.pinUnlockTimer);
+        this.pinUnlockTimer = setTimeout(() => {
+          el.classList.remove('is-unlocking', 'is-go');
+          if (hello) hello.innerHTML = '';
+        }, this.PIN_UNLOCK_MS);
       },
 
       // คีย์บอร์ดจริง (USB/บลูทูธ) ไม่ใส่ input ซ่อน เพราะบนแท็บเล็ตคีย์บอร์ดบนจอจะเด้งมาบังแป้นตัวเลข
@@ -6479,14 +6531,14 @@ renderReport(r) {
           localStorage.setItem('pos_loggedInUserId', user.id);
           this.logPinAttempt('เข้าใช้งานระบบ (Lock Screen)', true, user.name);
           this.pinBuffer = '';
-          this.hidePinLockScreen();
+          this.updatePinSlots();
+          this.playPinUnlock(user);
           this.updateLoggedInUserLabel();
           this.resetAutoLockTimer();
         } else {
           if (this.pinBuffer.length >= 6) {
             this.logPinAttempt('เข้าใช้งานระบบ (Lock Screen)', false, null);
-            const err = document.getElementById('pin-lock-error');
-            if (err) err.classList.add('is-shown');
+            this.showPinError(true);
 
             // ปล่อยตัวเลขค้างไว้ให้เห็นระหว่างสั่น แล้วค่อยล้างทีเดียวตอนสั่นจบ
             this.pinErrorActive = true;
@@ -6494,21 +6546,21 @@ renderReport(r) {
             this.clearPinRevealTimer();
             this.updatePinSlots();
 
-            const slots = document.getElementById('pin-slots');
-            if (slots) {
-              slots.classList.remove('is-shaking');
-              void slots.offsetWidth;
-              slots.classList.add('is-shaking');
+            const cup = document.getElementById('pin-cup');
+            if (cup) {
+              cup.classList.remove('is-shaking');
+              void cup.offsetWidth;
+              cup.classList.add('is-shaking');
             }
 
             setTimeout(() => {
-              if (slots) slots.classList.remove('is-shaking');
+              if (cup) cup.classList.remove('is-shaking');
               this.pinBuffer = '';
               this.pinInputLocked = false;
               this.updatePinSlots();
               // ข้อความ error ค้างไว้จนกว่าจะกดปุ่มถัดไป
               this.pinErrorActive = true;
-              if (err) err.classList.add('is-shown');
+              this.showPinError(true);
             }, this.PIN_SHAKE_MS);
           }
         }

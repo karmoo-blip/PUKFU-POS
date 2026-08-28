@@ -11,7 +11,9 @@ const vm = require('node:vm');
 class FakeEl {
   constructor(id, tag) {
     this.id = id; this.tag = tag || 'div';
-    this.classes = new Set(); this.style = { setProperty(){}, };
+    this.classes = new Set(); this.styleProps = {};
+    const props = this.styleProps;
+    this.style = { setProperty(k, v) { props[k] = v; } };
     this.innerHTML = ''; this.innerText = ''; this.value = '';
     this.disabled = false; this.checked = false; this.files = [];
     this.dataset = {}; this.parentElement = null;
@@ -114,7 +116,7 @@ function loadController(options) {
   C.showAlert = () => Promise.resolve(true);
   C.showConfirm = () => Promise.resolve(false);
   C.showLoading = () => {}; C.hideLoading = () => {};
-  return { C, document, calls, timers, frames, el: (id) => document.getElementById(id), views, localStorage: sandbox.localStorage, ReceiptPrinter: sandbox.__ReceiptPrinter };
+  return { C, document, calls, timers, frames, el: (id) => document.getElementById(id), views, localStorage: sandbox.localStorage, ReceiptPrinter: sandbox.__ReceiptPrinter, FakeEl };
 }
 
 // เดินอนิเมชันตัวนับให้จบในทีเดียว
@@ -515,6 +517,46 @@ test('the receipt preview is built from the same document that gets printed', as
   assert.ok(!texts(hidden).includes('123 ถนนสุขุมวิท'), 'ติ๊กที่อยู่ออกแล้วตัวอย่างต้องหายตาม');
   assert.ok(!texts(hidden).includes('Tel: 081-234-5678'), 'ติ๊กเบอร์โทรออกแล้วตัวอย่างต้องหายตาม');
   assert.ok(texts(hidden).includes('PUKFU COFFEE'), 'ช่องที่ไม่ได้ติ๊กออกต้องยังอยู่');
+});
+
+test('the lock screen draws the glass from the PIN buffer alone', () => {
+  const { C, el, document, FakeEl } = loadController({});
+  document.__qa['#pin-ticks i'] = Array.from({ length: 6 }, (_, i) => new FakeEl('tick' + i));
+  document.__qa['#pin-count span'] = Array.from({ length: 6 }, (_, i) => new FakeEl('dot' + i));
+
+  C.pinBuffer = '48';
+  C.pinRevealIndex = 1;
+  C.updatePinSlots({ popIndex: 1 });
+
+  assert.strictEqual(el('pin-fill').style.height, '33.33%', 'สองในหกหลัก กาแฟต้องขึ้นหนึ่งในสาม');
+  const ticks = document.__qa['#pin-ticks i'].map(t => t.classList.contains('is-on'));
+  assert.strictEqual(ticks.join(','), 'true,true,false,false,false,false', 'ขีดต้องติดเท่าจำนวนหลักที่กรอก');
+  const dots = document.__qa['#pin-count span'].map(d => d.textContent);
+  assert.strictEqual(dots[0], '●', 'หลักที่กรอกไปแล้วต้องเป็นจุดทึบ');
+  assert.strictEqual(dots[1], '8', 'หลักที่เพิ่งกดโชว์ตัวเลขแวบหนึ่ง');
+  assert.strictEqual(dots[2], '○', 'หลักที่ยังไม่กรอกต้องเป็นจุดโปร่ง');
+
+  C.pinBuffer = '';
+  C.pinRevealIndex = -1;
+  C.updatePinSlots();
+  assert.strictEqual(el('pin-fill').style.height, '0.00%', 'ล้างแล้วแก้วต้องว่าง');
+  assert.ok(!document.__qa['#pin-ticks i'][0].classList.contains('is-on'), 'ล้างแล้วขีดต้องดับ');
+});
+
+test('unlocking hides the lock screen at once, animation or not', () => {
+  const { C, el } = loadController({});
+  el('pin-lock-screen').classList.remove('hidden');
+  C.playPinUnlock({ name: 'เบส' });
+
+  assert.ok(el('pin-lock-screen').classList.contains('hidden'), 'ต้องใส่ hidden ทันที มีโค้ดอื่นอ่านคลาสนี้เป็นสถานะว่าล็อกอยู่ไหม');
+  assert.ok(el('pin-lock-screen').classList.contains('is-unlocking'), 'ต้องเล่นอนิเมชันตอนเข้าได้');
+  assert.ok(el('pin-hello').innerHTML.includes('เบส'), 'ต้องทักชื่อคนที่เข้ามา');
+
+  const { C: C2, el: el2 } = loadController({ reducedMotion: true });
+  el2('pin-lock-screen').classList.remove('hidden');
+  C2.playPinUnlock({ name: 'เบส' });
+  assert.ok(el2('pin-lock-screen').classList.contains('hidden'), 'เครื่องที่ปิดอนิเมชันก็ต้องปิดหน้าล็อก');
+  assert.ok(!el2('pin-lock-screen').classList.contains('is-unlocking'), 'เครื่องที่ปิดอนิเมชันต้องเข้าตรงๆ ไม่ต้องรอ');
 });
 
 test('an empty report renders empty states instead of throwing', () => {
