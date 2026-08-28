@@ -1712,7 +1712,7 @@
           for (const o of c.waitingOrders) {
             const when = o.timestamp ? new Date(o.timestamp).toLocaleTimeString() : '';
             const cups = (o.items || []).reduce((n, i) => n + (Number(i.qty) || 0), 0);
-            html += row('#154360', escHtml(o.customerName || 'ลูกค้า') + (cups ? ` — ${cups} แก้ว` : ''),
+            html += row('var(--color-primary)', escHtml(o.customerName || 'ลูกค้า') + (cups ? ` — ${cups} แก้ว` : ''),
               (when ? when + ' · ' : '') + 'รอยืนยัน',
               'text-primary bg-primary/10', 'จัดการ',
               "Controller.closeModal(&quot;modal-bell&quot;); Controller.openPendingOrdersModal()");
@@ -2348,7 +2348,7 @@
                 ${warn.length ? `<p class="set-row-s" style="color:#f97316;margin-top:4px">${warn.join(' / ')}</p>` : ''}
               </div>
               <div class="cost-cell">${money(price)}</div>
-              <div class="cost-cell" style="color:${computed === null ? '#f97316' : '#0f3550'};font-weight:900">${computed === null ? 'ยังไม่ครบ' : money(computed)}</div>
+              <div class="cost-cell" style="color:${computed === null ? '#f97316' : 'var(--color-secondary)'};font-weight:900">${computed === null ? 'ยังไม่ครบ' : money(computed)}</div>
               <div class="cost-cell" style="color:${diff !== null && Math.abs(diff) >= 1 ? '#ef4444' : '#94a3b8'}">${typed === 0 ? '—' : money(typed)}${diff !== null && Math.abs(diff) >= 1 ? ` (${diff > 0 ? '+' : ''}${diff.toFixed(2)})` : ''}</div>
               <div class="cost-cell" style="font-weight:900;color:${margin === null ? '#cbd5e1' : (margin >= 50 ? '#059669' : '#f97316')}">${margin === null ? '—' : margin.toFixed(0) + '%'}</div>
               <div class="cost-act"><button onclick="Controller.openRecipeForm('${escAttr(m.sku)}')" class="set-btn set-btn-sm set-btn-soft">แก้สูตร</button></div>
@@ -3498,7 +3498,7 @@
         const bars = points.map((p, i) => {
           const h = Math.max(3, ((Number(p.value) || 0) / max) * (base - 8));
           const x = i * slot + (slot - bw) / 2;
-          return `<rect x="${x.toFixed(1)}" y="${(base - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${p.peak ? '#d97706' : '#154360'}"></rect>`;
+          return `<rect x="${x.toFixed(1)}" y="${(base - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${p.peak ? '#d97706' : 'var(--color-primary)'}"></rect>`;
         }).join('');
 
         // ป้ายแกนเฉพาะบางช่อง ไม่ใส่ทุกแท่งเพราะจะชนกันเอง

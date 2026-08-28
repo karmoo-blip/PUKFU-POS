@@ -1,12 +1,15 @@
     /* ===== Design tokens: จุดเดียวที่กำหนดสีแบรนด์ทั้งหมด (ใช้ทั้งจาก Tailwind config ใน index.html และ CSS ตรงนี้) ===== */
+    /* ชุดสี "ป่า" — เขียวเข้ม + ดินเผา (เจ้าของร้านเลือกจากที่วาดเทียบสามชุด)
+       ทั้งเว็บดึงสีจากเจ็ดตัวนี้ที่เดียว รวมหน้าที่ลูกค้าสแกน QR สั่งเอง (order.html)
+       สีบอกสถานะ (เขียวซิงก์ ส้มกำลังซิงก์ แดงผิดพลาด เหลืองพักบิล) ไม่อยู่ในชุดนี้ เพราะต้องคงความหมายไว้ */
     :root {
-      --color-primary: #154360;   /* Navy Blue - สีหลัก ปุ่ม/หัวข้อ */
-      --color-secondary: #0f3550; /* Navy เข้ม - สีตัวหนังสือ */
-      --color-accent: #fff3d1;    /* Mustard อ่อน - พื้นหลังไฮไลต์ */
-      --color-mustard: #ffdb58;   /* Mustard Yellow */
-      --color-sand: #efe3c4;      /* เส้นขอบ/เส้นแบ่งที่ใช้ซ้ำทั่วทั้งแอป */
-      --color-cream: #fffdf5;     /* พื้นหลังหลักของหน้า */
-      --color-ink: #6b5f6a;       /* สีตัวหนังสือหลักบน body */
+      --color-primary: #1f4d3a;   /* เขียวเข้ม - สีหลัก ปุ่ม/หัวข้อ */
+      --color-secondary: #163828; /* เขียวเข้มกว่า - สีตัวหนังสือ */
+      --color-accent: #e8f0e4;    /* เขียวอ่อน - พื้นหลังไฮไลต์ */
+      --color-mustard: #d2743f;   /* ดินเผา - สีเน้น ยอดเงิน/ปุ่มสำคัญ */
+      --color-sand: #dfe6d8;      /* เส้นขอบ/เส้นแบ่งที่ใช้ซ้ำทั่วทั้งแอป */
+      --color-cream: #fbfaf4;     /* พื้นหลังหลักของหน้า */
+      --color-ink: #5b6559;       /* สีตัวหนังสือหลักบน body */
     }
 
     ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -386,7 +389,7 @@
       height: 2.75rem;
       border-radius: 999px;
       background: linear-gradient(to bottom, var(--color-primary), var(--color-secondary));
-      box-shadow: 0 6px 14px -6px rgba(21, 67, 96, .6);
+      box-shadow: 0 6px 14px -6px rgba(31, 77, 58, .6);
       transition: transform .44s cubic-bezier(0.34, 1.56, 0.64, 1),
                   width .44s cubic-bezier(0.34, 1.56, 0.64, 1);
       pointer-events: none;
@@ -412,7 +415,7 @@
       border-radius: 1rem;
       background: linear-gradient(135deg, var(--color-accent), var(--color-sand));
       border: 1px solid var(--color-sand);
-      box-shadow: 0 12px 26px -12px rgba(21, 67, 96, .75);
+      box-shadow: 0 12px 26px -12px rgba(31, 77, 58, .75);
     }
 
     /* ตัวเลขบนตะกร้าเด้งตอนของมาถึง
@@ -916,7 +919,7 @@
     /* แถวที่แตะสว่างวาบสั้นๆ ให้รู้ว่ากดโดน */
     .history-row-tap { animation: history-row-tap .28s ease-out; border-radius: 12px; }
     @keyframes history-row-tap {
-      0%   { background-color: #fff3d1; }
+      0%   { background-color: var(--color-accent); }
       100% { background-color: transparent; }
     }
 
@@ -1132,9 +1135,9 @@
     .set-search { flex: 1 1 200px; min-height: 44px; padding: 0 14px; border: 1px solid var(--color-sand); border-radius: 12px; background: #ffffff; font-family: inherit; font-size: 13px; font-weight: 700; color: var(--color-secondary); }
     .set-btn { min-height: 44px; padding: 0 16px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: none; border-radius: 12px; font-family: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; }
     .set-btn:active { transform: scale(.97); }
-    .set-btn-go { background: linear-gradient(to bottom, var(--color-primary), var(--color-secondary)); color: #ffffff; box-shadow: 0 2px 4px rgba(21,67,96,.25); }
+    .set-btn-go { background: linear-gradient(to bottom, var(--color-primary), var(--color-secondary)); color: #ffffff; box-shadow: 0 2px 4px rgba(31, 77, 58,.25); }
     .set-btn-ghost { background: #ffffff; border: 1px solid var(--color-sand); color: #64748b; }
-    .set-btn-soft { background: rgba(21,67,96,.1); color: var(--color-primary); }
+    .set-btn-soft { background: rgba(31, 77, 58,.1); color: var(--color-primary); }
     .set-btn-danger { background: #fef2f2; color: #ef4444; }
     .set-btn-warn { background: #fff7ed; color: #f97316; }
     .set-btn-sm { min-height: 38px; padding: 0 12px; font-size: 12px; border-radius: 999px; }
@@ -1254,7 +1257,7 @@
       display: flex;
       flex-direction: column;
     }
-    .cal-cell-blank { border-color: #f6f1e4; background: #fffdf5; }
+    .cal-cell-blank { border-color: var(--color-sand); background: var(--color-cream); }
     .cal-day { font-size: 10px; font-weight: 700; color: #94a3b8; }
     .cal-cell.has-sale .cal-day { color: var(--color-secondary); }
     .cal-total { margin-top: auto; font-size: 12px; font-weight: 900; color: var(--color-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1298,7 +1301,7 @@
     .set-check input[type="checkbox"] { width: 18px; height: 18px; border-radius: 5px; accent-color: var(--color-primary); flex: none; }
     .set-checkgrid { display: grid; grid-template-columns: 1fr; gap: 4px 16px; }
     .set-file { font-size: 12px; color: #64748b; }
-    .set-file::file-selector-button { margin-right: 10px; padding: 9px 12px; border: none; border-radius: 12px; background: rgba(21,67,96,.1); color: var(--color-primary); font-family: inherit; font-weight: 700; }
+    .set-file::file-selector-button { margin-right: 10px; padding: 9px 12px; border: none; border-radius: 12px; background: rgba(31, 77, 58,.1); color: var(--color-primary); font-family: inherit; font-weight: 700; }
     .set-spacer { flex: 1 1 auto; }
 
     @media (min-width: 1024px) {
@@ -1357,7 +1360,7 @@
       max-width: 300px;
       background: #fff;
       border-radius: 8px;
-      box-shadow: 0 2px 10px rgba(21, 67, 96, .12);
+      box-shadow: 0 2px 10px rgba(31, 77, 58, .12);
     }
     .set-save-note.is-dirty { color: var(--color-primary); font-weight: 800; }
 
@@ -1372,11 +1375,11 @@
       border: 1px solid var(--color-sand);
       border-radius: 16px;
       padding: 16px;
-      box-shadow: 0 1px 2px rgba(15, 53, 80, .05);
+      box-shadow: 0 1px 2px rgba(22, 56, 40, .05);
       cursor: pointer;
       transition: border-color .18s ease, box-shadow .18s ease, transform .12s ease;
     }
-    .pos-card:hover { border-color: color-mix(in srgb, var(--color-primary) 40%, transparent); box-shadow: 0 6px 14px -8px rgba(21, 67, 96, .45); }
+    .pos-card:hover { border-color: color-mix(in srgb, var(--color-primary) 40%, transparent); box-shadow: 0 6px 14px -8px rgba(31, 77, 58, .45); }
     .pos-card:active { transform: scale(.985); }
     .pos-card.is-stock { border: 2px solid #fbbf24; padding: 15px; }
     .pos-card.is-out { opacity: .55; }
