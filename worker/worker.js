@@ -23,12 +23,27 @@ const PUBLIC_HANDLERS = new Set([
   "submitPendingOrder", "getPendingOrderStatus", "uploadPaymentSlip", "cancelPendingOrder",
 ]);
 
-// CREATE TABLE 24 ตัวนี้ถูกเรียกทุก request (ทุก handler เรียกนำหน้าหมด) รันเรียงทีละอันกินเวลามาก
-// จนบางครั้งเกิน timeout ฝั่งเครื่อง แล้วเครื่องยิงซ้ำ = บิลซ้ำ จำไว้ว่ารันแล้วต่อ isolate พอ
-let extraTablesReady = false;
+// งานสร้าง/แก้โครงตารางทั้งหมดอยู่ที่นี่ที่เดียว และรันครั้งเดียวต่อ isolate
+// เดิม CREATE TABLE ถูกเรียกนำหน้าทุก handler รันเรียงทีละอันกินเวลามาก จนบางครั้งเกิน timeout ฝั่งเครื่อง
+// แล้วเครื่องยิงซ้ำ = บิลซ้ำ (จึงมีธงนี้) แต่ ALTER TABLE กับ CREATE INDEX ยังหลุดไปอยู่ในตัว handler
+// ยิงจริงทุก request และล้มทุกครั้งเพราะคอลัมน์มีอยู่แล้ว — ย้ายมารวมไว้ในรายการเดียวกันนี้
+//
+// เลขเวอร์ชันไว้ข้ามงานทั้งชุดตอน isolate ใหม่ตื่นมา: ถ้าเลขในฐานตรงกับที่นี่ = โครงตารางตรงแล้ว
+// เหลือคำสั่งเดียว (SELECT) แทนที่จะยิง 39 คำสั่ง เพิ่มตาราง/คอลัมน์เมื่อไรให้บวกเลขนี้ขึ้นหนึ่ง
+const SCHEMA_VERSION = "2026-08-28.1";
+let schemaReady = false;
 
-async function ensureExtraTables(env) {
-  if (extraTablesReady) return;
+async function ensureSchema(env) {
+  if (schemaReady) return;
+  try {
+    const row = await env.DB.prepare("SELECT value FROM shop_info WHERE key = 'schema_version'").first();
+    if (row && row.value === SCHEMA_VERSION) {
+      schemaReady = true;
+      return;
+    }
+  } catch (e) {
+    // ยังไม่มีตาราง shop_info (ฐานใหม่เอี่ยม) — ตกลงไปรันรายการเต็มข้างล่าง
+  }
   const stmts = [
     // ตารางหลัก 11 ตัว เดิมสร้างนอก repo ตรงๆ ไม่มี schema เก็บไว้เลย — กู้คืนโครงสร้างจาก repo อย่างเดียวไม่ได้ถ้า D1 หายทั้งฐาน
     // ก็อปมาจาก schema จริงบน production (sqlite_master) เป๊ะๆ ใส่ IF NOT EXISTS ไม่กระทบข้อมูลเดิม
@@ -57,28 +72,58 @@ async function ensureExtraTables(env) {
     "CREATE TABLE IF NOT EXISTS error_log (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, fn TEXT, message TEXT)",
     "CREATE TABLE IF NOT EXISTS change_log (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, actor TEXT, area TEXT, action TEXT, target TEXT, details TEXT)",
   ];
+
+  // คอลัมน์ที่เพิ่มทีหลัง: CREATE TABLE ข้างบนเป็น IF NOT EXISTS จึงไม่แตะตารางที่มีอยู่แล้ว
+  // ฐานที่สร้างไว้ก่อนหน้านี้ต้อง ALTER เพิ่มเอง ล้มได้ถ้ามีคอลัมน์แล้ว จึงห่อ try ทีละอัน
+  const addColumns = [
+    ["employees", "photo", "TEXT"],
+    ["inventory", "photo", "TEXT"],
+    ["inventory", "purchase_unit", "TEXT"],
+    ["inventory", "purchase_factor", "REAL"],
+    ["inventory", "purchase_price", "REAL"],
+    ["payments", "created_by", "TEXT"],
+    ["payments", "edited_by", "TEXT"],
+    ["payments", "edited_at", "TEXT"],
+    ["sales", "cancelled_by", "TEXT"],
+    ["pending_orders", "ready_at", "TEXT"],
+    ["pending_orders", "ready_by", "TEXT"],
+  ];
+
+  // idx_payments_invoice เป็น UNIQUE กันบิลซ้ำตอนซิงก์ออฟไลน์ อันอื่นเป็น index ธรรมดาไว้ค้นให้ไว
+  // sales(invoice) ใช้ตอนยกเลิก/คืนเงินรายบรรทัด, timestamp สองตัวไว้รองรับรายงานรายวัน
+  // pending_orders(status, created_at) คือคิวที่หน้าร้านถามทุก 8 วินาที
+  const indexes = [
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_invoice ON payments(invoice)",
+    "CREATE INDEX IF NOT EXISTS idx_sales_invoice ON sales(invoice)",
+    "CREATE INDEX IF NOT EXISTS idx_sales_timestamp ON sales(timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_payments_timestamp ON payments(timestamp)",
+    "CREATE INDEX IF NOT EXISTS idx_pending_orders_status ON pending_orders(status, created_at)",
+  ];
+
   for (const s of stmts) {
     await env.DB.prepare(s).run();
   }
-  extraTablesReady = true;
-}
-
-async function ensureColumn(env, table, column, type) {
-  try {
-    await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
-  } catch (e) {
-    // คอลัมน์มีอยู่แล้ว
+  for (const [table, column, type] of addColumns) {
+    try {
+      await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
+    } catch (e) {
+      // คอลัมน์มีอยู่แล้ว
+    }
   }
-}
-
-// สร้าง unique index แบบไม่พังถ้ามีอยู่แล้ว หรือถ้าข้อมูลเดิมยังซ้ำอยู่
-// CREATE TABLE ทุกอันเป็น IF NOT EXISTS จึงแก้ constraint ที่ schema เดิมไม่ได้ ต้องเพิ่ม index ทีหลังแบบนี้แทน
-async function ensureUniqueIndex(env, name, table, column) {
-  try {
-    await env.DB.prepare(`CREATE UNIQUE INDEX IF NOT EXISTS ${name} ON ${table}(${column})`).run();
-  } catch (e) {
-    // index มีอยู่แล้ว หรือข้อมูลเดิมยังซ้ำอยู่ (ต้องล้างซ้ำก่อนถึงจะสร้างได้)
+  for (const s of indexes) {
+    try {
+      await env.DB.prepare(s).run();
+    } catch (e) {
+      // index มีอยู่แล้ว หรือข้อมูลเดิมยังซ้ำอยู่จนสร้าง unique index ไม่ได้ (ต้องล้างซ้ำก่อน)
+    }
   }
+  try {
+    await env.DB.prepare("INSERT OR REPLACE INTO shop_info (key, value) VALUES ('schema_version', ?)")
+      .bind(SCHEMA_VERSION).run();
+  } catch (e) {
+    // เขียนเลขเวอร์ชันไม่ได้ = รอบหน้ารันรายการเต็มอีกครั้ง ไม่ใช่เรื่องคอขาดบาดตาย
+  }
+  schemaReady = true;
 }
 
 // ---- PIN hashing (salted SHA-256 via Web Crypto — identical logic duplicated in app.js) ----
@@ -108,8 +153,13 @@ async function verifyPinRecord(pin, record) {
   return (await hashPinWithSalt(pin, salt)) === hash;
 }
 // migrate เลข PIN ดิบเดิมเป็น hash ทีละแถว ปลอดภัยเรียกซ้ำได้ (ข้ามแถวที่ hash แล้ว)
+// PIN ที่ hash แล้วเก็บรูปแบบ "salt:hash" จึงคัดเฉพาะแถวที่ยังไม่มีเครื่องหมาย : ออกมา
+// ปกติได้ศูนย์แถว ไม่ต้องอ่านพนักงานทั้งตารางทุกครั้งที่มีคนกรอก PIN
+// ไม่แคชด้วยธงเหมือน schema เพราะ restoreBackup อาจกู้ backup เก่าที่ PIN ยังเป็นตัวเลขดิบกลับมา
 async function ensurePinsHashed(env) {
-  const r = await env.DB.prepare("SELECT id, pin FROM employees").all();
+  const r = await env.DB.prepare(
+    "SELECT id, pin FROM employees WHERE pin IS NOT NULL AND pin NOT LIKE '%:%'"
+  ).all();
   for (const row of r.results) {
     const pin = row.pin;
     if (isHashedPin(pin)) continue;
@@ -153,7 +203,6 @@ handlers.toggleSoldOut = async (env, args) => {
 };
 
 handlers.saveMenuItem = async (env, args) => {
-  await ensureExtraTables(env);
   const m = args[0] || {};
   const sku = String(m.sku || "").trim();
   const name = String(m.name || "").trim();
@@ -182,7 +231,6 @@ handlers.saveMenuItem = async (env, args) => {
 };
 
 handlers.deleteMenuItem = async (env, args) => {
-  await ensureExtraTables(env);
   const a0 = args[0];
   const isObj = a0 && typeof a0 === "object";
   const sku = isObj ? a0.sku : a0;
@@ -255,7 +303,6 @@ async function authorizeEmployee(env, employeeId, pin, opts) {
   opts = opts || {};
   if (!employeeId || !pin) return { ok: false, error: "กรุณายืนยันตัวตนก่อนทำรายการนี้" };
   await ensurePinsHashed(env);
-  await ensureExtraTables(env);
   const attempt = await env.DB.prepare("SELECT * FROM pin_attempts WHERE employee_id = ?").bind(employeeId).first();
   if (attempt && attempt.locked_until && new Date(attempt.locked_until) > new Date()) {
     const minutesLeft = Math.ceil((new Date(attempt.locked_until) - new Date()) / 60000);
@@ -348,8 +395,6 @@ handlers.getEmployeesForCache = async (env) => {
 };
 
 handlers.saveEmployee = async (env, args) => {
-  await ensureExtraTables(env);
-  await ensureColumn(env, "employees", "photo", "TEXT");
   await ensurePinsHashed(env);
   const emp = args[0] || {};
   const id = emp.id || "EMP-" + Date.now();
@@ -393,7 +438,6 @@ handlers.saveEmployee = async (env, args) => {
 };
 
 handlers.deleteEmployee = async (env, args) => {
-  await ensureExtraTables(env);
   const a0 = args[0];
   const isObj = a0 && typeof a0 === "object" && !Array.isArray(a0);
   const id = isObj ? a0.id : a0;
@@ -445,7 +489,6 @@ handlers.getPaymentMethods = async (env) => {
 };
 
 handlers.savePaymentMethod = async (env, args) => {
-  await ensureExtraTables(env);
   const pm = args[0];
   // ถ้าไม่ได้ส่ง id มา แปลว่าเป็นการเพิ่มใหม่ ต้องสร้าง id ให้ ไม่งั้นจะไปทับแถวที่ id ว่าง
   const id = pm.id || ("PM-" + Date.now());
@@ -475,7 +518,6 @@ handlers.savePaymentMethod = async (env, args) => {
 };
 
 handlers.deletePaymentMethod = async (env, args) => {
-  await ensureExtraTables(env);
   const a0 = args[0];
   const isObj = a0 && typeof a0 === "object";
   const id = isObj ? a0.id : a0;
@@ -488,7 +530,6 @@ handlers.deletePaymentMethod = async (env, args) => {
 };
 
 handlers.getSweetnessLevels = async (env) => {
-  await ensureExtraTables(env);
   const countR = await env.DB.prepare("SELECT COUNT(*) AS n FROM sweetness_levels").first();
   if (!countR || !countR.n) {
     // ร้านที่ยังไม่เคยตั้งค่า ให้ seed ค่าดั้งเดิม 4 แบบไว้ก่อน จะได้ไม่กระทบพฤติกรรมเดิม
@@ -503,7 +544,6 @@ handlers.getSweetnessLevels = async (env) => {
 };
 
 handlers.saveSweetnessLevel = async (env, args) => {
-  await ensureExtraTables(env);
   const sw = args[0] || {};
   const id = sw.id || ("SWT-" + Date.now());
   const existing = await env.DB.prepare("SELECT id FROM sweetness_levels WHERE id = ?").bind(id).first();
@@ -518,20 +558,17 @@ handlers.saveSweetnessLevel = async (env, args) => {
 };
 
 handlers.deleteSweetnessLevel = async (env, args) => {
-  await ensureExtraTables(env);
   const id = args[0];
   await env.DB.prepare("DELETE FROM sweetness_levels WHERE id = ?").bind(id).run();
   return { success: true };
 };
 
 handlers.getNotifications = async (env) => {
-  await ensureExtraTables(env);
   const r = await env.DB.prepare("SELECT * FROM notifications ORDER BY expires_at ASC").all();
   return r.results;
 };
 
 handlers.saveNotification = async (env, args) => {
-  await ensureExtraTables(env);
   const n = args[0] || {};
   const id = n.id || ("NOTIF-" + Date.now());
   const itemName = String(n.itemName || n.item_name || "").trim();
@@ -547,20 +584,17 @@ handlers.saveNotification = async (env, args) => {
 };
 
 handlers.deleteNotification = async (env, args) => {
-  await ensureExtraTables(env);
   const id = args[0];
   await env.DB.prepare("DELETE FROM notifications WHERE id = ?").bind(id).run();
   return { success: true };
 };
 
 handlers.getRecipes = async (env) => {
-  await ensureExtraTables(env);
   const r = await env.DB.prepare("SELECT * FROM recipes").all();
   return r.results;
 };
 
 handlers.saveRecipesForMenuItem = async (env, args) => {
-  await ensureExtraTables(env);
   const a = args[0] || {};
   const menuSku = String(a.menuSku || "").trim();
   if (!menuSku) return { success: false, error: "missing menuSku" };
@@ -615,9 +649,6 @@ async function deductRecipeStock(env, sku, saleQty, invoice) {
 }
 
 async function syncOfflineOrders(env, args) {
-  await ensureExtraTables(env);
-  await ensureColumn(env, "payments", "created_by", "TEXT");
-  await ensureUniqueIndex(env, "idx_payments_invoice", "payments", "invoice");
   const orders = Array.isArray(args[0]) ? args[0] : [args[0]];
   let count = 0;
   let skipped = 0;
@@ -690,7 +721,6 @@ async function updateOrderStatus(env, args) {
 
 
 async function cancelSalesItems(env, args) {
-  await ensureColumn(env, "sales", "cancelled_by", "TEXT");
   const a0 = args && args[0];
   const isObj = a0 && typeof a0 === "object" && !Array.isArray(a0);
   const invoice = isObj ? a0.invoice : a0;
@@ -743,7 +773,6 @@ async function cancelSalesItems(env, args) {
 // คืนเงินบางส่วน/เต็มจำนวนให้บิล โดยไม่แตะ sales/payments/สต๊อกเลย (ของยังถือว่าขายไปแล้วจริง แค่คืนเงินให้)
 // รองรับคืนเงินหลายครั้งต่อบิลได้ (เช่น คืน 10 บาทวันนี้ อีก 5 บาทวันหลัง) เก็บเป็นประวัติแยกแต่ละครั้ง
 async function refundOrder(env, args) {
-  await ensureExtraTables(env);
   const a0 = args && args[0];
   const isObj = a0 && typeof a0 === "object";
   const invoice = isObj ? a0.invoice : a0;
@@ -783,7 +812,6 @@ async function refundOrder(env, args) {
 // ถ้าปฏิเสธ/ลูกค้ายกเลิกเอง ก็ไม่มีการสร้างบิลจริงเลย
 
 async function submitPendingOrder(env, args) {
-  await ensureExtraTables(env);
   const a = args && args[0] || {};
   const items = Array.isArray(a.items) ? a.items : [];
   if (items.length === 0) return { success: false, error: "ไม่มีรายการสินค้า" };
@@ -800,7 +828,6 @@ async function submitPendingOrder(env, args) {
 }
 
 async function uploadPaymentSlip(env, args) {
-  await ensureExtraTables(env);
   const a = args && args[0] || {};
   const id = a.id;
   if (!id) return { success: false, error: "missing id" };
@@ -814,7 +841,6 @@ async function uploadPaymentSlip(env, args) {
 }
 
 async function cancelPendingOrder(env, args) {
-  await ensureExtraTables(env);
   const a0 = args && args[0];
   const id = a0 && typeof a0 === "object" ? a0.id : a0;
   if (!id) return { success: false, error: "missing id" };
@@ -877,7 +903,6 @@ async function countQueueAhead(env, createdAt) {
 }
 
 async function getPendingOrderStatus(env, args) {
-  await ensureExtraTables(env);
   const a0 = args && args[0];
   const id = a0 && typeof a0 === "object" ? a0.id : a0;
   const row = await env.DB.prepare(
@@ -909,9 +934,6 @@ async function getPendingOrderStatus(env, args) {
 }
 
 async function getPendingOrders(env, args) {
-  await ensureExtraTables(env);
-  await ensureColumn(env, "pending_orders", "ready_at", "TEXT");
-  await ensureColumn(env, "pending_orders", "ready_by", "TEXT");
   // ที่ยืนยันแล้วแต่ยังไม่กดเสร็จ ส่งให้เฉพาะเครื่องที่ขอมาเท่านั้น
   // เครื่องที่ยังใช้ app.js เวอร์ชันเก่า (แคชไว้) ไม่รู้จักสถานะ confirmed
   // ถ้าส่งไปด้วยมันจะเอาไปนับในกระดิ่งและโชว์ปุ่ม "ยืนยันออเดอร์" ให้กดซ้ำทั้งที่รับไปแล้ว
@@ -937,9 +959,6 @@ async function getPendingOrders(env, args) {
 
 // พนักงานกดเมื่อส่งเครื่องดื่มให้ลูกค้าแล้ว ออเดอร์จะหลุดออกจากคิวทันที
 async function markPendingOrderReady(env, args) {
-  await ensureExtraTables(env);
-  await ensureColumn(env, "pending_orders", "ready_at", "TEXT");
-  await ensureColumn(env, "pending_orders", "ready_by", "TEXT");
   const a = (args && args[0]) || {};
   if (!a.id) return { success: false, error: "missing id" };
   // เช็คแล้วอัปเดตในคำสั่งเดียว กันกดพร้อมกันสองเครื่องแบบเดียวกับตอนยืนยันออเดอร์
@@ -951,7 +970,6 @@ async function markPendingOrderReady(env, args) {
 }
 
 async function getOnlineOrderHistory(env) {
-  await ensureExtraTables(env);
   const r = await env.DB.prepare(
     "SELECT * FROM pending_orders WHERE status != 'pending' ORDER BY created_at DESC LIMIT 50"
   ).all();
@@ -970,7 +988,6 @@ async function getOnlineOrderHistory(env) {
 }
 
 async function confirmPendingOrder(env, args) {
-  await ensureExtraTables(env);
   const a = args && args[0] || {};
   const id = a.id;
   const user = a.user || "";
@@ -1009,7 +1026,6 @@ async function confirmPendingOrder(env, args) {
 }
 
 async function rejectPendingOrder(env, args) {
-  await ensureExtraTables(env);
   const a = args && args[0] || {};
   const id = a.id;
   const reason = a.reason || "";
@@ -1024,10 +1040,6 @@ async function rejectPendingOrder(env, args) {
 }
 
 async function posDataForDay(env, day) {
-  await ensureColumn(env, "payments", "created_by", "TEXT");
-  await ensureColumn(env, "payments", "edited_by", "TEXT");
-  await ensureColumn(env, "payments", "edited_at", "TEXT");
-  await ensureColumn(env, "sales", "cancelled_by", "TEXT");
   const today = day || bkkToday();
   const payR = await env.DB.prepare(
     "SELECT * FROM payments WHERE date(timestamp, '+7 hours') = ? ORDER BY id DESC"
@@ -1089,7 +1101,6 @@ async function posDataForDay(env, day) {
   history.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
   if (history.length > 0) {
-    await ensureExtraTables(env);
     const invoiceList = history.map((h) => h.invoice);
     const placeholders = invoiceList.map(() => "?").join(",");
     const refundR = await env.DB.prepare(
@@ -1235,7 +1246,6 @@ async function summaryByRange(env, start, end) {
     wasteCost += (costMap[s.sku] || 0) * Number(s.qty || 0);
   }
 
-  await ensureExtraTables(env);
   const refundR = await env.DB.prepare(
     "SELECT IFNULL(SUM(amount), 0) AS t FROM refunds WHERE date(created_at, '+7 hours') BETWEEN ? AND ?"
   ).bind(startDay, endDay).first();
@@ -1257,7 +1267,6 @@ handlers.getSummaryByRange = async (env, args) => {
 
 // สถิติวัน/เดือนขายดีที่สุดตลอดกาล รวมข้อมูลจาก archive_payments ด้วย (ไม่งั้นพอ archive ข้อมูลเก่าไป สถิติจะหายไปเงียบๆ)
 handlers.getSalesRecords = async (env) => {
-  await ensureExtraTables(env);
   const activeFilter = "(status IS NULL OR LOWER(status) NOT IN ('cancelled', 'waste'))";
   const dayR = await env.DB.prepare(`
     SELECT day, SUM(total) AS total FROM (
@@ -1366,13 +1375,11 @@ handlers.getAccessLogs = async (env) => {
 };
 
 handlers.getErrorLogs = async (env) => {
-  await ensureExtraTables(env);
   const r = await env.DB.prepare("SELECT * FROM error_log ORDER BY id DESC LIMIT 100").all();
   return r.results;
 };
 
 handlers.getChangeLogs = async (env) => {
-  await ensureExtraTables(env);
   const r = await env.DB.prepare("SELECT * FROM change_log ORDER BY id DESC LIMIT 200").all();
   return r.results;
 };
@@ -1406,7 +1413,6 @@ handlers.clearAccessLogs = async (env, args) => {
 };
 
 handlers.clearErrorLogs = async (env, args) => {
-  await ensureExtraTables(env);
   const a0 = (args && args[0]) || {};
   const auth = await authorizeEmployee(env, a0.employeeId, a0.pin, { ownerOnly: true });
   if (!auth.ok) return { success: false, error: auth.error };
@@ -1415,7 +1421,6 @@ handlers.clearErrorLogs = async (env, args) => {
 };
 
 handlers.clearChangeLogs = async (env, args) => {
-  await ensureExtraTables(env);
   const a0 = (args && args[0]) || {};
   const auth = await authorizeEmployee(env, a0.employeeId, a0.pin, { ownerOnly: true });
   if (!auth.ok) return { success: false, error: auth.error };
@@ -1424,7 +1429,6 @@ handlers.clearChangeLogs = async (env, args) => {
 };
 
 handlers.getBackupList = async (env) => {
-  await ensureExtraTables(env);
   const r = await env.DB.prepare("SELECT id, created_at, label FROM backups ORDER BY id DESC").all();
   return r.results;
 };
@@ -1444,7 +1448,6 @@ const BACKUP_TABLES = [
 // ตัวสร้าง backup จริง ไม่เช็คสิทธิ์ เพราะถูกเรียกจาก cron (ไม่มีผู้ใช้) และจากตอนกู้คืน (สำรองก่อนเขียนทับ)
 // ทางที่ผู้ใช้เรียกเข้ามาเองอยู่ที่ handlers.createBackup ด้านล่าง ตรงนั้นเช็ค PIN
 async function createBackupInternal(env, label) {
-  await ensureExtraTables(env);
   const data = {};
   for (const t of BACKUP_TABLES) {
     const r = await env.DB.prepare("SELECT * FROM " + t).all();
@@ -1456,7 +1459,6 @@ async function createBackupInternal(env, label) {
 }
 
 handlers.createBackup = async (env, args) => {
-  await ensureExtraTables(env);
   const a0 = args && args[0];
   // เครื่องเวอร์ชันเก่าส่ง label มาเป็นสตริงเปล่าๆ รับไว้ให้ไม่พัง แล้วปล่อยให้ตกด่านเช็ค PIN ตามปกติ
   const a = (a0 && typeof a0 === "object") ? a0 : { label: a0 };
@@ -1466,7 +1468,6 @@ handlers.createBackup = async (env, args) => {
 };
 
 handlers.getBackupData = async (env, args) => {
-  await ensureExtraTables(env);
   const a0 = args && args[0];
   const a = (a0 && typeof a0 === "object") ? a0 : { id: a0 };
   // ก้อน backup มีตาราง employees รวมอยู่ด้วย ใครถือ API_TOKEN เฉยๆ ไม่ควรดึงออกไปได้
@@ -1480,7 +1481,6 @@ handlers.getBackupData = async (env, args) => {
 // กู้คืนข้อมูลจาก backup กลับเข้าตารางจริง เขียนทับข้อมูลปัจจุบันในตารางที่ backup ไว้ทั้งหมด (ไม่แตะ log ต่างๆ)
 // สำรองสถานะปัจจุบันไว้ก่อนเขียนทับเสมอ กันพลาดกู้คืนผิดตัวแล้วย้อนกลับไม่ได้
 handlers.restoreBackup = async (env, args) => {
-  await ensureExtraTables(env);
   const a0 = (args && args[0]) || {};
   const auth = await authorizeEmployee(env, a0.employeeId, a0.pin, { ownerOnly: true });
   if (!auth.ok) return { success: false, error: auth.error };
@@ -1517,7 +1517,6 @@ handlers.restoreBackup = async (env, args) => {
 };
 
 handlers.deleteBackup = async (env, args) => {
-  await ensureExtraTables(env);
   const a0 = args && args[0];
   const isObj = a0 && typeof a0 === "object";
   const id = isObj ? a0.id : a0;
@@ -1529,7 +1528,6 @@ handlers.deleteBackup = async (env, args) => {
 };
 
 handlers.cleanupOldBackups = async (env) => {
-  await ensureExtraTables(env);
   const cutoff = new Date(Date.now() - 180 * 24 * 3600 * 1000).toISOString();
   await env.DB.prepare("DELETE FROM backups WHERE created_at < ?").bind(cutoff).run();
   return { success: true };
@@ -1539,7 +1537,6 @@ handlers.cleanupOldBackups = async (env) => {
 // ก็ต่อเมื่อ backup ล่าสุดผ่านไปแล้ว >= 30 วัน (หรือยังไม่เคยมี backup เลย)
 // ใช้การเทียบเวลาที่ผ่านไปแทน cron expression เพราะ cron ปกติกำหนด "ทุก 30 วัน" ตรงๆ ไม่ได้
 handlers.autoBackupIfDue = async (env) => {
-  await ensureExtraTables(env);
   const last = await env.DB.prepare("SELECT created_at FROM backups ORDER BY id DESC LIMIT 1").first();
   const dueMs = 30 * 24 * 3600 * 1000;
   if (!last || (Date.now() - new Date(last.created_at).getTime()) >= dueMs) {
@@ -1550,7 +1547,6 @@ handlers.autoBackupIfDue = async (env) => {
 };
 
 handlers.getArchiveList = async (env) => {
-  await ensureExtraTables(env);
   const r = await env.DB.prepare("SELECT id, created_at, range_start, range_end, note FROM archives ORDER BY id DESC").all();
   return r.results;
 };
@@ -1558,7 +1554,6 @@ handlers.getArchiveList = async (env) => {
 // เดิมรับ start/end ตรงๆ แต่หน้าเว็บ (manualArchiveNow) ไม่เคยส่ง start/end มาเลย ปุ่มจึงพังมาตลอด
 // เปลี่ยนเป็น auto-detect ปีเก่าที่มีข้อมูลอยู่ (เก่ากว่าปีปัจจุบันตามเวลาไทย) แล้ว archive ทีละปีให้เอง ตรงกับข้อความบนปุ่มที่สัญญาไว้
 handlers.archiveOldData = async (env, args) => {
-  await ensureExtraTables(env);
   const a = (args && args[0]) || {};
   const auth = await authorizeEmployee(env, a.employeeId, a.pin, { ownerOnly: true });
   if (!auth.ok) return { success: false, error: auth.error };
@@ -1625,11 +1620,7 @@ handlers.markPendingOrderReady = markPendingOrderReady;
 
 
 handlers.saveInventoryItem = async (env, args) => {
-  await ensureColumn(env, "inventory", "photo", "TEXT");
-  await ensureColumn(env, "inventory", "purchase_unit", "TEXT");
-  await ensureColumn(env, "inventory", "purchase_factor", "REAL");
   // ราคาซื้อต่อหนึ่งหน่วยที่ซื้อ (ต่อถุง/ขวด/แพ็ค) ใช้คำนวณต้นทุนวัตถุดิบต่อแก้วจากสูตร
-  await ensureColumn(env, "inventory", "purchase_price", "REAL");
   const it = args[0] || {};
   const name = String(it.name || "").trim();
   if (!name) return { success: false, error: "missing name" };
@@ -1667,8 +1658,6 @@ handlers.deleteInventoryItem = async (env, args) => {
 };
 
 handlers.updateOrderDetails = async (env, args) => {
-  await ensureColumn(env, "payments", "edited_by", "TEXT");
-  await ensureColumn(env, "payments", "edited_at", "TEXT");
   const a0 = args[0] || {};
   const invoice = a0.invoice;
   if (!invoice) return { success: false, error: "missing invoice" };
@@ -1752,12 +1741,14 @@ export default {
         if (!handler) {
           return json({ ok: false, error: "Unknown function: " + fn }, 400, origin);
         }
+        // โครงตารางถูกเช็คครั้งเดียวตรงนี้ ไม่ใช่ในตัว handler แต่ละอัน
+        // วางไว้หลังตรวจ token แล้ว คนที่ยิงมั่วโดยไม่มีกุญแจจะไม่ได้แตะฐานข้อมูลเลย
+        await ensureSchema(env);
         const result = await handler(env, args || []);
         return json({ ok: true, result }, 200, origin);
       } catch (err) {
         // บันทึกข้อผิดพลาดไว้ดูย้อนหลังใน Settings > Log ไม่ให้ตกหล่นเงียบๆ เหมือนเดิม
         try {
-          await ensureExtraTables(env);
           await env.DB.prepare("INSERT INTO error_log (created_at, fn, message) VALUES (?, ?, ?)")
             .bind(nowIso(), fn || "", String((err && err.message) || err)).run();
           if (Math.random() < 0.05) {
@@ -1774,6 +1765,6 @@ export default {
   // Cron Trigger ตั้งไว้แล้วใน wrangler.toml ("0 20 * * *" = 20:00 UTC = 03:00 เวลาไทย) deploy ผ่าน CI
   // โค้ดข้างในจะเช็คเองว่าถึงรอบ 30 วันหรือยัง
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(handlers.autoBackupIfDue(env));
+    ctx.waitUntil(ensureSchema(env).then(() => handlers.autoBackupIfDue(env)));
   },
 };
