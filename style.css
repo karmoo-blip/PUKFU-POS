@@ -955,6 +955,10 @@
     /* ===== หน้ายอดขาย (รวม Summary + Report เดิม) =====
        DOM ชุดเดียว สองหน้าตา: จอเล็กเป็นแผ่นเดียวคอลัมน์เดียวมีเส้นคั่น จอ lg ขึ้นไปแตกเป็นการ์ดสองคอลัมน์
        จุดตัด 1024px คือจุด lg ที่ทั้งแอปใช้อยู่แล้ว */
+    /* กฎที่เจาะจงด้วย id (เช่น #settings-panel-printer ที่ตั้งเป็น grid บนจอกว้าง) ชนะคลาส .hidden ของ Tailwind
+       ทำให้หน้าที่ควรถูกซ่อนโผล่ต่อท้ายหน้าที่เปิดอยู่ ต้องปิดให้ขาดตรงนี้จุดเดียว */
+    .settings-panel.hidden { display: none !important; }
+
     #settings-panel-sales {
       display: grid;
       /* ต้องกำหนดคอลัมน์ไว้ ไม่งั้นคอลัมน์เดียวจะกว้างตาม max-content ทะลุกรอบการ์ด
@@ -1381,7 +1385,6 @@
     }
     .pos-card:hover { border-color: color-mix(in srgb, var(--color-primary) 40%, transparent); box-shadow: 0 6px 14px -8px rgba(31, 77, 58, .45); }
     .pos-card:active { transform: scale(.985); }
-    .pos-card.is-stock { border: 2px solid #fbbf24; padding: 15px; }
     .pos-card.is-out { opacity: .55; }
 
     /* ช่องรูปเป็นสีครีมเรียบสีเดียวกันทุกแก้ว เมนูที่มีรูปจริงรูปจะทับช่องนี้ */
@@ -1417,9 +1420,6 @@
       transition: background-color .15s ease, color .15s ease;
     }
     .pos-card:hover .pos-add, .pos-card:active .pos-add { background: var(--color-primary); color: #fff; }
-    .pos-stock-tag { font-size: 13px; font-weight: 800; flex: none; }
-    .pos-stock-tag.on { color: #10b981; }
-    .pos-stock-tag.off { color: #ef4444; }
 
     /* ---- ตะกร้าแบบใบเสร็จ ---- */
     .pos-line { padding: 12px 0; border-bottom: 1px dashed #e7e0cd; }

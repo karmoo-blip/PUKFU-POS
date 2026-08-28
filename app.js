@@ -738,7 +738,6 @@
       serverHistory: [],    // ประวัติบิลจากส่วนกลาง
       
       soldOutItems: [],
-      isStockMode: false,
 
       isCartOpenMobile: false, // สถานะว่าตะกร้าเปิดอยู่ไหม
 
@@ -1215,20 +1214,6 @@
           window.addEventListener('resize', update);
         }
         update();
-      },
-
-      toggleStockMode() {
-        this.isStockMode = !this.isStockMode;
-
-        if (this.isStockMode) {
-          document.getElementById('stock-mode-alert').classList.remove('hidden');
-          this.switchView('pos');
-        } else {
-          document.getElementById('stock-mode-alert').classList.add('hidden');
-        }
-
-        this.renderStockPanel();
-        this.renderMenu();
       },
 
       updateCupUI() {
@@ -2274,7 +2259,7 @@
         if (tab === 'inventory') this.fetchInventory();
         if (tab === 'cost') this.initCostTab();
         if (tab === 'employees') this.fetchEmployeeList();
-        if (tab === 'stock') { this.renderStockPanel(); this.renderProductList(); }
+        if (tab === 'stock') this.renderProductList();
         if (tab === 'log') { this.switchLogView(this.currentLogView || 'access'); this.fetchAccessLog(); this.fetchErrorLogs(); this.fetchChangeLog(); }
         if (tab === 'addons') { this.renderAddonList(); this.fetchAddons(); }
         if (tab === 'sweetness') { this.renderSweetnessList(); this.fetchSweetnessLevels(); }
@@ -2663,21 +2648,6 @@
             </div>
           `;
         }).join('');
-      },
-
-      renderStockPanel() {
-        const label = document.getElementById('stock-status-label');
-        const btn = document.getElementById('btn-toggle-stock');
-        if (!label || !btn) return;
-        if (this.isStockMode) {
-          label.innerText = 'เปิดอยู่';
-          label.className = 'set-tag set-tag-warn';
-          btn.innerText = 'ปิดโหมดจัดการสต๊อก';
-        } else {
-          label.innerText = 'ปิดอยู่';
-          label.className = 'set-tag set-tag-mute';
-          btn.innerText = 'เปิดโหมดจัดการสต๊อก';
-        }
       },
 
       fetchEmployeeList() {
@@ -4990,9 +4960,7 @@ renderReport(r) {
           const staggerIdx = Math.min(gridIdx, 12);
           const isSoldOut = this.soldOutItems.includes(item.name);
 
-          const cls = 'pos-card'
-            + (this.isStockMode ? ' is-stock' : '')
-            + (isSoldOut && !this.isStockMode ? ' is-out' : '');
+          const cls = 'pos-card' + (isSoldOut ? ' is-out' : '');
 
           // แถวเตี้ย ป้าย SOLD OUT เอียงๆ ใบใหญ่ใส่ไม่ลง ใช้ป้ายเล็กทับช่องรูปกับราคาขีดฆ่าแทน
           const thumb = `<div class="pos-th"${item.image ? ` style="background-image:url('${escAttr(item.image)}')"` : ''}>
@@ -5000,9 +4968,7 @@ renderReport(r) {
               ${isSoldOut ? '<span class="pos-th-out">หมด</span>' : ''}
             </div>`;
 
-          const right = this.isStockMode
-            ? `<span class="pos-stock-tag ${isSoldOut ? 'off' : 'on'}">${isSoldOut ? 'หมด' : 'มีของ'}</span>`
-            : (isSoldOut ? '' : '<span class="pos-add">+</span>');
+          const right = isSoldOut ? '' : '<span class="pos-add">+</span>';
 
           return `
             <div onclick="Controller.selectProduct(${originalIdx})" class="${cls}" style="--i:${staggerIdx}" data-menu-idx="${originalIdx}">
@@ -5027,38 +4993,6 @@ renderReport(r) {
 
       selectProduct(idx) {
         const item = this.menuData[idx];
-
-        if (this.isStockMode) {
-          const currentlySoldOut = this.soldOutItems.includes(item.name);
-          const newStatus = !currentlySoldOut;
-
-          //  ส่งคำสั่งไปอัปเดตสถานะของหมดบน Google Sheet
-          this.setIndicator('syncing');
-          google.script.run
-            .withSuccessHandler(res => {
-              if (res.success) {
-                if (newStatus) {
-                  this.soldOutItems.push(item.name);
-                } else {
-                  this.soldOutItems = this.soldOutItems.filter(name => name !== item.name);
-                }
-                localStorage.setItem('pos_soldOut', JSON.stringify(this.soldOutItems));
-                // เดิมเรียก renderMenu() เฉยๆ ทำให้การ์ดทั้ง 12 ใบไล่กันขึ้นมาใหม่หมด เพราะป้าย "หมด" ใบเดียวเปลี่ยน
-                this.renderMenu({ noStagger: true });
-                this.setIndicator('synced');
-              } else {
-                this.setIndicator('error');
-                this.showAlert('อัปเดตสถานะสินค้าหมดล้มเหลว กรุณาลองใหม่', '');
-              }
-            })
-            .withFailureHandler(() => {
-              this.setIndicator('error');
-              this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ สถานะสินค้าหมดยังไม่ถูกบันทึก กรุณาลองใหม่', '');
-            })
-            .toggleSoldOut({ sku: item.sku, isSoldOut: newStatus });
-
-          return;
-        }
 
         if (this.soldOutItems.includes(item.name)) return; 
 
