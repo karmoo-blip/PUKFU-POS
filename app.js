@@ -722,7 +722,12 @@
     }
     const ReceiptPrinter = createPrinterConnection();
     const KitchenPrinter = createPrinterConnection();
-    
+
+    // ไอคอนแก้วเทาอันเดิม เก็บไว้เป็นตาข่ายรับ ถ้า drinkArt พังเพราะข้อมูลสินค้าแถวไหนแปลกๆ
+    // จะได้ยังเห็นแก้วเทา ไม่ใช่ช่องว่างทั้งกริด
+    const MENU_ART_FALLBACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l-1.2 11a2 2 0 0 1-2 1.8H9.2a2 2 0 0 1-2-1.8L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M9.5 12.5c1 .8 2 .8 3 0s2-.8 3 0"/></svg>';
+
+
     const Controller = {
       employees: [], // cache รายชื่อพนักงาน+PIN สำหรับเช็คสิทธิ์เข้า Settings แบบออฟไลน์
       menuData: [],
@@ -1166,15 +1171,21 @@
         // ปุ่มลงใน track ด้านใน ตัวชี้ที่เลื่อนได้อยู่นอก track จะได้ไม่โดน innerHTML ล้างทุกครั้ง
         const track = document.getElementById('menu-categories-track');
         if (!track) return;
-        track.innerHTML = this.categories.map(cat => {
+        track.innerHTML = this.categories.map((cat, j) => {
           const isActive = cat === this.activeCategory;
           // ปุ่มที่เลือกอยู่ทำพื้นใส ปล่อยให้ตัวชี้ที่เลื่อนมาเป็นพื้นหลังแทน
           const btnStyle = isActive
             ? 'is-active-cat text-white border border-transparent'
             : 'bg-white text-secondary border border-sand hover:bg-accent';
 
-          return `<button onclick="Controller.selectCategory('${cat}')" class="whitespace-nowrap px-5 min-h-[2.75rem] inline-flex items-center justify-center rounded-full font-bold text-sm transition-all active:scale-95 ${btnStyle}">${cat}</button>`;
+          return `<button onclick="Controller.selectCategory('${cat}')" style="--j:${j}" class="whitespace-nowrap px-5 min-h-[2.75rem] inline-flex items-center justify-center rounded-full font-bold text-sm transition-all active:scale-95 ${btnStyle}">${cat}</button>`;
         }).join('');
+        // ไล่ปุ่มขึ้นมาครั้งเดียวตอนวาดครั้งแรก ฟังก์ชันนี้ถูกเรียกใหม่ทุกครั้งที่กดเปลี่ยนหมวด
+        // ถ้าไม่กั้น ปุ่มจะไล่ใหม่ทุกครั้งที่กด และไปแย่งจังหวะกับตัวชี้ที่กำลังเลื่อน
+        if (!this._catStripShown) {
+          track.classList.add('cat-strip-in');
+          this._catStripShown = true;
+        }
         this.initScrollFade('menu-categories');
         this.moveCategoryIndicator();
       },
@@ -4950,6 +4961,74 @@ renderReport(r) {
           .archiveOldData({ employeeId: auth.employeeId, pin: auth.pin });
       },
 
+      /* ===== รูปแก้วที่วาดเอง สำหรับเมนูที่ยังไม่มีรูปถ่าย =====
+         เมนู 35 ตัวมีรูปจริงแค่ 12 อีก 23 ตัวเดิมใช้ไอคอนแก้วเทาอันเดียวกันหมด
+         เรียงกันแล้วเหมือนรูปโหลดไม่ขึ้นมากกว่าเหมือนตั้งใจออกแบบ
+
+         วาดเป็น SVG ที่ประกอบเป็นสตริงตรงนี้ ไม่ใช่ canvas และไม่ใช่ไฟล์ใหม่ เพราะ
+         - ไม่มีไฟล์ใหม่ = ไม่ต้องแก้ allowlist ใน deploy-pages.yml, APP_SHELL ใน sw.js, eslint.config.js
+         - เป็นสตริงล้วน ไม่เรียก DOM เลย จึงวิ่งผ่าน FakeEl ใน tests/till-animation.test.js ได้
+           (getContext ใน sandbox มีแค่ fillRect กับ drawImage ถ้าใช้ canvas จริงจะ throw กลางเทสต์)
+
+         สีมาจากชื่อเมนูเอง ไม่ใช่สุ่ม แก้วเดิมจึงได้รูปเดิมทุกเครื่องทุกครั้ง
+         ระดับน้ำกับหลอดมาจาก hash ของ sku เพื่อให้แก้วสีเดียวกันยังแยกออกจากกัน */
+      _artHash(s) {
+        let h = 0x811c9dc5;
+        for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+        return h >>> 0;
+      },
+
+      _artTint(item) {
+        const s = String(item.name || '') + ' ' + String(item.lang2 || '');
+        // ลำดับสำคัญ: เขียวต้องมาก่อนชา ไม่งั้นชาเขียวนมได้สีชา
+        if (/เขียว|green|matcha/i.test(s)) return '#6f8f4e';
+        if (/โกโก้|cocoa|มอคค่า|mocha|โอวัลติน|ovaltine/i.test(s)) return '#7a5137';
+        if (/แดง|red/i.test(s)) return '#a3566a';
+        if (/มะนาว|lime|เลมอน|lemon|ส้ม|orange|มะพร้าว|coconut/i.test(s)) return '#7f8a34';
+        if (/ลาเต้|latte|คาปูชิโน่|cappu/i.test(s)) return '#a8845c';
+        if (/นม|milk/i.test(s)) return '#9a7c4c';
+        if (/ชา|tea/i.test(s)) return '#b0763c';
+        return '#5f4430';
+      },
+
+      drinkArt(item) {
+        const s = String(item.name || '') + ' ' + String(item.lang2 || '');
+        const v = /ช็อต|shot/i.test(s) ? 'demi' : (/ร้อน|hot/i.test(s) ? 'mug' : 'cup');
+        const tint = this._artTint(item);
+        const h = this._artHash(String(item.sku || item.name || ''));
+
+        const BODY = {
+          cup:  'M11 13 L33 13 L30.4 37.2 Q30.2 39 28.4 39 L15.6 39 Q13.8 39 13.6 37.2 Z',
+          mug:  'M12 14 L30 14 L28.1 36.2 Q27.9 38 26.1 38 L15.9 38 Q14.1 38 13.9 36.2 Z',
+          demi: 'M14 19 L31 19 L29.3 34.2 Q29.1 36 27.3 36 L17.7 36 Q15.9 36 15.7 34.2 Z',
+        };
+        const TOP = { cup: 13, mug: 14, demi: 19 };
+        const BOT = { cup: 39, mug: 38, demi: 36 };
+
+        const top = TOP[v], bot = BOT[v];
+        const y = bot - (bot - top) * [0.58, 0.70, 0.80][h % 3];
+        // id ต้องปลอดภัยพอจะไปอยู่ใน url(#...) ด้วย sku ที่มีเว้นวรรคหรืออักขระแปลกๆ จะทำ clip พัง
+        const id = 'da' + String(item.sku || '').replace(/[^A-Za-z0-9_-]/g, '') + '-' + h;
+
+        let extra = '';
+        if (v === 'cup') {
+          extra += '<rect x="9.6" y="10.6" width="24.8" height="4.6" rx="2.3" fill="' + tint + '"/>';
+          if ((h >>> 4) % 2) extra += '<path d="M27.5 6.5 L23.4 14" stroke="' + tint + '" stroke-width="2.6" stroke-linecap="round"/>';
+        } else if (v === 'mug') {
+          extra += '<path d="M30 19 Q36.4 20 36.4 24.5 Q36.4 29 30 30" stroke="' + tint + '" stroke-width="2.6" stroke-linecap="round" fill="none"/>';
+        } else {
+          extra += '<rect x="12" y="37" width="20" height="3.4" rx="1.7" fill="' + tint + '"/>';
+        }
+
+        // ไม่มีอะไรจากข้อมูลสินค้าถูกใส่ลงใน SVG เลย มีแต่ตัวเลขกับสีจากตารางข้างบน
+        return '<svg class="pos-art" viewBox="0 0 44 44" fill="none" aria-hidden="true">'
+          + '<defs><clipPath id="' + escAttr(id) + '"><path d="' + BODY[v] + '"/></clipPath></defs>'
+          + '<path d="' + BODY[v] + '" fill="' + tint + '" opacity=".34"/>'
+          + '<g clip-path="url(#' + escAttr(id) + ')">'
+          + '<rect class="art-liquid" x="6" y="' + y.toFixed(1) + '" width="32" height="' + (bot - y + 1).toFixed(1) + '" fill="' + tint + '"/></g>'
+          + extra + '</svg>';
+      },
+
       renderMenu(opts) {
         const _o = opts || {};
         const grid = document.getElementById('menu-grid');
@@ -4968,8 +5047,15 @@ renderReport(r) {
           const cls = 'pos-card' + (isSoldOut ? ' is-out' : '');
 
           // แถวเตี้ย ป้าย SOLD OUT เอียงๆ ใบใหญ่ใส่ไม่ลง ใช้ป้ายเล็กทับช่องรูปกับราคาขีดฆ่าแทน
-          const thumb = `<div class="pos-th"${item.image ? ` style="background-image:url('${escAttr(item.image)}')"` : ''}>
-              ${item.image ? '' : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l-1.2 11a2 2 0 0 1-2 1.8H9.2a2 2 0 0 1-2-1.8L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M9.5 12.5c1 .8 2 .8 3 0s2-.8 3 0"/></svg>'}
+          // ลำดับ: รูปถ่ายจริง > รูปแก้วที่วาดให้ > ไอคอนแก้วเทาอันเดิม (ถ้า drinkArt พัง)
+          let inner;
+          if (item.image) {
+            inner = '';
+          } else {
+            try { inner = this.drinkArt(item); } catch (e) { inner = MENU_ART_FALLBACK; }
+          }
+          const thumb = `<div class="pos-th${item.image ? ' has-photo' : ''}"${item.image ? ` style="background-image:url('${escAttr(item.image)}')"` : ''}>
+              ${inner}
               ${isSoldOut ? '<span class="pos-th-out">หมด</span>' : ''}
             </div>`;
 
@@ -5315,8 +5401,8 @@ renderReport(r) {
         const btnShowHeld = document.getElementById('btn-show-held-orders');
 
         if (this.cart.length === 0) {
-           container.innerHTML = `<div class="flex flex-col items-center justify-center gap-2 my-auto text-slate-400">
-             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem" class="text-primary/15"><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.5 11h10L20 7H6"/></svg>
+           container.innerHTML = `<div class="cart-empty-in flex flex-col items-center justify-center gap-2 my-auto" style="color:var(--color-mute)">
+             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem;color:var(--color-line)"><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.5 11h10L20 7H6"/></svg>
              <span class="text-sm font-bold">ไม่มีสินค้าในตะกร้า</span>
            </div>`;
            if(btnHold) btnHold.classList.add('hidden');
@@ -5357,11 +5443,21 @@ renderReport(r) {
         }
         if (this.cart.length > 0) this.clearQueueChip();
 
-        document.getElementById('cart-total').innerText = `฿${total.toFixed(2)}`;
-        
-        const totalMobileEl = document.getElementById('cart-total-mobile');
-        if(totalMobileEl) totalMobileEl.innerText = `฿${total.toFixed(2)}`;
-        
+        // ยอดรวมกระตุกเบาๆ เฉพาะตอนตัวเลขเปลี่ยนจริง
+        // ต้องเทียบก่อนเขียน ไม่งั้นทุกครั้งที่ renderCart ถูกเรียกซ้ำด้วยยอดเดิมมันจะเด้งเปล่าๆ
+        const totalText = `฿${total.toFixed(2)}`;
+        const totalEls = [
+          document.getElementById('cart-total'),
+          document.getElementById('cart-total-mobile'),
+        ];
+        totalEls.forEach(el => {
+          if (!el) return;
+          const changed = el.innerText !== totalText;
+          el.innerText = totalText;
+          if (changed) this.replayClass(el, 'total-tick');
+        });
+
+
         const badge = document.getElementById('cart-badge-mobile');
         const totalItems = this.cart.reduce((s, i) => s + i.qty, 0);
         const cups = document.getElementById('cart-cups');
