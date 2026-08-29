@@ -37,6 +37,127 @@ function resizeImageBase64(file, maxWidth, mimeType, quality) {
   });
 }
 
+// ---- ข้อความทั้งหน้า สองภาษา ----
+// หน้านี้ลูกค้าทั่วไปเปิดเอง บางคนอ่านไทยไม่ออก ทุกข้อความที่เป็นของหน้าเว็บเองอยู่ในตารางนี้
+// ส่วนชื่อสินค้า/หมวด/ส่วนเสริม มาจากฐานข้อมูลร้าน (เมนูมีช่อง lang2 เป็นชื่ออังกฤษอยู่แล้ว)
+//
+// ข้อสำคัญ: โน้ตที่แนบไปกับออเดอร์ยังเป็นภาษาไทยเสมอ ไม่ว่าลูกค้าจะเลือกภาษาไหน
+// เพราะปลายทางคือหน้าจอพนักงานที่เคาน์เตอร์ ไม่ใช่ลูกค้า
+const ORDER_TEXT = {
+  th: {
+    tagline: 'สั่งอาหารได้เลย ไม่ต้องต่อคิว',
+    start: 'เริ่มสั่งอาหาร',
+    locPrefix: 'โต๊ะ/จุดรับ: ',
+    yourName: 'ชื่อผู้สั่ง',
+    namePlaceholder: 'เช่น คุณเอ',
+    catAll: 'ทั้งหมด',
+    catOther: 'อื่นๆ',
+    menuEmpty: 'ยังไม่มีเมนูให้สั่งตอนนี้',
+    itemsSuffix: ' รายการ',
+    viewCart: 'ดูตะกร้า',
+    sweetness: 'ความหวาน',
+    addons: 'ส่วนเสริม',
+    addonsHint: '(เลือกกี่อย่างก็ได้)',
+    noAddons: 'ไม่มีส่วนเสริม',
+    note: 'หมายเหตุ',
+    noteHint: '(ถ้ามี)',
+    notePlaceholder: 'เช่น แยกน้ำแข็ง, เพิ่มมุก...',
+    cancel: 'ยกเลิก',
+    addToCart: 'เพิ่มลงตะกร้า',
+    cartTitle: 'ตะกร้าของคุณ',
+    cartEmpty: 'ยังไม่มีสินค้าในตะกร้า',
+    total: 'รวม',
+    placeOrder: 'สั่งอาหาร',
+    needSweetness: 'กรุณาเลือกระดับความหวานก่อนครับ',
+    needName: 'กรุณาระบุชื่อผู้สั่งก่อนครับ',
+    cartEmptyAlert: 'ยังไม่มีสินค้าในตะกร้าเลยครับ',
+    statusSent: 'ส่งออเดอร์แล้ว รอร้านยืนยัน',
+    statusSentSub: 'ไม่ต้องปิดหน้านี้ สถานะจะอัปเดตเอง',
+    statusConfirmed: 'ร้านยืนยันออเดอร์แล้ว!',
+    statusMaking: 'กำลังเตรียมเครื่องดื่มให้ครับ',
+    statusReady: 'เครื่องดื่มพร้อมรับแล้ว',
+    statusCollect: 'รับที่เคาน์เตอร์ได้เลยครับ',
+    statusRejected: 'ร้านไม่สามารถรับออเดอร์นี้ได้',
+    statusCancelled: 'ยกเลิกออเดอร์แล้ว',
+    queueYourTurn: 'ถึงคิวคุณแล้ว กำลังทำให้อยู่ครับ',
+    queueAheadPre: 'มีอีก ',
+    queueAheadPost: ' คิวก่อนหน้าคุณ',
+    queueEtaPre: 'รออีกประมาณ ',
+    queueEtaPost: ' นาที',
+    summary: 'สรุปออเดอร์',
+    scanToPay: 'สแกนเพื่อชำระเงิน',
+    afterTransfer: 'โอนเงินแล้วอัพโหลดสลิปด้านล่างเพื่อแจ้งร้าน',
+    uploadSlip: 'อัพโหลดสลิปโอนเงิน',
+    slipSent: 'ส่งสลิปแล้ว รอร้านยืนยัน ✓',
+    cancelOrder: 'ยกเลิกออเดอร์',
+    confirmCancel: 'ต้องการยกเลิกออเดอร์นี้ใช่หรือไม่?',
+    backToMenu: 'กลับไปหน้าเมนู',
+    ok: 'ตกลง',
+    confirm: 'ยืนยัน',
+    loadFail: 'โหลดเมนูไม่สำเร็จ กรุณาลองรีเฟรชหน้าใหม่',
+    serverFail: 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ',
+    submitFail: 'ส่งออเดอร์ไม่สำเร็จ',
+    uploadFail: 'อัพโหลดสลิปไม่สำเร็จ',
+    cancelFail: 'ยกเลิกไม่สำเร็จ',
+  },
+  en: {
+    tagline: 'Order here. No queue.',
+    start: 'Start order',
+    locPrefix: 'Table / pickup: ',
+    yourName: 'Your name',
+    namePlaceholder: 'e.g. Alex',
+    catAll: 'All',
+    catOther: 'Other',
+    menuEmpty: 'Nothing on the menu right now',
+    itemsSuffix: ' items',
+    viewCart: 'View cart',
+    sweetness: 'Sweetness',
+    addons: 'Add-ons',
+    addonsHint: '(choose any)',
+    noAddons: 'No add-ons',
+    note: 'Note',
+    noteHint: '(optional)',
+    notePlaceholder: 'e.g. ice on the side, extra pearls...',
+    cancel: 'Cancel',
+    addToCart: 'Add to cart',
+    cartTitle: 'Your cart',
+    cartEmpty: 'Your cart is empty',
+    total: 'Total',
+    placeOrder: 'Place order',
+    needSweetness: 'Please choose a sweetness level first',
+    needName: 'Please enter your name first',
+    cartEmptyAlert: 'Your cart is empty',
+    statusSent: 'Order sent. Waiting for the shop',
+    statusSentSub: 'Keep this page open, it updates itself',
+    statusConfirmed: 'The shop confirmed your order',
+    statusMaking: 'Your drinks are being made',
+    statusReady: 'Your order is ready',
+    statusCollect: 'Collect it at the counter',
+    statusRejected: 'The shop could not take this order',
+    statusCancelled: 'Order cancelled',
+    queueYourTurn: "You're next. Making it now",
+    queueAheadPre: '',
+    queueAheadPost: ' orders ahead of you',
+    queueEtaPre: 'About ',
+    queueEtaPost: ' min to wait',
+    summary: 'Your order',
+    scanToPay: 'Scan to pay',
+    afterTransfer: 'After paying, upload the slip below so the shop knows',
+    uploadSlip: 'Upload payment slip',
+    slipSent: 'Slip sent. Waiting for the shop ✓',
+    cancelOrder: 'Cancel order',
+    confirmCancel: 'Cancel this order?',
+    backToMenu: 'Back to the menu',
+    ok: 'OK',
+    confirm: 'Confirm',
+    loadFail: 'Could not load the menu. Please refresh the page',
+    serverFail: 'Could not reach the shop. Please try again',
+    submitFail: 'Could not send your order',
+    uploadFail: 'Could not upload the slip',
+    cancelFail: 'Could not cancel the order',
+  },
+};
+
 // ---- รูปอาหารสำหรับหน้าต้อนรับ ----
 // วาดด้วย path ล้วน ไม่โหลดรูปจากที่ไหน หน้านี้ลูกค้าเปิดผ่าน 4G กลางร้าน ยิ่งไฟล์น้อยยิ่งดี
 // สีทุกตัวมาจากชุดสีเดียวกับ style.css (เขียนตรงๆ เพราะ canvas อ่าน CSS variable ไม่ได้)
@@ -144,20 +265,25 @@ const OrderPage = {
   // หน้าต้อนรับ: Promise ของการโหลดเมนู กับตัวจับ requestAnimationFrame ไว้สั่งหยุด
   _dataReady: null,
   _dataLoaded: false,
+  // 'th' หรือ 'en' — เดาจากภาษาเครื่องครั้งแรก หลังจากนั้นจำที่ลูกค้าเลือกไว้
+  lang: 'th',
   _welcomeRaf: null,
   _welcomeResize: null,
 
   async init() {
     const params = new URLSearchParams(location.search);
     this.location = (params.get('loc') || '').trim();
+
+    // เลือกภาษาก่อนวาดอะไรทั้งนั้น ลูกค้าจะได้ไม่เห็นภาษาไทยวาบแล้วค่อยเปลี่ยนเป็นอังกฤษ
+    this.lang = this.detectLang();
+
     const badge = document.getElementById('order-location-badge');
     if (this.location) {
-      badge.innerText = 'โต๊ะ/จุดรับ: ' + this.location;
       badge.classList.remove('hidden');
       const welcomeLoc = document.getElementById('welcome-location');
-      welcomeLoc.innerText = 'โต๊ะ/จุดรับ: ' + this.location;
       welcomeLoc.classList.remove('hidden');
     }
+    this.applyLang();
 
     // หน้าต้อนรับขึ้นอยู่แล้วตั้งแต่ HTML แค่เริ่มอนิเมชัน แล้วโหลดเมนูอยู่ข้างหลังมัน
     // ไม่ต้องโชว์วงกลมหมุนซ้อน หน้าต้อนรับทำหน้าที่ปิดช่วงรอให้แล้ว
@@ -189,7 +315,7 @@ const OrderPage = {
       this.renderCategories();
       this.renderMenu();
     } catch (e) {
-      this.showAlert('โหลดเมนูไม่สำเร็จ กรุณาลองรีเฟรชหน้าใหม่: ' + e.message, '', 'warning');
+      this.showAlert(this.t('loadFail') + ': ' + e.message, '', 'warning');
     }
     this._dataLoaded = true;
   },
@@ -227,6 +353,7 @@ const OrderPage = {
   },
 
   extractCategories() {
+    // คีย์ยังเป็นไทยเสมอ (ตรงกับค่าที่เก็บในฐาน) ที่แปลคือตอนโชว์เท่านั้น
     const set = new Set(this.menuData.map(m => m.category || 'อื่นๆ'));
     this.categories = ['All', ...set];
   },
@@ -242,7 +369,7 @@ const OrderPage = {
       const style = isActive
         ? 'is-active-cat text-white border border-transparent'
         : 'bg-white text-secondary border border-sand';
-      return `<button onclick="OrderPage.selectCategory('${escAttr(cat)}')" class="whitespace-nowrap px-5 min-h-[2.75rem] inline-flex items-center justify-center rounded-full font-bold text-sm active:scale-95 transition-all ${style}">${escHtml(cat)}</button>`;
+      return `<button onclick="OrderPage.selectCategory('${escAttr(cat)}')" class="whitespace-nowrap px-5 min-h-[2.75rem] inline-flex items-center justify-center rounded-full font-bold text-sm active:scale-95 transition-all ${style}">${escHtml(this.categoryLabel(cat))}</button>`;
     }).join('');
     this.moveCatIndicator();
   },
@@ -288,7 +415,7 @@ const OrderPage = {
             }
           </div>
           <div class="p-3 flex flex-col justify-between flex-1">
-            <p class="font-bold text-secondary text-sm leading-tight line-clamp-2">${escHtml(item.name)}</p>
+            <p class="font-bold text-secondary text-sm leading-tight line-clamp-2">${escHtml(this.menuName(item))}</p>
             <div class="flex justify-between items-center mt-2 pt-2 border-t border-sand">
               <p class="text-primary font-black">฿${item.price}</p>
               <div class="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">+</div>
@@ -307,7 +434,8 @@ const OrderPage = {
   selectProduct(idx) {
     this.activeProduct = this.menuData[idx];
     this.selectedAddons = [];
-    document.getElementById('modal-product-name').innerText = this.activeProduct.name;
+    this._selectedSweetnessId = null;
+    document.getElementById('modal-product-name').innerText = this.menuName(this.activeProduct);
     document.getElementById('modal-note').value = '';
     this.updateSweetnessButtons();
     this.updateAddonButtons();
@@ -316,9 +444,16 @@ const OrderPage = {
 
   updateSweetnessButtons() {
     const container = document.getElementById('modal-sweetness-container');
-    container.innerHTML = this.sweetnessLevels.map(sw =>
-      `<button class="mod-btn border border-sand px-4 min-h-[2.75rem] inline-flex items-center justify-center rounded-full text-sm font-bold text-slate-500 active:scale-95 transition-all" onclick="OrderPage.selectSweetness(this)">${escHtml(sw.name)}</button>`
-    ).join('');
+    // เก็บ id ไว้บนปุ่ม เพราะโน้ตที่ส่งขึ้นบิลต้องใช้ชื่อไทยเสมอ ไม่ใช่ตัวหนังสือที่โชว์อยู่
+    const selectedId = this._selectedSweetnessId;
+    container.innerHTML = this.sweetnessLevels.map(sw => {
+      const on = sw.id === selectedId;
+      const cls = on
+        ? 'bg-gradient-to-b from-primary to-secondary text-white border-primary'
+        : 'border-sand text-slate-500';
+      const mark = on ? ' data-selected="true"' : '';
+      return `<button class="mod-btn border px-4 min-h-[2.75rem] inline-flex items-center justify-center rounded-full text-sm font-bold active:scale-95 transition-all ${cls}"${mark} data-sw-id="${escAttr(sw.id)}" onclick="OrderPage.selectSweetness(this)">${escHtml(this.sweetnessLabel(sw))}</button>`;
+    }).join('');
   },
 
   selectSweetness(btn) {
@@ -330,19 +465,21 @@ const OrderPage = {
     btn.classList.remove('text-slate-500', 'border-slate-200');
     btn.classList.add('bg-gradient-to-b', 'from-primary', 'to-secondary', 'text-white', 'border-primary');
     btn.setAttribute('data-selected', 'true');
+    // จำไว้ด้วย ไม่งั้นสลับภาษาแล้วปุ่มที่เลือกไว้หลุด
+    this._selectedSweetnessId = btn.getAttribute('data-sw-id');
   },
 
   updateAddonButtons() {
     const container = document.getElementById('modal-addons-container');
     const active = this.addons.filter(a => a.active);
     if (active.length === 0) {
-      container.innerHTML = '<p class="text-slate-400 text-sm">ไม่มีส่วนเสริม</p>';
+      container.innerHTML = '<p class="text-slate-400 text-sm">' + escHtml(this.t('noAddons')) + '</p>';
       return;
     }
     container.innerHTML = active.map(addon => {
       const isSelected = this.selectedAddons.some(a => a.id === addon.id);
       const cls = isSelected ? 'bg-gradient-to-b from-primary to-secondary text-white border-primary' : 'border-sand text-slate-500';
-      const priceDisplay = addon.price >= 0 ? `+฿${addon.price}` : `-฿${Math.abs(addon.price)}`;
+      const priceDisplay = this.addonPrice(addon);
       return `<button onclick="OrderPage.toggleAddon('${addon.id}')" class="border px-4 min-h-[2.75rem] inline-flex items-center justify-center rounded-full text-sm font-bold active:scale-95 transition-all ${cls}">${escHtml(addon.name)} (${priceDisplay})</button>`;
     }).join('');
   },
@@ -360,15 +497,17 @@ const OrderPage = {
 
   async addToCartFromModal() {
     const selectedBtn = document.querySelector('.mod-btn[data-selected="true"]');
-    if (!selectedBtn) return this.showAlert('กรุณาเลือกระดับความหวานก่อนครับ', '', 'warning');
-    const sweetness = selectedBtn.innerText;
+    if (!selectedBtn) return this.showAlert(this.t('needSweetness'), '', 'warning');
+    const swId = selectedBtn.getAttribute('data-sw-id');
+    const sw = this.sweetnessLevels.find(x => x.id === swId);
+    // ชื่อไทยเท่านั้นที่ลงบิล ปลายทางคือจอพนักงาน ไม่ใช่ลูกค้า
+    const sweetness = sw ? sw.name : selectedBtn.innerText;
     const textNote = document.getElementById('modal-note').value.trim();
 
     let finalNote = `ความหวาน: ${sweetness}`;
     let additionalPrice = 0;
     this.selectedAddons.forEach(addon => {
-      const priceDisplay = addon.price >= 0 ? `+฿${addon.price}` : `-฿${Math.abs(addon.price)}`;
-      finalNote += ` | ${addon.name} (${priceDisplay})`;
+      finalNote += ` | ${addon.name} (${this.addonPrice(addon)})`;
       additionalPrice += addon.price;
     });
     if (textNote) finalNote += ` | ${textNote}`;
@@ -377,12 +516,131 @@ const OrderPage = {
     this.cart.push({
       sku: this.activeProduct.sku, name: this.activeProduct.name,
       price: finalPrice, qty: 1, note: finalNote,
+      // ชิ้นส่วนของโน้ต เอาไว้ประกอบข้อความให้ลูกค้าอ่านใหม่ตอนสลับภาษา
+      opts: {
+        sweetnessId: swId, sweetnessName: sweetness,
+        addonIds: this.selectedAddons.map(a => a.id), text: textNote,
+      },
     });
     // ลำดับสำคัญ: โชว์แถบตะกร้าก่อน (ไม่งั้นวัดตำแหน่งปลายทางไม่ได้)
     // แล้วค่อยยิงของลอยตอนหน้าต่างสินค้ายังเปิดอยู่ (closeModal ใช้ display:none วัดขนาดไม่ได้อีก)
     this.renderCartBar({ bump: true });
     this.flyToCart(document.getElementById('modal-product'));
     this.closeModal('modal-product');
+    this._selectedSweetnessId = null;
+  },
+
+  // ---- ภาษา ----
+
+  t(key) {
+    const table = ORDER_TEXT[this.lang] || ORDER_TEXT.th;
+    // คีย์ที่ยังไม่ได้แปลให้ตกกลับไปใช้ไทย ดีกว่าโชว์ชื่อคีย์ให้ลูกค้าเห็น
+    return table[key] !== undefined ? table[key] : (ORDER_TEXT.th[key] !== undefined ? ORDER_TEXT.th[key] : key);
+  },
+
+  // เครื่องที่ตั้งภาษาไทยเปิดมาเป็นไทย เครื่องอื่นเปิดมาเป็นอังกฤษ
+  // แต่ถ้าเคยกดเลือกเองแล้ว ความจำนั้นชนะการเดาเสมอ
+  detectLang() {
+    try {
+      const saved = localStorage.getItem('pukfu_order_lang');
+      if (saved === 'th' || saved === 'en') return saved;
+    } catch (e) { /* โหมดส่วนตัวอ่าน localStorage ไม่ได้ ไม่เป็นไร */ }
+    const nav = typeof navigator === 'undefined' ? '' :
+      ((navigator.languages && navigator.languages[0]) || navigator.language || '');
+    return /^th\b|^th-/i.test(String(nav)) ? 'th' : 'en';
+  },
+
+  setLang(lang) {
+    this.lang = lang === 'en' ? 'en' : 'th';
+    try { localStorage.setItem('pukfu_order_lang', this.lang); } catch (e) { /* ไม่จำก็ยังใช้ได้ */ }
+    if (document.documentElement) document.documentElement.lang = this.lang;
+    this.applyLang();
+  },
+
+  // วาดทุกอย่างที่มีตัวหนังสือใหม่ทั้งหน้า ลูกค้ากดสลับภาษาตอนไหนของขั้นตอนก็ได้
+  applyLang() {
+    const all = document.querySelectorAll('[data-i18n]');
+    Array.prototype.forEach.call(all, el => { el.innerText = this.t(el.getAttribute('data-i18n')); });
+
+    const phs = document.querySelectorAll('[data-i18n-ph]');
+    Array.prototype.forEach.call(phs, el => { el.placeholder = this.t(el.getAttribute('data-i18n-ph')); });
+
+    const pills = document.querySelectorAll('[data-lang-btn]');
+    Array.prototype.forEach.call(pills, el => {
+      const on = el.getAttribute('data-lang-btn') === this.lang;
+      el.classList.toggle('is-lang-on', on);
+    });
+
+    if (this.location) {
+      const badge = document.getElementById('order-location-badge');
+      if (badge) badge.innerText = this.t('locPrefix') + this.location;
+      const welcomeLoc = document.getElementById('welcome-location');
+      if (welcomeLoc) welcomeLoc.innerText = this.t('locPrefix') + this.location;
+    }
+
+    // ส่วนที่วาดจาก JS ไม่มี data-i18n ให้เกาะ ต้องสั่งวาดใหม่เอง
+    if (this._dataLoaded) {
+      this.renderCategories();
+      this.renderMenu();
+      this.renderCartBar();
+      if (this.activeProduct) {
+        const nameEl = document.getElementById('modal-product-name');
+        if (nameEl) nameEl.innerText = this.menuName(this.activeProduct);
+        this.updateSweetnessButtons();
+        this.updateAddonButtons();
+      }
+    }
+    this.renderCartItems();
+    if (this.currentOrderId) {
+      this.renderOrderSummary();
+      if (this._lastStatus) {
+        const keep = this._lastStatus;
+        this._lastStatus = null;   // วาดข้อความใหม่ได้ แต่อย่าเล่นอนิเมชันฉลองซ้ำ
+        this.applyStatus(keep, '', null);
+      }
+    }
+  },
+
+  // ชื่อสินค้าภาษาอังกฤษอยู่ในช่อง lang2 ของเมนู ร้านกรอกไว้แล้วทุกตัว
+  // ตัวไหนไม่ได้กรอกให้โชว์ชื่อไทยไปก่อน ดีกว่าโชว์ช่องว่าง
+  menuName(item) {
+    if (!item) return '';
+    return this.lang === 'en' && item.lang2 ? item.lang2 : item.name;
+  },
+
+  // แถวในตะกร้าเก็บชื่อไทยไว้ส่งขึ้นบิล ตอนโชว์จึงต้องไปหยิบชื่อตามภาษาจากเมนูอีกที
+  cartLineName(line) {
+    const m = this.menuData.find(x => x.sku === line.sku);
+    return m ? this.menuName(m) : line.name;
+  },
+
+  categoryLabel(cat) {
+    if (cat === 'All') return this.t('catAll');
+    if (cat === 'อื่นๆ') return this.t('catOther');
+    return cat;
+  },
+
+  sweetnessLabel(sw) {
+    if (!sw) return '';
+    return this.lang === 'en' && sw.lang2 ? sw.lang2 : sw.name;
+  },
+
+  addonPrice(addon) {
+    return addon.price >= 0 ? '+฿' + addon.price : '-฿' + Math.abs(addon.price);
+  },
+
+  // โน้ตที่ส่งไปครัวเป็นไทยเสมอ อันนี้คือฉบับที่ลูกค้าอ่านเองในตะกร้า
+  cartNoteDisplay(line) {
+    const o = line.opts;
+    if (!o) return line.note || '-';
+    const sw = this.sweetnessLevels.find(x => x.id === o.sweetnessId);
+    const parts = [this.t('sweetness') + ': ' + (sw ? this.sweetnessLabel(sw) : o.sweetnessName)];
+    (o.addonIds || []).forEach(id => {
+      const addon = this.addons.find(a => a.id === id);
+      if (addon) parts.push(addon.name + ' (' + this.addonPrice(addon) + ')');
+    });
+    if (o.text) parts.push(o.text);
+    return parts.join(' | ');
   },
 
   // ---- หน้าต้อนรับ ----
@@ -551,7 +809,7 @@ const OrderPage = {
     }
 
     const bumpCls = o.bump ? ' class="cart-qty-pop"' : '';
-    document.getElementById('order-cart-count').innerHTML = `<span${bumpCls}>${count}</span> รายการ`;
+    document.getElementById('order-cart-count').innerHTML = `<span${bumpCls}>${count}</span>${escHtml(this.t('itemsSuffix'))}`;
     document.getElementById('order-cart-total').innerHTML = `<span${bumpCls}>฿${total.toFixed(2)}</span>`;
   },
 
@@ -567,13 +825,13 @@ const OrderPage = {
     const container = document.getElementById('order-cart-items');
     const total = this.cart.reduce((s, i) => s + i.qty * i.price, 0);
     if (this.cart.length === 0) {
-      container.innerHTML = '<p class="text-center text-slate-400 py-6">ยังไม่มีสินค้าในตะกร้า</p>';
+      container.innerHTML = '<p class="text-center text-slate-400 py-6">' + escHtml(this.t('cartEmpty')) + '</p>';
     } else {
       container.innerHTML = this.cart.map((item, idx) => `
         <div data-cart-idx="${idx}" class="flex justify-between items-start bg-white p-3 rounded-2xl border border-sand shadow-sm gap-2">
           <div class="flex-1 min-w-0">
-            <p class="font-bold text-sm text-secondary truncate">${escHtml(item.name)}</p>
-            <p class="text-xs text-slate-400 mt-0.5">${escHtml(item.note || '-')}</p>
+            <p class="font-bold text-sm text-secondary truncate">${escHtml(this.cartLineName(item))}</p>
+            <p class="text-xs text-slate-400 mt-0.5">${escHtml(this.cartNoteDisplay(item))}</p>
             <p class="font-black text-sm text-primary mt-1">฿${(item.price * item.qty).toFixed(2)}</p>
           </div>
           <div class="flex flex-col items-end gap-2 shrink-0">
@@ -616,8 +874,8 @@ const OrderPage = {
     // กันกดรัว เลข PEND- ถูกสร้างฝั่งเซิร์ฟเวอร์ กดสองทีได้ออเดอร์คนละใบ แล้วร้านยืนยันเป็นบิลจริงได้ทั้งคู่
     if (this.isSubmittingOrder) return;
     const name = document.getElementById('customer-name-input').value.trim();
-    if (!name) return this.showAlert('กรุณาระบุชื่อผู้สั่งก่อนครับ', '', 'warning');
-    if (this.cart.length === 0) return this.showAlert('ยังไม่มีสินค้าในตะกร้าเลยครับ', '', 'warning');
+    if (!name) return this.showAlert(this.t('needName'), '', 'warning');
+    if (this.cart.length === 0) return this.showAlert(this.t('cartEmptyAlert'), '', 'warning');
 
     this.isSubmittingOrder = true;
     const submitBtn = document.getElementById('btn-place-order');
@@ -635,7 +893,7 @@ const OrderPage = {
       this.hideLoading();
       if (!result.success) {
         release();
-        return this.showAlert(result.error || 'ส่งออเดอร์ไม่สำเร็จ', '', 'warning');
+        return this.showAlert(result.error || this.t('submitFail'), '', 'warning');
       }
       this.currentOrderId = result.id;
       this.saveOrderId(result.id);
@@ -646,7 +904,7 @@ const OrderPage = {
     } catch (e) {
       this.hideLoading();
       release();
-      this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ: ' + e.message, '', 'warning');
+      this.showAlert(this.t('serverFail') + ': ' + e.message, '', 'warning');
     }
   },
 
@@ -660,13 +918,13 @@ const OrderPage = {
     const icon = document.getElementById('submitted-status-icon');
     icon.className = 'w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-amber-100 text-amber-500';
     icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:2rem;height:2rem"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>';
-    document.getElementById('submitted-status-text').innerText = 'ส่งออเดอร์แล้ว รอร้านยืนยัน';
-    document.getElementById('submitted-status-sub').innerText = '';
+    document.getElementById('submitted-status-text').innerText = this.t('statusSent');
+    document.getElementById('submitted-status-sub').innerText = this.t('statusSentSub');
     document.getElementById('btn-cancel-order').classList.remove('hidden');
     const uploadBtn = document.getElementById('btn-upload-slip');
     uploadBtn.classList.remove('hidden');
     uploadBtn.disabled = false;
-    uploadBtn.innerText = 'อัพโหลดสลิปโอนเงิน';
+    uploadBtn.innerText = this.t('uploadSlip');
     document.getElementById('submitted-payment-box').classList.add('hidden');
 
     // กลับเข้ามาใหม่หลังรีเฟรช ตะกร้าว่างแล้ว ซ่อนกล่องสรุปไปเลยดีกว่าโชว์กล่องเปล่า
@@ -677,19 +935,7 @@ const OrderPage = {
       summaryBox.classList.remove('hidden');
     }
 
-    const total = this.cart.reduce((s, i) => s + i.qty * i.price, 0);
-    summaryBox.innerHTML = `
-      <p class="font-bold text-secondary mb-3">สรุปออเดอร์</p>
-      ${this.cart.map(i => `
-        <div class="flex justify-between text-sm mb-2">
-          <span class="text-slate-600">${i.qty}x ${escHtml(i.name)}</span>
-          <span class="font-bold text-secondary">฿${(i.qty * i.price).toFixed(2)}</span>
-        </div>
-      `).join('')}
-      <div class="flex justify-between font-black text-lg mt-3 pt-3 border-t border-sand">
-        <span>รวม</span><span class="text-primary">฿${total.toFixed(2)}</span>
-      </div>
-    `;
+    this.renderOrderSummary();
     if (this.shopInfo && this.shopInfo.paymentQrImage) {
       document.getElementById('submitted-payment-qr').src = this.shopInfo.paymentQrImage;
       document.getElementById('submitted-payment-box').classList.remove('hidden');
@@ -699,6 +945,25 @@ const OrderPage = {
     view.classList.remove('view-enter');
     void view.offsetWidth;
     view.classList.add('view-enter');
+  },
+
+  // แยกออกมาเพราะต้องวาดใหม่ทุกครั้งที่ลูกค้าสลับภาษา ไม่ใช่แค่ตอนเข้าหน้านี้ครั้งแรก
+  renderOrderSummary() {
+    const summaryBox = document.getElementById('submitted-order-summary');
+    if (!summaryBox) return;
+    const total = this.cart.reduce((s, i) => s + i.qty * i.price, 0);
+    summaryBox.innerHTML = `
+      <p class="font-bold text-secondary mb-3">${escHtml(this.t('summary'))}</p>
+      ${this.cart.map(i => `
+        <div class="flex justify-between text-sm mb-2">
+          <span class="text-slate-600">${i.qty}x ${escHtml(this.cartLineName(i))}</span>
+          <span class="font-bold text-secondary">฿${(i.qty * i.price).toFixed(2)}</span>
+        </div>
+      `).join('')}
+      <div class="flex justify-between font-black text-lg mt-3 pt-3 border-t border-sand">
+        <span>${escHtml(this.t('total'))}</span><span class="text-primary">฿${total.toFixed(2)}</span>
+      </div>
+    `;
   },
 
   backToMenu() {
@@ -748,8 +1013,8 @@ const OrderPage = {
     if (status === 'confirmed') {
       icon.className = 'w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-emerald-100 text-emerald-500';
       icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:2rem;height:2rem"><path d="M20 6L9 17l-5-5"/></svg>';
-      text.innerText = 'ร้านยืนยันออเดอร์แล้ว!';
-      sub.innerText = 'กำลังเตรียมเครื่องดื่มให้ครับ';
+      text.innerText = this.t('statusConfirmed');
+      sub.innerText = this.t('statusMaking');
       cancelBtn.classList.add('hidden'); uploadBtn.classList.add('hidden');
       // ไม่หยุด poll ตรงนี้ ช่วงนี้แหละที่ลูกค้าอยากรู้ว่าเหลืออีกกี่คิว
       // ของเดิมหยุดตั้งแต่ร้านกดรับ ทำให้หน้าจอค้างอยู่แบบนั้นจนกว่าจะปิดหน้า
@@ -757,8 +1022,8 @@ const OrderPage = {
     } else if (status === 'ready') {
       icon.className = 'w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-emerald-100 text-emerald-500';
       icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:2rem;height:2rem"><path d="M20 6L9 17l-5-5"/></svg>';
-      text.innerText = 'เครื่องดื่มพร้อมรับแล้ว';
-      sub.innerText = 'รับที่เคาน์เตอร์ได้เลยครับ';
+      text.innerText = this.t('statusReady');
+      sub.innerText = this.t('statusCollect');
       cancelBtn.classList.add('hidden'); uploadBtn.classList.add('hidden');
       this.renderQueue(null);
       this.clearSavedOrder();
@@ -766,7 +1031,7 @@ const OrderPage = {
     } else if (status === 'rejected') {
       icon.className = 'w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-red-100 text-red-500';
       icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:2rem;height:2rem"><path d="M18 6L6 18M6 6l12 12"/></svg>';
-      text.innerText = 'ร้านไม่สามารถรับออเดอร์นี้ได้';
+      text.innerText = this.t('statusRejected');
       sub.innerText = rejectReason || '';
       cancelBtn.classList.add('hidden'); uploadBtn.classList.add('hidden');
       this.renderQueue(null);
@@ -775,7 +1040,7 @@ const OrderPage = {
     } else if (status === 'cancelled') {
       icon.className = 'w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-slate-100 text-slate-400';
       icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:2rem;height:2rem"><path d="M18 6L6 18M6 6l12 12"/></svg>';
-      text.innerText = 'ยกเลิกออเดอร์แล้ว';
+      text.innerText = this.t('statusCancelled');
       sub.innerText = '';
       cancelBtn.classList.add('hidden'); uploadBtn.classList.add('hidden');
       this.renderQueue(null);
@@ -820,12 +1085,12 @@ const OrderPage = {
     const moved = ahead !== this._lastQueue;
     this._lastQueue = ahead;
     if (ahead <= 0) {
-      line.innerText = 'ถึงคิวคุณแล้ว กำลังทำให้อยู่ครับ';
+      line.innerText = this.t('queueYourTurn');
       eta.innerText = '';
     } else {
       const popCls = moved && !this.reducedMotion() ? ' class="queue-num-pop"' : '';
-      line.innerHTML = 'มีอีก <span' + popCls + '>' + ahead + '</span> คิวก่อนหน้าคุณ';
-      eta.innerText = low > 0 ? 'รออีกประมาณ ' + low + '-' + high + ' นาที' : '';
+      line.innerHTML = escHtml(this.t('queueAheadPre')) + '<span' + popCls + '>' + ahead + '</span>' + escHtml(this.t('queueAheadPost'));
+      eta.innerText = low > 0 ? this.t('queueEtaPre') + low + '-' + high + this.t('queueEtaPost') : '';
     }
     box.classList.remove('hidden');
   },
@@ -848,27 +1113,27 @@ const OrderPage = {
       const base64 = await resizeImageBase64(file, 800, 'image/jpeg', 0.7);
       const r = await callApi('uploadPaymentSlip', [{ id: this.currentOrderId, image: base64 }]);
       this.hideLoading();
-      if (!r.success) return this.showAlert(r.error || 'อัพโหลดสลิปไม่สำเร็จ', '', 'warning');
-      document.getElementById('btn-upload-slip').innerText = 'ส่งสลิปแล้ว รอร้านยืนยัน ✓';
+      if (!r.success) return this.showAlert(r.error || this.t('uploadFail'), '', 'warning');
+      document.getElementById('btn-upload-slip').innerText = this.t('slipSent');
       document.getElementById('btn-upload-slip').disabled = true;
     } catch (e) {
       this.hideLoading();
-      this.showAlert('อัพโหลดสลิปไม่สำเร็จ: ' + e.message, '', 'warning');
+      this.showAlert(this.t('uploadFail') + ': ' + e.message, '', 'warning');
     }
   },
 
   async cancelOrder() {
-    const ok = await this.showConfirm('ต้องการยกเลิกออเดอร์นี้ใช่หรือไม่?', '');
+    const ok = await this.showConfirm(this.t('confirmCancel'), '');
     if (!ok) return;
     this.showLoading();
     try {
       const r = await callApi('cancelPendingOrder', [this.currentOrderId]);
       this.hideLoading();
-      if (!r.success) return this.showAlert(r.error || 'ยกเลิกไม่สำเร็จ', '', 'warning');
+      if (!r.success) return this.showAlert(r.error || this.t('cancelFail'), '', 'warning');
       this.applyStatus('cancelled', '');
     } catch (e) {
       this.hideLoading();
-      this.showAlert('ยกเลิกไม่สำเร็จ: ' + e.message, '', 'warning');
+      this.showAlert(this.t('cancelFail') + ': ' + e.message, '', 'warning');
     }
   },
 
@@ -920,7 +1185,7 @@ const OrderPage = {
 
   showAlert(message, icon, type) {
     return new Promise(resolve => {
-      this._openAlertModal({ message, type: type || 'info', buttons: [{ label: 'ตกลง', style: 'primary', value: true }] });
+      this._openAlertModal({ message, type: type || 'info', buttons: [{ label: this.t('ok'), style: 'primary', value: true }] });
       this._alertResolve = resolve;
     });
   },
@@ -929,7 +1194,7 @@ const OrderPage = {
     return new Promise(resolve => {
       this._openAlertModal({
         message, type: 'warning',
-        buttons: [{ label: 'ยกเลิก', style: 'ghost', value: false }, { label: 'ยืนยัน', style: 'primary', value: true }],
+        buttons: [{ label: this.t('cancel'), style: 'ghost', value: false }, { label: this.t('confirm'), style: 'primary', value: true }],
       });
       this._alertResolve = resolve;
     });

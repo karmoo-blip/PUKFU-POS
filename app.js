@@ -3263,7 +3263,7 @@
             <div class="set-row">
               <div class="set-row-body">
                 <p class="set-row-t">${escHtml(sw.name)}</p>
-                <p class="set-row-s">ลำดับ ${sw.sort_order ?? 0}</p>
+                <p class="set-row-s">${sw.lang2 ? escHtml(sw.lang2) + ' · ' : ''}ลำดับ ${sw.sort_order ?? 0}</p>
               </div>
               <div class="set-row-acts">
                 <button onclick="Controller.openSweetnessForm('${escAttr(sw.id)}')" class="set-btn set-btn-sm set-btn-soft">แก้ไข</button>
@@ -3279,11 +3279,13 @@
           if (sw) {
             document.getElementById('sweetness-form-title').innerText = 'แก้ไขระดับความหวาน';
             document.getElementById('sweetness-form-name').value = sw.name;
+            document.getElementById('sweetness-form-lang2').value = sw.lang2 || '';
             document.getElementById('sweetness-form-sort-order').value = sw.sort_order ?? 0;
           }
         } else {
           document.getElementById('sweetness-form-title').innerText = 'เพิ่มระดับความหวาน';
           document.getElementById('sweetness-form-name').value = '';
+          document.getElementById('sweetness-form-lang2').value = '';
           document.getElementById('sweetness-form-sort-order').value = this.sweetnessLevels.length;
         }
         this.openModal('modal-sweetness-form');
@@ -3292,6 +3294,7 @@
       async saveSweetnessForm() {
         const id = document.getElementById('sweetness-form-id').value;
         const name = document.getElementById('sweetness-form-name').value.trim();
+        const lang2 = document.getElementById('sweetness-form-lang2').value.trim();
         const sortOrder = Number(document.getElementById('sweetness-form-sort-order').value) || 0;
 
         if (!name) {
@@ -3300,7 +3303,7 @@
         }
 
         const swId = id || ('SWT-' + Date.now());
-        const sw = { id: swId, name, sort_order: sortOrder };
+        const sw = { id: swId, name, lang2, sort_order: sortOrder };
 
         this.closeModal('modal-sweetness-form');
         this.setIndicator('syncing');

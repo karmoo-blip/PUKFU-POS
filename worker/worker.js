@@ -30,7 +30,7 @@ const PUBLIC_HANDLERS = new Set([
 //
 // เลขเวอร์ชันไว้ข้ามงานทั้งชุดตอน isolate ใหม่ตื่นมา: ถ้าเลขในฐานตรงกับที่นี่ = โครงตารางตรงแล้ว
 // เหลือคำสั่งเดียว (SELECT) แทนที่จะยิง 39 คำสั่ง เพิ่มตาราง/คอลัมน์เมื่อไรให้บวกเลขนี้ขึ้นหนึ่ง
-const SCHEMA_VERSION = "2026-08-28.1";
+const SCHEMA_VERSION = "2026-08-29.1";
 let schemaReady = false;
 
 async function ensureSchema(env) {
@@ -64,7 +64,7 @@ async function ensureSchema(env) {
     "CREATE TABLE IF NOT EXISTS archives (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, range_start TEXT, range_end TEXT, note TEXT)",
     "CREATE TABLE IF NOT EXISTS archive_sales (id INTEGER PRIMARY KEY AUTOINCREMENT, archive_id INTEGER, timestamp TEXT, invoice TEXT, sku TEXT, name TEXT, qty REAL, price REAL, note TEXT, payment_type TEXT, cancelled INTEGER, cancel_reason TEXT)",
     "CREATE TABLE IF NOT EXISTS archive_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, archive_id INTEGER, timestamp TEXT, invoice TEXT, total REAL, payment_type TEXT, order_note TEXT, status TEXT, cancel_reason TEXT, cancelled_by TEXT, cancelled_at TEXT)",
-    "CREATE TABLE IF NOT EXISTS sweetness_levels (id TEXT PRIMARY KEY, name TEXT, sort_order INTEGER)",
+    "CREATE TABLE IF NOT EXISTS sweetness_levels (id TEXT PRIMARY KEY, name TEXT, lang2 TEXT, sort_order INTEGER)",
     "CREATE TABLE IF NOT EXISTS notifications (id TEXT PRIMARY KEY, inventory_item_id TEXT, item_name TEXT, opened_at TEXT, expires_at TEXT, created_at TEXT)",
     "CREATE TABLE IF NOT EXISTS recipes (id TEXT PRIMARY KEY, menu_sku TEXT, inventory_item_id TEXT, qty REAL)",
     "CREATE TABLE IF NOT EXISTS refunds (id TEXT PRIMARY KEY, invoice TEXT, amount REAL, reason TEXT, refunded_by TEXT, created_at TEXT)",
@@ -87,6 +87,7 @@ async function ensureSchema(env) {
     ["sales", "cancelled_by", "TEXT"],
     ["pending_orders", "ready_at", "TEXT"],
     ["pending_orders", "ready_by", "TEXT"],
+    ["sweetness_levels", "lang2", "TEXT"],
   ];
 
   // idx_payments_invoice เป็น UNIQUE กันบิลซ้ำตอนซิงก์ออฟไลน์ อันอื่นเป็น index ธรรมดาไว้ค้นให้ไว
@@ -547,12 +548,14 @@ handlers.saveSweetnessLevel = async (env, args) => {
   const sw = args[0] || {};
   const id = sw.id || ("SWT-" + Date.now());
   const existing = await env.DB.prepare("SELECT id FROM sweetness_levels WHERE id = ?").bind(id).first();
+  // lang2 = ชื่อภาษาอังกฤษ หน้าลูกค้าใช้ตอนสลับเป็น EN ปล่อยว่างได้ จะ fallback ไปชื่อไทย
+  const lang2 = String(sw.lang2 || "").trim();
   if (existing) {
-    await env.DB.prepare("UPDATE sweetness_levels SET name=?, sort_order=? WHERE id=?")
-      .bind(sw.name, sw.sort_order || 0, id).run();
+    await env.DB.prepare("UPDATE sweetness_levels SET name=?, lang2=?, sort_order=? WHERE id=?")
+      .bind(sw.name, lang2, sw.sort_order || 0, id).run();
   } else {
-    await env.DB.prepare("INSERT INTO sweetness_levels (id, name, sort_order) VALUES (?,?,?)")
-      .bind(id, sw.name, sw.sort_order || 0).run();
+    await env.DB.prepare("INSERT INTO sweetness_levels (id, name, lang2, sort_order) VALUES (?,?,?,?)")
+      .bind(id, sw.name, lang2, sw.sort_order || 0).run();
   }
   return { success: true, id };
 };

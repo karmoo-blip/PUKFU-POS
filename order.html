@@ -33,7 +33,14 @@
   <div id="view-welcome" class="fixed inset-0 z-40 bg-cream flex flex-col">
     <canvas id="welcome-canvas" class="absolute inset-0 w-full h-full" aria-hidden="true"></canvas>
 
-    <div class="relative flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center" style="padding-top: max(1rem, env(safe-area-inset-top))">
+    <div class="relative flex justify-end px-5" style="padding-top: max(1rem, env(safe-area-inset-top))">
+      <div class="lang-pill bg-white/85 border border-sand rounded-full p-1 flex text-sm font-bold shadow-sm">
+        <button type="button" data-lang-btn="th" onclick="OrderPage.setLang('th')" class="px-3.5 py-1.5 rounded-full">TH</button>
+        <button type="button" data-lang-btn="en" onclick="OrderPage.setLang('en')" class="px-3.5 py-1.5 rounded-full">EN</button>
+      </div>
+    </div>
+
+    <div class="relative flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center">
       <div class="w-20 h-20 rounded-[1.75rem] bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
         <svg viewBox="0 0 40 40" fill="none" aria-hidden="true" style="width:2.5rem;height:2.5rem">
           <path d="M11 12h15v13a7 7 0 0 1-7 7h-1a7 7 0 0 1-7-7V12Z" fill="#fbfaf4"/>
@@ -42,11 +49,11 @@
         </svg>
       </div>
       <h2 id="welcome-shop-name" class="font-black text-3xl text-secondary">สั่งอาหารออนไลน์</h2>
-      <p class="text-base text-ink font-medium">สั่งอาหารได้เลย ไม่ต้องต่อคิว</p>
+      <p class="text-base text-ink font-medium" data-i18n="tagline">สั่งอาหารได้เลย ไม่ต้องต่อคิว</p>
     </div>
 
     <div class="relative px-5 pt-4 flex flex-col gap-3" style="padding-bottom: max(2.5rem, env(safe-area-inset-bottom))">
-      <button id="btn-start-order" onclick="OrderPage.startOrdering()" class="w-full min-h-[3.5rem] bg-mustard text-white rounded-2xl font-black text-xl shadow-lg shadow-mustard/40 active:scale-95 transition-all">เริ่มสั่งอาหาร</button>
+      <button id="btn-start-order" onclick="OrderPage.startOrdering()" class="w-full min-h-[3.5rem] bg-mustard text-white rounded-2xl font-black text-xl shadow-lg shadow-mustard/40 active:scale-95 transition-all" data-i18n="start">เริ่มสั่งอาหาร</button>
       <p id="welcome-location" class="hidden text-center text-sm font-bold text-ink"></p>
     </div>
   </div>
@@ -58,6 +65,10 @@
         <h1 id="shop-name" class="font-bold text-lg text-secondary truncate">สั่งอาหารออนไลน์</h1>
         <p id="order-location-badge" class="hidden text-xs font-bold text-primary bg-primary/10 inline-block px-2 py-0.5 rounded-full mt-0.5"></p>
       </div>
+      <div class="lang-pill shrink-0 bg-cream border border-sand rounded-full p-1 flex text-xs font-bold">
+        <button type="button" data-lang-btn="th" onclick="OrderPage.setLang('th')" class="px-3 py-1.5 rounded-full">TH</button>
+        <button type="button" data-lang-btn="en" onclick="OrderPage.setLang('en')" class="px-3 py-1.5 rounded-full">EN</button>
+      </div>
     </div>
   </nav>
 
@@ -65,8 +76,8 @@
 
     <!-- ชื่อผู้สั่ง -->
     <div class="bg-white rounded-2xl border border-sand shadow-sm p-4 mb-4">
-      <label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อผู้สั่ง <span class="text-red-500">*</span></label>
-      <input id="customer-name-input" type="text" placeholder="เช่น คุณเอ" class="w-full min-h-[2.75rem] border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream">
+      <label class="text-sm font-bold text-slate-500 mb-1 block"><span data-i18n="yourName">ชื่อผู้สั่ง</span> <span class="text-red-500">*</span></label>
+      <input id="customer-name-input" type="text" placeholder="เช่น คุณเอ" data-i18n-ph="namePlaceholder" class="w-full min-h-[2.75rem] border border-sand rounded-xl p-2.5 focus:outline-none focus:border-primary bg-cream">
     </div>
 
     <!-- หมวดหมู่สินค้า: ตัวชี้ต้องอยู่นอก track เพราะ track ถูกวาดใหม่ทุกครั้งที่เปลี่ยนหมวด -->
@@ -77,7 +88,7 @@
 
     <!-- เมนู -->
     <div id="order-menu-grid" class="grid grid-cols-2 gap-4"></div>
-    <p id="order-menu-empty" class="hidden text-center text-slate-400 font-bold py-10">ยังไม่มีเมนูให้สั่งตอนนี้</p>
+    <p id="order-menu-empty" class="hidden text-center text-slate-400 font-bold py-10" data-i18n="menuEmpty">ยังไม่มีเมนูให้สั่งตอนนี้</p>
 
   </main>
 
@@ -88,7 +99,7 @@
         <p class="text-xs text-slate-400 font-bold" id="order-cart-count">0 รายการ</p>
         <p class="text-primary text-xl font-black" id="order-cart-total">฿0.00</p>
       </div>
-      <button onclick="OrderPage.openCartReview()" class="bg-gradient-to-b from-primary to-secondary text-white px-6 min-h-[2.75rem] rounded-2xl font-bold shadow-md shadow-primary/30 active:scale-95 transition-all">ดูตะกร้า</button>
+      <button onclick="OrderPage.openCartReview()" class="bg-gradient-to-b from-primary to-secondary text-white px-6 min-h-[2.75rem] rounded-2xl font-bold shadow-md shadow-primary/30 active:scale-95 transition-all" data-i18n="viewCart">ดูตะกร้า</button>
     </div>
   </div>
 
@@ -99,23 +110,23 @@
       <div class="p-5 border-b border-slate-100 font-bold text-xl text-secondary" id="modal-product-name">Product Name</div>
       <div class="p-5 flex-1 overflow-y-auto">
         <div class="mb-5">
-          <p class="font-bold text-sm text-secondary mb-3">ความหวาน <span class="text-red-500">*</span></p>
+          <p class="font-bold text-sm text-secondary mb-3"><span data-i18n="sweetness">ความหวาน</span> <span class="text-red-500">*</span></p>
           <div id="modal-sweetness-container" class="flex flex-wrap gap-2"></div>
         </div>
         <hr class="border-slate-100 mb-5">
         <div class="mb-5">
-          <p class="font-bold text-sm text-secondary mb-3">ส่วนเสริม <span class="text-slate-400 font-normal">(เลือกกี่อย่างก็ได้)</span></p>
+          <p class="font-bold text-sm text-secondary mb-3"><span data-i18n="addons">ส่วนเสริม</span> <span class="text-slate-400 font-normal" data-i18n="addonsHint">(เลือกกี่อย่างก็ได้)</span></p>
           <div id="modal-addons-container" class="flex flex-wrap gap-2"></div>
         </div>
         <hr class="border-slate-100 mb-5">
         <div>
-          <p class="font-bold text-sm text-secondary mb-3">หมายเหตุ <span class="text-slate-400 font-normal">(ถ้ามี)</span></p>
-          <textarea id="modal-note" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:border-primary bg-slate-50" rows="2" placeholder="เช่น แยกน้ำแข็ง, เพิ่มมุก..."></textarea>
+          <p class="font-bold text-sm text-secondary mb-3"><span data-i18n="note">หมายเหตุ</span> <span class="text-slate-400 font-normal" data-i18n="noteHint">(ถ้ามี)</span></p>
+          <textarea id="modal-note" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:border-primary bg-slate-50" rows="2" placeholder="เช่น แยกน้ำแข็ง, เพิ่มมุก..." data-i18n-ph="notePlaceholder"></textarea>
         </div>
       </div>
       <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0" style="padding-bottom: max(1rem, env(safe-area-inset-bottom))">
-        <button onclick="OrderPage.closeModal('modal-product')" class="px-5 min-h-[2.75rem] border border-sand bg-white text-slate-500 rounded-2xl font-bold active:scale-95 transition-all">ยกเลิก</button>
-        <button onclick="OrderPage.addToCartFromModal()" class="px-5 min-h-[2.75rem] bg-gradient-to-b from-primary to-secondary text-white rounded-2xl font-bold shadow-md shadow-primary/30 active:scale-95 transition-all">เพิ่มลงตะกร้า</button>
+        <button onclick="OrderPage.closeModal('modal-product')" class="px-5 min-h-[2.75rem] border border-sand bg-white text-slate-500 rounded-2xl font-bold active:scale-95 transition-all" data-i18n="cancel">ยกเลิก</button>
+        <button onclick="OrderPage.addToCartFromModal()" class="px-5 min-h-[2.75rem] bg-gradient-to-b from-primary to-secondary text-white rounded-2xl font-bold shadow-md shadow-primary/30 active:scale-95 transition-all" data-i18n="addToCart">เพิ่มลงตะกร้า</button>
       </div>
     </div>
   </div>
@@ -125,16 +136,16 @@
     <div class="bg-white rounded-t-3xl shadow-xl w-full max-h-[85vh] overflow-hidden flex flex-col">
       <div class="flex justify-center pt-2.5 pb-1 shrink-0" aria-hidden="true"><div class="w-10 h-1.5 rounded-full bg-slate-300"></div></div>
       <div class="p-5 border-b border-slate-100 font-bold text-xl text-secondary flex justify-between items-center">
-        <span>ตะกร้าของคุณ</span>
+        <span data-i18n="cartTitle">ตะกร้าของคุณ</span>
         <button onclick="OrderPage.closeModal('modal-cart')" class="text-slate-400 text-2xl leading-none">&times;</button>
       </div>
       <div id="order-cart-items" class="p-5 flex-1 overflow-y-auto flex flex-col gap-3"></div>
       <div class="p-4 bg-slate-50 border-t border-slate-100 shrink-0" style="padding-bottom: max(1rem, env(safe-area-inset-bottom))">
         <div class="flex justify-between font-bold text-lg mb-3 px-1">
-          <span class="text-slate-500">รวม</span>
+          <span class="text-slate-500" data-i18n="total">รวม</span>
           <span id="order-cart-modal-total" class="text-primary text-xl">฿0.00</span>
         </div>
-        <button id="btn-place-order" onclick="OrderPage.submitOrder()" class="w-full bg-gradient-to-b from-primary to-secondary text-white py-3.5 rounded-2xl font-bold text-lg shadow-md shadow-primary/30 active:scale-95 transition-all">สั่งอาหาร</button>
+        <button id="btn-place-order" onclick="OrderPage.submitOrder()" class="w-full bg-gradient-to-b from-primary to-secondary text-white py-3.5 rounded-2xl font-bold text-lg shadow-md shadow-primary/30 active:scale-95 transition-all" data-i18n="placeOrder">สั่งอาหาร</button>
       </div>
     </div>
   </div>
@@ -146,7 +157,7 @@
         <div id="submitted-status-icon" class="w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center bg-amber-100 text-amber-500">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" style="width:2rem;height:2rem"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
         </div>
-        <p id="submitted-status-text" class="font-bold text-lg text-secondary">ส่งออเดอร์แล้ว รอร้านยืนยัน</p>
+        <p id="submitted-status-text" class="font-bold text-lg text-secondary" data-i18n="statusSent">ส่งออเดอร์แล้ว รอร้านยืนยัน</p>
         <p id="submitted-status-sub" class="text-sm text-slate-400 mt-1"></p>
       </div>
 
@@ -158,18 +169,18 @@
       <div id="submitted-order-summary" class="bg-white rounded-3xl border border-sand shadow-sm p-5 mb-4"></div>
 
       <div id="submitted-payment-box" class="hidden bg-white rounded-3xl border border-sand shadow-sm p-5 mb-4 text-center">
-        <p class="font-bold text-secondary mb-3">สแกนเพื่อชำระเงิน</p>
+        <p class="font-bold text-secondary mb-3" data-i18n="scanToPay">สแกนเพื่อชำระเงิน</p>
         <img id="submitted-payment-qr" class="mx-auto rounded-xl border border-sand max-w-[240px]" alt="QR ชำระเงิน">
-        <p class="text-xs text-slate-400 mt-3">โอนเงินแล้วอัพโหลดสลิปด้านล่างเพื่อแจ้งร้าน</p>
+        <p class="text-xs text-slate-400 mt-3" data-i18n="afterTransfer">โอนเงินแล้วอัพโหลดสลิปด้านล่างเพื่อแจ้งร้าน</p>
       </div>
 
       <div id="submitted-actions" class="flex flex-col gap-3">
         <div>
           <input type="file" id="slip-upload-input" accept="image/*" class="hidden" onchange="OrderPage.handleSlipUpload(event)">
-          <button id="btn-upload-slip" onclick="document.getElementById('slip-upload-input').click()" class="w-full bg-gradient-to-b from-emerald-500 to-emerald-600 text-white py-3 rounded-2xl font-bold shadow-md active:scale-95 transition-all">อัพโหลดสลิปโอนเงิน</button>
+          <button id="btn-upload-slip" onclick="document.getElementById('slip-upload-input').click()" class="w-full bg-gradient-to-b from-emerald-500 to-emerald-600 text-white py-3 rounded-2xl font-bold shadow-md active:scale-95 transition-all" data-i18n="uploadSlip">อัพโหลดสลิปโอนเงิน</button>
         </div>
-        <button id="btn-cancel-order" onclick="OrderPage.cancelOrder()" class="w-full border border-red-200 bg-red-50 text-red-500 py-3 rounded-2xl font-bold active:scale-95 transition-all">ยกเลิกออเดอร์</button>
-        <button onclick="OrderPage.backToMenu()" class="w-full border border-sand bg-white text-secondary py-3 rounded-2xl font-bold active:scale-95 transition-all">กลับไปหน้าเมนู</button>
+        <button id="btn-cancel-order" onclick="OrderPage.cancelOrder()" class="w-full border border-red-200 bg-red-50 text-red-500 py-3 rounded-2xl font-bold active:scale-95 transition-all" data-i18n="cancelOrder">ยกเลิกออเดอร์</button>
+        <button onclick="OrderPage.backToMenu()" class="w-full border border-sand bg-white text-secondary py-3 rounded-2xl font-bold active:scale-95 transition-all" data-i18n="backToMenu">กลับไปหน้าเมนู</button>
       </div>
     </div>
   </div>

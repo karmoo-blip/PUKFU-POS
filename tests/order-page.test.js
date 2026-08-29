@@ -46,6 +46,7 @@ function loadOrderPage(opts) {
     },
     querySelector: (sel) => {
       if (sel === '#order-categories-track button.is-active-cat') return document._activeCatBtn || null;
+      if (sel === '.mod-btn[data-selected="true"]') return document._selectedSwBtn || null;
       return null;
     },
     querySelectorAll: () => [],
@@ -59,6 +60,7 @@ function loadOrderPage(opts) {
       matchMedia: () => ({ matches: reduced }),
       location: { search: '' },
     },
+    navigator: { language: (opts && opts.navLang) || 'th-TH' },
     localStorage: {
       getItem: (k) => (store.has(k) ? store.get(k) : null),
       setItem: (k, v) => store.set(k, v),
@@ -78,9 +80,11 @@ function loadOrderPage(opts) {
   sandbox.globalThis = sandbox;
   vm.createContext(sandbox);
   const code = fs.readFileSync(path.join(__dirname, '..', 'order.js'), 'utf8');
-  // OrderPage ประกาศด้วย const จึงไม่ไปโผล่บน global เอง ต้องต่อท้ายให้หยิบออกมาได้
-  vm.runInContext(code + '\nglobalThis.__OrderPage = OrderPage;', sandbox, { filename: 'order.js' });
-  return { OrderPage: sandbox.__OrderPage, el: (id) => document.getElementById(id), doc: document, sandbox };
+  // OrderPage กับ ORDER_TEXT ประกาศด้วย const จึงไม่ไปโผล่บน global เอง ต้องต่อท้ายให้หยิบออกมาได้
+  vm.runInContext(
+    code + '\nglobalThis.__OrderPage = OrderPage; globalThis.__ORDER_TEXT = ORDER_TEXT;',
+    sandbox, { filename: 'order.js' });
+  return { OrderPage: sandbox.__OrderPage, ORDER_TEXT: sandbox.__ORDER_TEXT, el: (id) => document.getElementById(id), doc: document, sandbox };
 }
 
 test('applyStatus animates once per real change, not on every poll', () => {
@@ -257,4 +261,86 @@ test('the welcome screen keeps its leave transition in the stylesheet', () => {
   // จังหวะจางออกใน CSS ต้องคู่กับ setTimeout 300ms ใน order.js ไม่งั้นหน้าจะหายวับ
   assert.match(css, /#view-welcome\.is-leaving/);
   assert.match(css, /#view-welcome > div > \*,/);   // อยู่ในบล็อก prefers-reduced-motion
+});
+
+// ---- ภาษาไทย / อังกฤษ ----
+
+test('the phone language picks the first language, a tap overrides it for good', () => {
+  const thai = loadOrderPage({ navLang: 'th-TH' });
+  assert.equal(thai.OrderPage.detectLang(), 'th');
+
+  const english = loadOrderPage({ navLang: 'en-GB' });
+  assert.equal(english.OrderPage.detectLang(), 'en');
+
+  // เครื่องภาษาอื่นที่ไม่ใช่ไทย ให้เป็นอังกฤษ อ่านออกมากกว่า
+  const japanese = loadOrderPage({ navLang: 'ja-JP' });
+  assert.equal(japanese.OrderPage.detectLang(), 'en');
+
+  // กดเลือกเองแล้วต้องชนะการเดาเสมอ แม้เครื่องจะตั้งเป็นไทย
+  const { OrderPage, sandbox } = loadOrderPage({ navLang: 'th-TH' });
+  OrderPage.setLang('en');
+  assert.equal(sandbox.localStorage.getItem('pukfu_order_lang'), 'en');
+  assert.equal(OrderPage.detectLang(), 'en');
+});
+
+test('English mode uses the product English name, and falls back to Thai without one', () => {
+  const { OrderPage } = loadOrderPage();
+  const withEnglish = { sku: 'A', name: 'ชาไทย', lang2: 'Thai Tea 20o' };
+  const without = { sku: 'B', name: 'ชาเขียวนม', lang2: '' };
+
+  assert.equal(OrderPage.menuName(withEnglish), 'ชาไทย');
+  OrderPage.lang = 'en';
+  assert.equal(OrderPage.menuName(withEnglish), 'Thai Tea 20o');
+  // ยังไม่ได้กรอกชื่ออังกฤษ ต้องเห็นชื่อไทย ไม่ใช่ช่องว่าง
+  assert.equal(OrderPage.menuName(without), 'ชาเขียวนม');
+});
+
+test('sweetness levels follow the same rule as products', () => {
+  const { OrderPage } = loadOrderPage();
+  OrderPage.lang = 'en';
+  assert.equal(OrderPage.sweetnessLabel({ id: '1', name: 'หวาน 50%', lang2: 'Sugar 50%' }), 'Sugar 50%');
+  assert.equal(OrderPage.sweetnessLabel({ id: '2', name: 'หวาน 0', lang2: '' }), 'หวาน 0');
+});
+
+test('ordering in English still sends a Thai note to the counter', () => {
+  const { OrderPage, el, doc } = loadOrderPage();
+  OrderPage.lang = 'en';
+  OrderPage.menuData = [{ sku: 'A', name: 'ชาไทย', lang2: 'Thai Tea 20o', price: 45 }];
+  OrderPage.sweetnessLevels = [{ id: 'SWT-1', name: 'หวาน 50%', lang2: 'Sugar 50%' }];
+  OrderPage.addons = [{ id: 'AD-1', name: 'Extra Shot', price: 20, active: 1 }];
+  OrderPage.activeProduct = OrderPage.menuData[0];
+  OrderPage.selectedAddons = [OrderPage.addons[0]];
+
+  // ลูกค้าเห็นปุ่ม "Sugar 50%" แต่สิ่งที่ลงบิลต้องเป็น "หวาน 50%"
+  doc._selectedSwBtn = {
+    innerText: 'Sugar 50%',
+    getAttribute: (a) => (a === 'data-sw-id' ? 'SWT-1' : null),
+  };
+  el('modal-note').value = '';
+
+  OrderPage.addToCartFromModal();
+
+  const line = OrderPage.cart[0];
+  assert.equal(line.name, 'ชาไทย');
+  assert.match(line.note, /ความหวาน: หวาน 50%/);
+  assert.doesNotMatch(line.note, /Sugar 50%/);
+  assert.equal(line.price, 65);
+
+  // ส่วนที่ลูกค้าอ่านเองยังเป็นอังกฤษ และเปลี่ยนตามภาษาที่เลือกทีหลังได้
+  assert.equal(OrderPage.cartLineName(line), 'Thai Tea 20o');
+  assert.match(OrderPage.cartNoteDisplay(line), /Sweetness: Sugar 50%/);
+  OrderPage.lang = 'th';
+  assert.equal(OrderPage.cartLineName(line), 'ชาไทย');
+  assert.match(OrderPage.cartNoteDisplay(line), /ความหวาน: หวาน 50%/);
+});
+
+test('every string exists in both languages', () => {
+  const { ORDER_TEXT: text } = loadOrderPage();
+  const th = Object.keys(text.th).sort();
+  const en = Object.keys(text.en).sort();
+  // คีย์ที่มีข้างเดียวจะตกกลับไปเป็นไทยเงียบๆ ลูกค้าอังกฤษจะเจอไทยโผล่กลางหน้า
+  assert.deepEqual(en, th);
+  th.forEach((k) => {
+    assert.equal(typeof text.en[k], 'string', `${k} must be a string in en`);
+  });
 });
