@@ -37,6 +37,81 @@ function resizeImageBase64(file, maxWidth, mimeType, quality) {
   });
 }
 
+// ---- รูปอาหารสำหรับหน้าต้อนรับ ----
+// วาดด้วย path ล้วน ไม่โหลดรูปจากที่ไหน หน้านี้ลูกค้าเปิดผ่าน 4G กลางร้าน ยิ่งไฟล์น้อยยิ่งดี
+// สีทุกตัวมาจากชุดสีเดียวกับ style.css (เขียนตรงๆ เพราะ canvas อ่าน CSS variable ไม่ได้)
+const WELCOME_SHAPES = [
+  // แก้วชาไข่มุก
+  function (c, s) {
+    const w = s * 0.62, h = s;
+    c.fillStyle = '#e8f0e4';
+    c.beginPath();
+    c.moveTo(-w / 2, -h / 2); c.lineTo(w / 2, -h / 2);
+    c.lineTo(w * 0.34, h / 2); c.lineTo(-w * 0.34, h / 2);
+    c.closePath(); c.fill();
+    c.fillStyle = '#163828';
+    for (let i = 0; i < 3; i++) {
+      c.beginPath(); c.arc(-w * 0.16 + i * w * 0.16, h * 0.28, s * 0.055, 0, 6.2832); c.fill();
+    }
+    c.strokeStyle = '#d2743f'; c.lineWidth = s * 0.09; c.lineCap = 'round';
+    c.beginPath(); c.moveTo(w * 0.1, -h * 0.42); c.lineTo(w * 0.32, -h * 0.86); c.stroke();
+    c.fillStyle = '#1f4d3a';
+    c.beginPath(); c.rect(-w * 0.58, -h * 0.58, w * 1.16, h * 0.16); c.fill();
+  },
+  // แก้วกาแฟร้อน
+  function (c, s) {
+    const w = s * 0.6, h = s;
+    c.fillStyle = '#d2743f';
+    c.beginPath();
+    c.moveTo(-w / 2, -h * 0.36); c.lineTo(w / 2, -h * 0.36);
+    c.lineTo(w * 0.36, h / 2); c.lineTo(-w * 0.36, h / 2);
+    c.closePath(); c.fill();
+    c.fillStyle = '#fbfaf4';
+    c.beginPath(); c.rect(-w * 0.47, -h * 0.14, w * 0.94, h * 0.24); c.fill();
+    c.fillStyle = '#1f4d3a';
+    c.beginPath(); c.rect(-w * 0.56, -h * 0.5, w * 1.12, h * 0.16); c.fill();
+  },
+  // ชามร้อนๆ
+  function (c, s) {
+    const r = s * 0.5;
+    c.fillStyle = '#1f4d3a';
+    c.beginPath(); c.arc(0, 0, r, 0, Math.PI); c.closePath(); c.fill();
+    c.fillStyle = '#dfe6d8';
+    c.beginPath(); c.rect(-r * 1.12, -r * 0.16, r * 2.24, r * 0.24); c.fill();
+    c.strokeStyle = '#e0a03a'; c.lineWidth = s * 0.07; c.lineCap = 'round';
+    for (let i = -1; i <= 1; i++) {
+      c.beginPath();
+      c.moveTo(i * r * 0.44, -r * 0.34);
+      c.quadraticCurveTo(i * r * 0.44 + r * 0.2, -r * 0.62, i * r * 0.44, -r * 0.9);
+      c.stroke();
+    }
+  },
+  // ซาลาเปา
+  function (c, s) {
+    const r = s * 0.48;
+    c.fillStyle = '#dfe6d8';
+    c.beginPath(); c.arc(0, 0, r, 0, 6.2832); c.fill();
+    c.strokeStyle = '#1f4d3a'; c.lineWidth = s * 0.055; c.lineCap = 'round';
+    for (let i = -1; i <= 1; i++) {
+      c.beginPath(); c.arc(0, r * 0.5, r * 0.95, -2.2 + i * 0.42, -1.9 + i * 0.42); c.stroke();
+    }
+    c.fillStyle = '#d2743f';
+    c.beginPath(); c.arc(0, -r * 0.52, r * 0.16, 0, 6.2832); c.fill();
+  },
+  // ใบไม้
+  function (c, s) {
+    const h = s * 0.52, w = s * 0.34;
+    c.fillStyle = '#1f4d3a';
+    c.beginPath();
+    c.moveTo(0, -h);
+    c.quadraticCurveTo(w, -h * 0.2, 0, h);
+    c.quadraticCurveTo(-w, -h * 0.2, 0, -h);
+    c.fill();
+    c.strokeStyle = '#e8f0e4'; c.lineWidth = s * 0.05;
+    c.beginPath(); c.moveTo(0, -h * 0.75); c.lineTo(0, h * 0.72); c.stroke();
+  },
+];
+
 async function callApi(fn, args) {
   const res = await fetch(ORDER_API_URL, {
     method: 'POST',
@@ -66,6 +141,11 @@ const OrderPage = {
   // ถ้าไม่จำไว้ อนิเมชันตอนเปลี่ยนสถานะจะเล่นซ้ำทุกรอบที่ถาม ทั้งที่ไม่มีอะไรเปลี่ยน
   _lastStatus: null,
   _lastQueue: null,
+  // หน้าต้อนรับ: Promise ของการโหลดเมนู กับตัวจับ requestAnimationFrame ไว้สั่งหยุด
+  _dataReady: null,
+  _dataLoaded: false,
+  _welcomeRaf: null,
+  _welcomeResize: null,
 
   async init() {
     const params = new URLSearchParams(location.search);
@@ -74,9 +154,22 @@ const OrderPage = {
     if (this.location) {
       badge.innerText = 'โต๊ะ/จุดรับ: ' + this.location;
       badge.classList.remove('hidden');
+      const welcomeLoc = document.getElementById('welcome-location');
+      welcomeLoc.innerText = 'โต๊ะ/จุดรับ: ' + this.location;
+      welcomeLoc.classList.remove('hidden');
     }
 
-    this.showLoading();
+    // หน้าต้อนรับขึ้นอยู่แล้วตั้งแต่ HTML แค่เริ่มอนิเมชัน แล้วโหลดเมนูอยู่ข้างหลังมัน
+    // ไม่ต้องโชว์วงกลมหมุนซ้อน หน้าต้อนรับทำหน้าที่ปิดช่วงรอให้แล้ว
+    this.startWelcomeAnimation();
+    this._dataReady = this.loadShopData();
+    await this._dataReady;
+    this.restoreSavedOrder();
+  },
+
+  // แยกออกจาก init เพื่อให้ปุ่ม "เริ่มสั่งอาหาร" รอ Promise ก้อนเดียวกันนี้ได้
+  // ถ้าลูกค้ากดเร็วกว่าเน็ต จะได้รอด้วยวงกลมหมุน ไม่ใช่เจอเมนูเปล่า
+  async loadShopData() {
     try {
       const [menu, addons, sweetness, shopInfo] = await Promise.all([
         callApi('getMenuData', []),
@@ -88,15 +181,26 @@ const OrderPage = {
       this.addons = addons || [];
       this.sweetnessLevels = sweetness || [];
       this.shopInfo = shopInfo || {};
-      if (this.shopInfo.shopName) document.getElementById('shop-name').innerText = this.shopInfo.shopName;
+      if (this.shopInfo.shopName) {
+        document.getElementById('shop-name').innerText = this.shopInfo.shopName;
+        document.getElementById('welcome-shop-name').innerText = this.shopInfo.shopName;
+      }
       this.extractCategories();
       this.renderCategories();
       this.renderMenu();
     } catch (e) {
       this.showAlert('โหลดเมนูไม่สำเร็จ กรุณาลองรีเฟรชหน้าใหม่: ' + e.message, '', 'warning');
     }
+    this._dataLoaded = true;
+  },
+
+  // ปุ่มเดียวบนหน้าต้อนรับ
+  async startOrdering() {
+    this.hideWelcome();
+    if (this._dataLoaded) return;
+    this.showLoading();
+    try { await this._dataReady; } catch (e) { /* loadShopData เตือนเองแล้ว */ }
     this.hideLoading();
-    this.restoreSavedOrder();
   },
 
   // ลูกค้ารีเฟรชหรือปิดแล้วเปิดใหม่ ให้กลับมาดูสถานะออเดอร์เดิมต่อได้
@@ -112,6 +216,8 @@ const OrderPage = {
         return;
       }
       this.currentOrderId = saved;
+      // กลับมาทั้งที่ออเดอร์ยังไม่จบ เขาอยากรู้สถานะ ไม่ใช่มาทักทายใหม่
+      this.hideWelcome();
       this.showSubmittedView();
       // กลับเข้ามาดูของเดิม ไม่ใช่ข่าวใหม่ ปิดอนิเมชันฉลองรอบนี้ไว้ก่อน
       this._lastStatus = r.status;
@@ -277,6 +383,113 @@ const OrderPage = {
     this.renderCartBar({ bump: true });
     this.flyToCart(document.getElementById('modal-product'));
     this.closeModal('modal-product');
+  },
+
+  // ---- หน้าต้อนรับ ----
+
+  hideWelcome() {
+    const view = document.getElementById('view-welcome');
+    if (!view || view.classList.contains('hidden')) return;
+    this.stopWelcomeAnimation();
+    if (this.reducedMotion()) {
+      view.classList.add('hidden');
+      return;
+    }
+    // ปล่อยให้จางออกก่อนค่อยซ่อนจริง ใช้ท่าเดียวกับหน้าล็อกของพนักงาน
+    view.classList.add('is-leaving');
+    setTimeout(() => {
+      view.classList.add('hidden');
+      view.classList.remove('is-leaving');
+    }, 300);
+  },
+
+  // ขบวนอาหารกระโดดข้ามท้ายจอไปเรื่อยๆ ตำแหน่งคิดจากเวลาที่ผ่านไปล้วน
+  // ไม่ได้บวกทีละเฟรม เฟรมตกไปกี่เฟรมขบวนก็ยังอยู่ตรงจังหวะเดิม
+  startWelcomeAnimation() {
+    const canvas = document.getElementById('welcome-canvas');
+    // กล่องทดสอบไม่มี canvas จริง และเครื่องเก่าบางรุ่นก็ไม่มี 2d context
+    if (!canvas || typeof canvas.getContext !== 'function') return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let w = 0, h = 0;
+    const fit = () => {
+      w = canvas.clientWidth || 390;
+      h = canvas.clientHeight || 844;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    fit();
+
+    const SPEED = 62, HOP = 1.05;
+    const items = [0, 1, 2, 3, 4].map((kind, i) => ({
+      kind,
+      size: 50 + (i % 3) * 6,
+      lead: i / 5,
+      lean: (i % 2 ? 1 : -1) * 0.06,
+    }));
+
+    const draw = (t) => {
+      ctx.clearRect(0, 0, w, h);
+      const ground = h * 0.76;
+      const span = w + 150;
+      items.forEach(o => {
+        const x = ((o.lead * span + t * SPEED) % span) - 75;
+        const phase = ((t + o.lead * span / SPEED) % HOP) / HOP;
+        const lift = Math.sin(phase * Math.PI);
+        // ยุบตอนแตะพื้น ยืดตอนลอยสุด ให้ดูมีน้ำหนัก
+        const land = Math.max(0, 1 - Math.abs(phase - 0.02) * 14);
+
+        const shadowW = o.size * (0.4 - lift * 0.14);
+        const shadowA = 0.13 - lift * 0.07;
+        if (shadowW > 0.5 && shadowA > 0.005) {
+          ctx.save();
+          ctx.globalAlpha = shadowA;
+          ctx.fillStyle = '#1f4d3a';
+          ctx.beginPath();
+          ctx.ellipse(x, ground + o.size * 0.5, shadowW, shadowW * 0.22, 0, 0, 6.2832);
+          ctx.fill();
+          ctx.restore();
+        }
+
+        ctx.save();
+        ctx.translate(x, ground - lift * 62);
+        ctx.rotate(o.lean + lift * o.lean * 3);
+        ctx.scale(1 + land * 0.22 - lift * 0.05, 1 - land * 0.22 + lift * 0.05);
+        WELCOME_SHAPES[o.kind](ctx, o.size);
+        ctx.restore();
+      });
+    };
+
+    const raf = window.requestAnimationFrame;
+    if (this.reducedMotion() || !raf) {
+      draw(0);
+      return;
+    }
+
+    this._welcomeResize = () => { fit(); };
+    if (window.addEventListener) window.addEventListener('resize', this._welcomeResize);
+
+    let t0 = 0;
+    const loop = (now) => {
+      if (!t0) t0 = now;
+      draw((now - t0) / 1000);
+      this._welcomeRaf = raf.call(window, loop);
+    };
+    this._welcomeRaf = raf.call(window, loop);
+  },
+
+  stopWelcomeAnimation() {
+    if (this._welcomeRaf && window.cancelAnimationFrame) {
+      window.cancelAnimationFrame(this._welcomeRaf);
+    }
+    this._welcomeRaf = null;
+    if (this._welcomeResize && window.removeEventListener) {
+      window.removeEventListener('resize', this._welcomeResize);
+    }
+    this._welcomeResize = null;
   },
 
   // เครื่องที่ตั้งค่าลดการเคลื่อนไหวไว้ ต้องเช็คเองสำหรับอนิเมชันที่สั่งจาก JS

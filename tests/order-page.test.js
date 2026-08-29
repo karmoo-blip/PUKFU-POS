@@ -80,7 +80,7 @@ function loadOrderPage(opts) {
   const code = fs.readFileSync(path.join(__dirname, '..', 'order.js'), 'utf8');
   // OrderPage ประกาศด้วย const จึงไม่ไปโผล่บน global เอง ต้องต่อท้ายให้หยิบออกมาได้
   vm.runInContext(code + '\nglobalThis.__OrderPage = OrderPage;', sandbox, { filename: 'order.js' });
-  return { OrderPage: sandbox.__OrderPage, el: (id) => document.getElementById(id), doc: document };
+  return { OrderPage: sandbox.__OrderPage, el: (id) => document.getElementById(id), doc: document, sandbox };
 }
 
 test('applyStatus animates once per real change, not on every poll', () => {
@@ -208,4 +208,53 @@ test('renderCategories fills the track, not the wrapper, and moves the indicator
   assert.equal(ind.style.width, '88px');
   assert.equal(ind.style.transform, 'translateX(150px)');
   assert.ok(ind.classList.contains('is-ready'));
+});
+
+test('tapping start hides the welcome screen, and never stacks a spinner on it', async () => {
+  const { OrderPage, el } = loadOrderPage();
+  OrderPage._dataLoaded = true;
+  el('loading-overlay').classList.add('hidden');
+
+  await OrderPage.startOrdering();
+
+  // ยังไม่ใส่ hidden ทันที ต้องปล่อยให้จางออกก่อน (order.js ใส่ให้เองหลัง 300ms)
+  assert.ok(el('view-welcome').classList.contains('is-leaving'));
+  // เมนูพร้อมแล้ว ไม่มีเหตุให้เอาวงกลมหมุนมาบัง
+  assert.ok(el('loading-overlay').classList.contains('hidden'));
+});
+
+test('reduced motion closes the welcome screen with no leave animation', async () => {
+  const { OrderPage, el } = loadOrderPage({ reducedMotion: true });
+  OrderPage._dataLoaded = true;
+
+  await OrderPage.startOrdering();
+
+  assert.ok(el('view-welcome').classList.contains('hidden'));
+  assert.ok(!el('view-welcome').classList.contains('is-leaving'));
+});
+
+test('a returning customer with a live order never sees the welcome screen', async () => {
+  const { OrderPage, el, sandbox } = loadOrderPage({ reducedMotion: true });
+  sandbox.localStorage.setItem('pukfu_order_id', 'ORD-1');
+  sandbox.callApi = async () => ({ success: true, status: 'confirmed', queueAhead: 0 });
+
+  await OrderPage.restoreSavedOrder();
+
+  assert.equal(OrderPage.currentOrderId, 'ORD-1');
+  assert.ok(el('view-welcome').classList.contains('hidden'));
+  assert.ok(!el('view-submitted').classList.contains('hidden'));
+});
+
+test('the welcome canvas is skipped where there is no real canvas to draw on', () => {
+  const { OrderPage } = loadOrderPage();
+  // DOM ปลอมไม่มี getContext ถ้าไม่กันไว้ หน้านี้จะพังทั้งหน้าตั้งแต่ init
+  assert.doesNotThrow(() => OrderPage.startWelcomeAnimation());
+  assert.equal(OrderPage._welcomeRaf, null);
+});
+
+test('the welcome screen keeps its leave transition in the stylesheet', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
+  // จังหวะจางออกใน CSS ต้องคู่กับ setTimeout 300ms ใน order.js ไม่งั้นหน้าจะหายวับ
+  assert.match(css, /#view-welcome\.is-leaving/);
+  assert.match(css, /#view-welcome > div > \*,/);   // อยู่ในบล็อก prefers-reduced-motion
 });
