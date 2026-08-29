@@ -28,6 +28,29 @@
 </head>
 <body class="font-sarabun bg-cream min-h-[100dvh] flex flex-col text-ink">
 
+  <!-- หน้าต้อนรับ: ขึ้นมาก่อนเมนูเสมอ ระหว่างที่เมนูยังโหลดอยู่เบื้องหลัง
+       โชว์ตั้งแต่ HTML (ไม่ใส่ hidden) เพื่อไม่ให้เห็นเมนูเปล่าวาบก่อน order.js ทำงาน -->
+  <div id="view-welcome" class="fixed inset-0 z-40 bg-cream flex flex-col">
+    <canvas id="welcome-canvas" class="absolute inset-0 w-full h-full" aria-hidden="true"></canvas>
+
+    <div class="relative flex-1 flex flex-col items-center justify-center gap-3 px-6 text-center" style="padding-top: max(1rem, env(safe-area-inset-top))">
+      <div class="w-20 h-20 rounded-[1.75rem] bg-primary flex items-center justify-center shadow-lg shadow-primary/30">
+        <svg viewBox="0 0 40 40" fill="none" aria-hidden="true" style="width:2.5rem;height:2.5rem">
+          <path d="M11 12h15v13a7 7 0 0 1-7 7h-1a7 7 0 0 1-7-7V12Z" fill="#fbfaf4"/>
+          <path d="M26 15h3a4 4 0 0 1 0 8h-3" stroke="#fbfaf4" stroke-width="2.6" stroke-linecap="round"/>
+          <path d="M15 4.5c-1.6 2 0 3.4 0 5.4M20.5 3.5c-1.6 2 0 3.4 0 5.4" stroke="#d2743f" stroke-width="2.4" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <h2 id="welcome-shop-name" class="font-black text-3xl text-secondary">สั่งอาหารออนไลน์</h2>
+      <p class="text-base text-ink font-medium">สั่งอาหารได้เลย ไม่ต้องต่อคิว</p>
+    </div>
+
+    <div class="relative px-5 pt-4 flex flex-col gap-3" style="padding-bottom: max(2.5rem, env(safe-area-inset-bottom))">
+      <button id="btn-start-order" onclick="OrderPage.startOrdering()" class="w-full min-h-[3.5rem] bg-mustard text-white rounded-2xl font-black text-xl shadow-lg shadow-mustard/40 active:scale-95 transition-all">เริ่มสั่งอาหาร</button>
+      <p id="welcome-location" class="hidden text-center text-sm font-bold text-ink"></p>
+    </div>
+  </div>
+
   <!-- หัวเพจ: ชื่อร้าน + โต๊ะ/จุดรับของ -->
   <nav class="bg-white border-b border-sand px-4 py-3 shrink-0" style="padding-top: max(0.75rem, env(safe-area-inset-top))">
     <div class="max-w-lg mx-auto flex items-center justify-between gap-3">
