@@ -23,3 +23,6 @@ Thumbs.db
 
 # wrangler local dev secrets
 .dev.vars
+
+# android app (Capacitor) — built by scripts/build-app.js
+www/

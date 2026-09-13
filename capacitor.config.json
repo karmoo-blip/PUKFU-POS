@@ -1,0 +1,8 @@
+{
+  "appId": "com.pukfu.pos",
+  "appName": "PUKFU POS",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#fbfaf4"
+  }
+}
