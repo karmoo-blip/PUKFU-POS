@@ -2536,6 +2536,10 @@
       },
 
       tableQrUrl(loc) {
+        // ในแอป Android หน้าเว็บโหลดจาก https://localhost ซึ่งมือถือลูกค้าเปิดไม่ได้ QR ต้องชี้ไปเว็บจริงบน GitHub Pages
+        if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
+          return 'https://karmoo-blip.github.io/PUKFU-POS/order.html?loc=' + encodeURIComponent(loc);
+        }
         const basePath = location.pathname.replace(/[^/]*$/, ''); // เช่น "/PUKFU-POS/" กัน path พังตอน deploy ใน subpath ของ GitHub Pages
         return location.origin + basePath + 'order.html?loc=' + encodeURIComponent(loc);
       },

@@ -1,6 +1,7 @@
 // ตอนนี้ deploy อัตโนมัติผ่าน GitHub Actions ทุกครั้งที่ push (ดู .github/workflows/deploy-worker.yml) ไม่ต้องรัน wrangler deploy มือแล้ว
 // จำกัด CORS ให้เรียกได้เฉพาะจากเว็บของร้านจริง แทนที่จะเปิดให้ทุกเว็บ (เดิม "*" ใครก็เรียก API นี้จากเว็บไหนก็ได้)
-const ALLOWED_ORIGINS = new Set(["https://karmoo-blip.github.io"]);
+// https://localhost คือ origin ของแอป Android (Capacitor โหลดหน้าเว็บจากในตัวแอปผ่านชื่อนี้) — ยังต้องมี token เหมือนเดิม
+const ALLOWED_ORIGINS = new Set(["https://karmoo-blip.github.io", "https://localhost"]);
 function corsHeaders(origin) {
   return {
     "Access-Control-Allow-Origin": ALLOWED_ORIGINS.has(origin) ? origin : "https://karmoo-blip.github.io",

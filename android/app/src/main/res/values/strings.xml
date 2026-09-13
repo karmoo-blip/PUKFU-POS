@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">PUKFU POS</string>
+    <string name="title_activity_main">PUKFU POS</string>
+    <string name="package_name">com.pukfu.pos</string>
+    <string name="custom_url_scheme">com.pukfu.pos</string>
+</resources>

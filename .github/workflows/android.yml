@@ -1,0 +1,59 @@
+name: Android App
+
+# สร้างไฟล์ APK ของแอป Android ให้ดาวน์โหลดจากหน้า Actions (หัวข้อ Artifacts ท้ายหน้า run)
+# ตอนนี้เป็น debug build ที่เซ็นด้วยกุญแจทดสอบ ซึ่งสร้างใหม่ทุกครั้งที่ build
+# ติดตั้งทับเครื่องเดิมไม่ได้ ต้องลบแอปเก่าก่อน (ข้อมูลในแอปจะหาย) — ห้ามใช้ขายจริงจนกว่าจะมีกุญแจถาวร
+
+on:
+  pull_request:
+    paths: &app_paths
+      - 'index.html'
+      - 'order.html'
+      - 'app.js'
+      - 'order.js'
+      - 'pure-helpers.js'
+      - 'qrcode-lib.js'
+      - 'style.css'
+      - 'fonts-sarabun.css'
+      - 'manifest.json'
+      - 'favicon.png'
+      - 'icons/**'
+      - 'android/**'
+      - 'capacitor.config.json'
+      - 'scripts/build-app.js'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/android.yml'
+  push:
+    branches: [main]
+    paths: *app_paths
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - uses: actions/setup-java@v6
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+      - run: npm ci
+      - run: node scripts/build-app.js
+      - run: npx cap sync android
+      - name: Build debug APK
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon
+      - uses: actions/upload-artifact@v7
+        with:
+          name: pukfu-pos-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          retention-days: 30

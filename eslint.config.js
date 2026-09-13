@@ -2,7 +2,7 @@ const js = require('@eslint/js');
 const globals = require('globals');
 
 module.exports = [
-  { ignores: ['qrcode-lib.js', 'worker/**', 'node_modules/**', 'dist/**', '.wrangler/**'] },
+  { ignores: ['qrcode-lib.js', 'worker/**', 'node_modules/**', 'dist/**', '.wrangler/**', 'www/**', 'android/**'] },
 
   js.configs.recommended,
 
@@ -89,7 +89,7 @@ module.exports = [
 
   // this config file + tests: plain Node CommonJS
   {
-    files: ['eslint.config.js', 'tests/**/*.js'],
+    files: ['eslint.config.js', 'tests/**/*.js', 'scripts/**/*.js'],
     languageOptions: {
       sourceType: 'commonjs',
       globals: { ...globals.node },
