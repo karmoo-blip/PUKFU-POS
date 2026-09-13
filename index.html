@@ -484,6 +484,7 @@
 
         <div class="set-card">
           <p class="set-card-t">เครื่องพิมพ์</p>
+          <p id="printer-native-sub" class="set-card-sub hidden">ต่อได้ทั้งสาย LAN (ใส่ IP) และบลูทูธ</p>
         <div class="set-row">
             <div class="set-row-body">
               <p class="set-row-t">เครื่องพิมพ์ใบเสร็จ (หน้าร้าน)</p>
@@ -491,8 +492,9 @@
             </div>
             <div class="set-row-acts">
               <button id="btn-bt-connect-receipt" onclick="Controller.connectBTPrinter('receipt')" class="set-btn set-btn-sm set-btn-soft"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;flex:none"><path d="M10 14a4 4 0 0 0 6 .5l2-2a4 4 0 0 0-6-6l-1 1"/><path d="M14 10a4 4 0 0 0-6-.5l-2 2a4 4 0 0 0 6 6l1-1"/></svg> เชื่อมต่อ</button>
-              <button id="btn-bt-disconnect-receipt" onclick="Controller.disconnectBTPrinter('receipt')" class="hidden set-btn set-btn-sm set-btn-danger">ตัดการเชื่อมต่อ</button>
               <button id="btn-bt-test-receipt" onclick="Controller.testBTPrint('receipt')" class="hidden set-btn set-btn-sm set-btn-soft">ทดสอบพิมพ์</button>
+              <button id="btn-printer-change-receipt" onclick="Controller.openPrinterSheet('receipt')" class="hidden set-btn set-btn-sm set-btn-ghost">เปลี่ยน</button>
+              <button id="btn-bt-disconnect-receipt" onclick="Controller.disconnectBTPrinter('receipt')" class="hidden set-btn set-btn-sm set-btn-danger">ตัดการเชื่อมต่อ</button>
             </div>
           </div>
         <div class="set-row">
@@ -502,8 +504,9 @@
             </div>
             <div class="set-row-acts">
               <button id="btn-bt-connect-kitchen" onclick="Controller.connectBTPrinter('kitchen')" class="set-btn set-btn-sm set-btn-soft"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;flex:none"><path d="M10 14a4 4 0 0 0 6 .5l2-2a4 4 0 0 0-6-6l-1 1"/><path d="M14 10a4 4 0 0 0-6-.5l-2 2a4 4 0 0 0 6 6l1-1"/></svg> เชื่อมต่อ</button>
-              <button id="btn-bt-disconnect-kitchen" onclick="Controller.disconnectBTPrinter('kitchen')" class="hidden set-btn set-btn-sm set-btn-danger">ตัดการเชื่อมต่อ</button>
               <button id="btn-bt-test-kitchen" onclick="Controller.testBTPrint('kitchen')" class="hidden set-btn set-btn-sm set-btn-soft">ทดสอบพิมพ์</button>
+              <button id="btn-printer-change-kitchen" onclick="Controller.openPrinterSheet('kitchen')" class="hidden set-btn set-btn-sm set-btn-ghost">เปลี่ยน</button>
+              <button id="btn-bt-disconnect-kitchen" onclick="Controller.disconnectBTPrinter('kitchen')" class="hidden set-btn set-btn-sm set-btn-danger">ตัดการเชื่อมต่อ</button>
             </div>
           </div>
         </div>
@@ -1095,6 +1098,44 @@
       <div class="p-4 bg-cream border-t border-sand flex gap-3">
         <button onclick="Controller.closeModal('modal-float-cash')" class="flex-1 py-3 border border-sand bg-white rounded-2xl text-slate-500 font-bold hover:bg-accent transition">ยกเลิก</button>
         <button onclick="Controller.saveFloatCashFromModal(this)" class="flex-[1.5] py-3 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl font-bold shadow-md shadow-primary/30 hover:brightness-110 transition"> บันทึกยอดเงิน </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- แผ่นต่อเครื่องพิมพ์ (เฉพาะแอป Android) เลือกสาย LAN แล้วใส่ IP หรือเลือกเครื่องบลูทูธที่จับคู่ไว้แล้ว
+       บนเว็บไม่มีวันเปิด ปุ่มเชื่อมต่อยังเปิดหน้าต่างเลือกบลูทูธของเบราว์เซอร์เหมือนเดิม -->
+  <div id="modal-printer-connect" class="modal-sheet-mobile hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-50 flex items-end lg:items-center justify-center lg:p-4" onclick="if (event.target === this) Controller.closePrinterSheet()">
+    <div class="bg-white rounded-t-3xl lg:rounded-2xl shadow-xl w-full lg:max-w-md max-h-[85vh] overflow-hidden flex flex-col">
+      <div class="lg:hidden flex justify-center pt-2.5 pb-1 shrink-0" aria-hidden="true">
+        <div class="w-10 h-1.5 rounded-full bg-slate-300"></div>
+      </div>
+      <div class="p-5 border-b border-slate-100 font-bold text-xl text-secondary flex justify-between items-center shrink-0">
+        <span id="printer-sheet-title">ต่อเครื่องพิมพ์ใบเสร็จ</span>
+        <button onclick="Controller.closePrinterSheet()" class="w-10 h-10 -mr-2 flex items-center justify-center text-slate-400" aria-label="ปิด"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:22px;height:22px"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="p-5 flex-1 overflow-y-auto flex flex-col gap-3.5" style="padding-bottom: max(1.25rem, env(safe-area-inset-bottom))">
+        <div class="set-seg">
+          <button id="printer-sheet-tab-lan" onclick="Controller.setPrinterSheetTab('lan')" class="set-seg-btn is-on" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1.1em;height:1.1em;flex:none"><rect x="9" y="2" width="6" height="6" rx="1"/><rect x="2" y="16" width="6" height="6" rx="1"/><rect x="16" y="16" width="6" height="6" rx="1"/><path d="M12 8v4M5 16v-4h14v4"/></svg> สาย LAN (IP)</button>
+          <button id="printer-sheet-tab-bt" onclick="Controller.setPrinterSheetTab('bt')" class="set-seg-btn" style="flex:1;display:inline-flex;align-items:center;justify-content:center;gap:6px"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1.1em;height:1.1em;flex:none"><path d="M7 7l10 10-5 5V2l5 5L7 17"/></svg> บลูทูธ</button>
+        </div>
+        <div id="printer-sheet-lan" class="set-field">
+          <label for="printer-sheet-ip">IP ของเครื่องพิมพ์</label>
+          <input type="text" id="printer-sheet-ip" inputmode="decimal" autocomplete="off" placeholder="เช่น 192.168.1.50" oninput="Controller.onPrinterSheetIpInput()">
+          <span class="set-hint">ดู IP ได้จากใบทดสอบที่เครื่องพิมพ์พิมพ์ออกมา · โทรศัพท์ต้องต่อ Wi-Fi วงเดียวกับเครื่องพิมพ์</span>
+        </div>
+        <div id="printer-sheet-bt" class="hidden flex flex-col gap-3.5">
+          <div class="set-field">
+            <label>เครื่องที่จับคู่บลูทูธไว้แล้ว</label>
+            <div id="printer-sheet-bt-list" class="flex flex-col gap-2"></div>
+            <span class="set-hint">ไม่เจอเครื่องพิมพ์? จับคู่ในการตั้งค่าบลูทูธของโทรศัพท์ก่อน</span>
+          </div>
+          <button onclick="Controller.openBluetoothSettings()" class="set-btn set-btn-ghost"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1.1em;height:1.1em;flex:none"><path d="M7 7l10 10-5 5V2l5 5L7 17"/></svg> เปิดการตั้งค่าบลูทูธ</button>
+        </div>
+        <div id="printer-sheet-note" class="hidden"></div>
+        <div class="flex gap-2">
+          <button id="printer-sheet-test" onclick="Controller.testPrinterSheet()" class="set-btn set-btn-soft" style="flex:1">ทดสอบพิมพ์</button>
+          <button id="printer-sheet-save" onclick="Controller.savePrinterSheet()" class="set-btn set-btn-go" style="flex:1">บันทึก</button>
+        </div>
       </div>
     </div>
   </div>

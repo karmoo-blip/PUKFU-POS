@@ -330,9 +330,34 @@
     // =============================================
     // สร้างเป็นฟังก์ชัน factory แทน object เดี่ยว จะได้เชื่อมต่อเครื่องพิมพ์ 2 เครื่องพร้อมกันได้
     // (เครื่องเดิมมีตัวเดียวก็ยังใช้ได้ปกติ แค่เรียก factory 2 ครั้งด้านล่าง)
+    // ในแอป Android (Capacitor) ส่งงานพิมพ์ผ่านโค้ด native แทน Web Bluetooth ที่ WebView ไม่มีให้
+    // ต่อได้ทั้งสาย LAN (TCP พอร์ต 9100) และบลูทูธแบบ classic ดู android/.../PrinterPlugin.java
+    const NativePrinter = {
+      available() {
+        const cap = window.Capacitor;
+        return !!(cap && cap.isNativePlatform && cap.isNativePlatform() && cap.nativePromise);
+      },
+      call(method, options) {
+        return window.Capacitor.nativePromise('PukfuPrinter', method, options || {});
+      },
+      toBase64(bytes) {
+        const arr = bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes);
+        let bin = '';
+        for (let i = 0; i < arr.length; i += 0x8000) bin += String.fromCharCode.apply(null, arr.subarray(i, i + 0x8000));
+        return btoa(bin);
+      },
+      // ข้อความสั้นๆ บอกว่าต่ออยู่กับอะไร เช่น "LAN · 192.168.1.50" หรือ "บลูทูธ · ES-8803BA"
+      describe(target) {
+        if (!target) return '';
+        return target.type === 'lan' ? 'LAN · ' + target.host : 'บลูทูธ · ' + target.name;
+      },
+      storageKey(role) { return 'pos_nativePrinter_' + (role || 'receipt'); },
+    };
+
     function createPrinterConnection() {
       return {
       device: null,
+      nativeTarget: null, // แอป Android: { type: 'lan', host, port } หรือ { type: 'bt', address, name }
       server: null,
       characteristic: null,
       isConnected: false,
@@ -389,8 +414,18 @@
         }
       },
 
+      useNativeTarget(target) {
+        this.nativeTarget = target || null;
+        this.isConnected = !!target;
+        this.deviceName = target ? (target.type === 'lan' ? target.host : target.name) : '';
+      },
+
       // ─── ตัดการเชื่อมต่อ ───
       async disconnect() {
+        if (this.nativeTarget) {
+          this.useNativeTarget(null);
+          return;
+        }
         if (this.device && this.device.gatt.connected) {
           this.device.gatt.disconnect();
         }
@@ -435,6 +470,17 @@
       },
 
       async sendData(data) {
+        if (this.nativeTarget) {
+          // ฝั่ง native เขียนเป็นสตรีมเดียวได้เลย ไม่ต้องหั่นเป็นก้อน 20 ไบต์แบบ BLE
+          const t = this.nativeTarget;
+          const payload = NativePrinter.toBase64(data);
+          if (t.type === 'lan') await NativePrinter.call('lanSend', { host: t.host, port: t.port || 9100, data: payload });
+          else await NativePrinter.call('btSend', { address: t.address, data: payload });
+          if (this.onProgress) {
+            try { this.onProgress(data.length, data.length); } catch (e) { console.warn('onProgress callback error:', e); }
+          }
+          return;
+        }
         if (!this.characteristic) throw new Error('ไม่ได้เชื่อมต่อเครื่องพิมพ์');
         await this.probeChunkSize();
         const total = data.length;
@@ -722,6 +768,16 @@
     }
     const ReceiptPrinter = createPrinterConnection();
     const KitchenPrinter = createPrinterConnection();
+
+    // แอป Android จำเครื่องพิมพ์ที่ตั้งไว้ เปิดแอปครั้งหน้าพิมพ์ได้เลยไม่ต้องต่อใหม่
+    if (NativePrinter.available()) {
+      [['receipt', ReceiptPrinter], ['kitchen', KitchenPrinter]].forEach(([role, printer]) => {
+        try {
+          const saved = JSON.parse(localStorage.getItem(NativePrinter.storageKey(role)) || 'null');
+          if (saved) printer.useNativeTarget(saved);
+        } catch (e) { /* ค่าที่เก็บไว้เสีย ถือว่ายังไม่ได้ตั้ง */ }
+      });
+    }
 
     // ไอคอนแก้วเทาอันเดิม เก็บไว้เป็นตาข่ายรับ ถ้า drinkArt พังเพราะข้อมูลสินค้าแถวไหนแปลกๆ
     // จะได้ยังเห็นแก้วเทา ไม่ใช่ช่องว่างทั้งกริด
@@ -2252,6 +2308,7 @@
           document.getElementById('printer-print-order-slip').checked = this.receiptSettings.printOrderSlip === true;
           document.getElementById('printer-paper-size').value = this.receiptSettings.paperSize || '80mm';
           this.renderLogoPreview();
+          this.updatePrinterStatusUI();
           document.getElementById('auto-lock-minutes').value = this.autoLockMinutes;
             this.applyReceiptToggles();
           document.getElementById('shop-address').value = this.shopInfo.address || '';
@@ -5965,7 +6022,7 @@ renderReport(r) {
         // ใบสั่งครัวออกที่เครื่องพิมพ์ครัวถ้าเชื่อมต่ออยู่ ไม่งั้น fallback ไปเครื่องพิมพ์ใบเสร็จ
         const target = KitchenPrinter.isConnected ? KitchenPrinter : ReceiptPrinter;
         if (!target.isConnected) {
-          this.showAlert('กรุณาเชื่อมต่อเครื่องพิมพ์ Bluetooth ก่อนพิมพ์', '');
+          this.showAlert('กรุณาเชื่อมต่อเครื่องพิมพ์ก่อนพิมพ์', '');
           return;
         }
 
@@ -5974,13 +6031,13 @@ renderReport(r) {
           await target.sendData(bytes);
         } catch (e) {
           console.warn('BT Print Error:', e.message);
-          this.showAlert('พิมพ์ผ่าน Bluetooth ไม่สำเร็จ: ' + e.message, '');
+          this.showAlert('พิมพ์ไม่สำเร็จ: ' + e.message, '');
         }
       },
 
         async printReceipt(order, queueStr) {
         if (!ReceiptPrinter.isConnected) {
-          this.showAlert('กรุณาเชื่อมต่อเครื่องพิมพ์ใบเสร็จ Bluetooth ก่อนพิมพ์', '');
+          this.showAlert('กรุณาเชื่อมต่อเครื่องพิมพ์ใบเสร็จก่อนพิมพ์', '');
           return;
         }
 
@@ -5988,7 +6045,7 @@ renderReport(r) {
           await ReceiptPrinter.printReceipt(order, queueStr, { ...this.receiptSettings, ...this.shopInfo }, KitchenPrinter);
         } catch (e) {
           console.warn('BT Print Error:', e.message);
-          this.showAlert('พิมพ์ผ่าน Bluetooth ไม่สำเร็จ: ' + e.message, '');
+          this.showAlert('พิมพ์ไม่สำเร็จ: ' + e.message, '');
         }
       },
 
@@ -6209,6 +6266,7 @@ renderReport(r) {
       },
 
       async connectBTPrinter(role) {
+        if (NativePrinter.available()) return this.openPrinterSheet(role);
         const printer = this._printerForRole(role);
         const res = await printer.connect();
         if (res.success) {
@@ -6220,10 +6278,183 @@ renderReport(r) {
         this.updatePrinterStatusUI(role);
       },
 
+      // ===== แผ่นต่อเครื่องพิมพ์ (แอป Android) =====
+      openPrinterSheet(role) {
+        role = role || 'receipt';
+        const current = this._printerForRole(role).nativeTarget;
+        this._printerSheet = {
+          role,
+          tab: current && current.type === 'bt' ? 'bt' : 'lan',
+          btDevices: [],
+          btAddress: current && current.type === 'bt' ? current.address : '',
+          checkSeq: 0,
+        };
+        document.getElementById('printer-sheet-title').innerText = 'ต่อ' + this._printerRoleLabel(role);
+        document.getElementById('printer-sheet-ip').value = current && current.type === 'lan' ? current.host : '';
+        this.setPrinterSheetTab(this._printerSheet.tab);
+        this.openModal('modal-printer-connect');
+      },
+
+      closePrinterSheet() {
+        if (this._printerSheet) this._printerSheet.checkSeq++;
+        clearTimeout(this._printerSheetIpTimer);
+        this.closeModal('modal-printer-connect', { animated: true });
+      },
+
+      setPrinterSheetTab(tab) {
+        const sheet = this._printerSheet;
+        if (!sheet) return;
+        sheet.tab = tab;
+        document.getElementById('printer-sheet-tab-lan').classList.toggle('is-on', tab === 'lan');
+        document.getElementById('printer-sheet-tab-bt').classList.toggle('is-on', tab === 'bt');
+        document.getElementById('printer-sheet-lan').classList.toggle('hidden', tab !== 'lan');
+        document.getElementById('printer-sheet-bt').classList.toggle('hidden', tab !== 'bt');
+        this.showPrinterSheetNote(null);
+        if (tab === 'bt') this.loadBluetoothPrinters();
+        else this.onPrinterSheetIpInput();
+      },
+
+      showPrinterSheetNote(ok, message) {
+        const note = document.getElementById('printer-sheet-note');
+        if (!note) return;
+        if (ok === null) { note.className = 'hidden'; note.innerHTML = ''; return; }
+        note.className = 'flex items-center gap-2 px-3.5 py-3 rounded-[14px] text-[13px] font-bold';
+        note.style.cssText = ok ? 'background:#ecfdf5;color:#059669' : 'background:#fef2f2;color:var(--color-danger)';
+        note.innerText = message;
+      },
+
+      _printerSheetHost() {
+        const host = (document.getElementById('printer-sheet-ip').value || '').trim();
+        return /^\d{1,3}(\.\d{1,3}){3}$/.test(host) ? host : '';
+      },
+
+      // พิมพ์ IP ครบแล้วลองต่อให้เองทันที จะได้รู้ก่อนกดบันทึกว่าเจอเครื่องพิมพ์หรือเปล่า
+      onPrinterSheetIpInput() {
+        const sheet = this._printerSheet;
+        if (!sheet || sheet.tab !== 'lan') return;
+        clearTimeout(this._printerSheetIpTimer);
+        const host = this._printerSheetHost();
+        const seq = ++sheet.checkSeq;
+        if (!host) { this.showPrinterSheetNote(null); return; }
+        this._printerSheetIpTimer = setTimeout(async () => {
+          try {
+            await NativePrinter.call('lanCheck', { host, port: 9100 });
+            if (seq === sheet.checkSeq) this.showPrinterSheetNote(true, 'เจอเครื่องพิมพ์ที่ ' + host);
+          } catch (e) {
+            if (seq === sheet.checkSeq) this.showPrinterSheetNote(false, 'ยังหาเครื่องพิมพ์ที่ ' + host + ' ไม่เจอ ตรวจว่าเครื่องพิมพ์เปิดอยู่ และโทรศัพท์ต่อ Wi-Fi วงเดียวกัน');
+          }
+        }, 600);
+      },
+
+      async loadBluetoothPrinters() {
+        const sheet = this._printerSheet;
+        const list = document.getElementById('printer-sheet-bt-list');
+        if (!sheet || !list) return;
+        list.innerHTML = '<p class="set-row-s">กำลังโหลดรายชื่อเครื่อง…</p>';
+        try {
+          const res = await NativePrinter.call('btList');
+          sheet.btDevices = (res && res.devices) || [];
+        } catch (e) {
+          sheet.btDevices = [];
+          this.showPrinterSheetNote(false, e.message);
+        }
+        this.renderBluetoothPrinters();
+      },
+
+      renderBluetoothPrinters() {
+        const sheet = this._printerSheet;
+        const list = document.getElementById('printer-sheet-bt-list');
+        if (!sheet || !list) return;
+        if (sheet.btDevices.length === 0) {
+          list.innerHTML = '<p class="set-row-s">ยังไม่มีเครื่องที่จับคู่ไว้</p>';
+          return;
+        }
+        const btIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex:none"><path d="M7 7l10 10-5 5V2l5 5L7 17"/></svg>';
+        const check = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:18px;height:18px;flex:none;color:var(--color-primary)"><path d="M20 6L9 17l-5-5"/></svg>';
+        list.innerHTML = sheet.btDevices.map((d, i) => {
+          const on = d.address === sheet.btAddress;
+          const box = on
+            ? 'border:2px solid var(--color-primary);background:var(--color-accent)'
+            : 'border:1px solid var(--color-sand);background:var(--color-cream)';
+          return '<button type="button" onclick="Controller.pickBluetoothPrinter(' + i + ')" style="min-height:44px;padding:0 12px;border-radius:12px;display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700;color:var(--color-secondary);text-align:left;' + box + '">'
+            + btIcon + '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(d.name) + '</span>' + (on ? check : '') + '</button>';
+        }).join('');
+      },
+
+      pickBluetoothPrinter(index) {
+        const sheet = this._printerSheet;
+        const device = sheet && sheet.btDevices[index];
+        if (!device) return;
+        sheet.btAddress = device.address;
+        this.showPrinterSheetNote(null);
+        this.renderBluetoothPrinters();
+      },
+
+      // อ่านค่าที่เลือกในแผ่นออกมาเป็นปลายทาง ถ้ายังไม่ครบโยน error พร้อมข้อความที่บอกได้เลยว่าต้องทำอะไร
+      _printerSheetTarget() {
+        const sheet = this._printerSheet;
+        if (sheet.tab === 'lan') {
+          const host = this._printerSheetHost();
+          if (!host) throw new Error('ใส่ IP ให้ครบ เช่น 192.168.1.50');
+          return { type: 'lan', host, port: 9100 };
+        }
+        const device = sheet.btDevices.find(d => d.address === sheet.btAddress);
+        if (!device) throw new Error('เลือกเครื่องพิมพ์บลูทูธก่อน');
+        return { type: 'bt', address: device.address, name: device.name };
+      },
+
+      async _withPrinterSheetBusy(work) {
+        const buttons = ['printer-sheet-test', 'printer-sheet-save'].map(id => document.getElementById(id));
+        buttons.forEach(b => { if (b) b.disabled = true; });
+        try { return await work(); }
+        finally { buttons.forEach(b => { if (b) b.disabled = false; }); }
+      },
+
+      async testPrinterSheet() {
+        let target;
+        try { target = this._printerSheetTarget(); } catch (e) { return this.showPrinterSheetNote(false, e.message); }
+        await this._withPrinterSheetBusy(async () => {
+          const trial = createPrinterConnection();
+          trial.useNativeTarget(target);
+          try {
+            await trial.printTest(this.receiptSettings);
+            this.showPrinterSheetNote(true, 'ส่งหน้าทดสอบไปที่ ' + NativePrinter.describe(target) + ' แล้ว');
+          } catch (e) {
+            this.showPrinterSheetNote(false, 'พิมพ์ไม่สำเร็จ: ' + e.message);
+          }
+        });
+      },
+
+      async savePrinterSheet() {
+        const sheet = this._printerSheet;
+        let target;
+        try { target = this._printerSheetTarget(); } catch (e) { return this.showPrinterSheetNote(false, e.message); }
+        await this._withPrinterSheetBusy(async () => {
+          if (target.type === 'lan') {
+            try {
+              await NativePrinter.call('lanCheck', { host: target.host, port: target.port });
+            } catch (e) {
+              this.showPrinterSheetNote(false, 'ต่อ ' + target.host + ' ไม่ได้ ตรวจว่าเครื่องพิมพ์เปิดอยู่ และโทรศัพท์ต่อ Wi-Fi วงเดียวกัน');
+              return;
+            }
+          }
+          this._printerForRole(sheet.role).useNativeTarget(target);
+          localStorage.setItem(NativePrinter.storageKey(sheet.role), JSON.stringify(target));
+          this.updatePrinterStatusUI(sheet.role);
+          this.closePrinterSheet();
+          this.showAlert('เชื่อมต่อสำเร็จ: ' + NativePrinter.describe(target), '');
+        });
+      },
+
+      openBluetoothSettings() {
+        NativePrinter.call('openBluetoothSettings').catch(() => {});
+      },
+
       async disconnectBTPrinter(role) {
         const printer = this._printerForRole(role);
         await printer.disconnect();
         localStorage.removeItem('pos_btPrinterName_' + (role || 'receipt'));
+        localStorage.removeItem(NativePrinter.storageKey(role));
         this.updatePrinterStatusUI(role);
         this.showAlert('ตัดการเชื่อมต่อแล้ว', 'ℹ');
       },
@@ -6249,12 +6480,22 @@ renderReport(r) {
         const connectBtn = document.getElementById('btn-bt-connect' + suffix);
         const disconnectBtn = document.getElementById('btn-bt-disconnect' + suffix);
         const testBtn = document.getElementById('btn-bt-test' + suffix);
+        const changeBtn = document.getElementById('btn-printer-change' + suffix);
+        const native = NativePrinter.available();
+        const nativeSub = document.getElementById('printer-native-sub');
+        if (nativeSub) nativeSub.classList.toggle('hidden', !native);
         // ไอคอน nav bar และปุ่มใน user menu ผูกกับเครื่องพิมพ์ใบเสร็จเท่านั้น (เป็นเครื่องหลักที่ใช้ทุกบิล)
         const navIcon = role === 'receipt' ? document.getElementById('nav-printer-status') : null;
         const userMenuBtn = role === 'receipt' ? document.getElementById('user-menu-printer-btn') : null;
 
+        if (statusEl) statusEl.style.cssText = '';
+        if (changeBtn) changeBtn.classList.toggle('hidden', !(native && printer.isConnected));
+
         if (printer.isConnected) {
-          if (statusEl) statusEl.innerHTML = ' เชื่อมต่ออยู่: <strong>' + printer.deviceName + '</strong>';
+          if (statusEl && printer.nativeTarget) {
+            statusEl.style.cssText = 'display:flex;align-items:center;gap:6px;flex-wrap:wrap';
+            statusEl.innerHTML = '<span class="set-tag set-tag-ok">เชื่อมต่อแล้ว</span><span>' + escHtml(NativePrinter.describe(printer.nativeTarget)) + '</span>';
+          } else if (statusEl) statusEl.innerHTML = ' เชื่อมต่ออยู่: <strong>' + printer.deviceName + '</strong>';
           if (connectBtn) connectBtn.classList.add('hidden');
           if (disconnectBtn) disconnectBtn.classList.remove('hidden');
           if (testBtn) testBtn.classList.remove('hidden');
