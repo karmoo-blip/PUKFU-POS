@@ -6928,6 +6928,26 @@ renderReport(r) {
         this.loggedInEmployee = null;
         this.currentSettingsUser = null;
         this.updateLoggedInUserLabel();
+        this.resetViewForNextUser();
+        this.showPinLockScreen();
+      },
+
+      async lockApp() {
+        const ok = await this.showConfirm('ต้องการล็อกหน้าจอและออกจากระบบผู้ใช้ปัจจุบันหรือไม่?', '');
+        if (!ok) return;
+        localStorage.removeItem('pos_loggedInUserId');
+        this.loggedInEmployee = null;
+        this.currentSettingsUser = null;
+        this.updateLoggedInUserLabel();
+        this.resetViewForNextUser();
+        this.showPinLockScreen();
+      },
+
+      // ล็อกจอแล้ว คนที่ใส่ PIN ถัดไปต้องเริ่มที่หน้าขายเสมอ ไม่ใช่หน้าที่คนก่อนเปิดค้างไว้
+      // เดิมหน้าตั้งค่าของเจ้าของค้างอยู่หลังจอล็อก พนักงานที่ไม่มีสิทธิ์ใส่ PIN ตัวเองแล้วเห็นต่อได้เลย
+      // ตะกร้าไม่แตะ ออเดอร์ที่กดค้างไว้ยังอยู่เหมือนเดิม
+      resetViewForNextUser() {
+        this.closeUserMenu();
 
         // ปิดโมดัลที่ค้างอยู่ทั้งหมดก่อนล็อก กันหน้าจอซ้อนกัน
         // ต้องเจาะจงเฉพาะตัวกรอบ (.fixed) ไม่ใช่ทุก id ที่ขึ้นต้นด้วย modal-
@@ -6941,17 +6961,14 @@ renderReport(r) {
         ['modal-inv-item', 'modal-product-item', 'modal-recipe-form', 'modal-notification-form', 'modal-edit-bill']
           .forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
 
-        this.showPinLockScreen();
-      },
+        // หน้าตั้งค่ากลับไปหน้ารายการ และล้างเมนูของคนก่อน openSettings จะวาดใหม่ตามสิทธิ์ของคนถัดไป
+        this.backToSettingsHome();
+        const nav = document.getElementById('settings-nav');
+        if (nav) nav.innerHTML = '';
+        const userLabel = document.getElementById('settings-user-label');
+        if (userLabel) userLabel.innerText = '';
 
-      async lockApp() {
-        const ok = await this.showConfirm('ต้องการล็อกหน้าจอและออกจากระบบผู้ใช้ปัจจุบันหรือไม่?', '');
-        if (!ok) return;
-        localStorage.removeItem('pos_loggedInUserId');
-        this.loggedInEmployee = null;
-        this.currentSettingsUser = null;
-        this.updateLoggedInUserLabel();
-        this.showPinLockScreen();
+        this.switchView('pos');
       },
 
       processLogQueue() {
