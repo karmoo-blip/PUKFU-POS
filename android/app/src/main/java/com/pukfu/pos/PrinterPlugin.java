@@ -194,6 +194,7 @@ public class PrinterPlugin extends Plugin {
         call.resolve(result);
     }
 
+    @SuppressLint("MissingPermission")
     private void sendBluetooth(PluginCall call) {
         String address = call.getString("address");
         byte[] data = decodeData(call);

@@ -7,8 +7,9 @@ android {
         applicationId "com.pukfu.pos"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        // GitHub Actions ส่งเลขรอบ build มาให้ (-PversionCode) เลขต้องเพิ่มขึ้นทุกครั้ง Android ถึงยอมติดตั้งทับ
+        versionCode((project.findProperty('versionCode') ?: '1') as Integer)
+        versionName "1.0.${project.findProperty('versionCode') ?: '0'}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -16,8 +17,23 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // กุญแจเซ็นแอปถาวร: อ่านจาก environment ที่ GitHub Actions ใส่ให้จาก secrets เท่านั้น ไม่มีไฟล์กุญแจใน repo
+    // ทุก build เซ็นด้วยกุญแจเดียวกัน APK ใหม่จึงติดตั้งทับของเดิมได้ ข้อมูลในเครื่องไม่หาย
+    def keystoreFile = System.getenv('ANDROID_KEYSTORE_FILE')
+    signingConfigs {
+        if (keystoreFile) {
+            release {
+                storeFile file(keystoreFile)
+                storeType 'pkcs12'
+                storePassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+                keyAlias System.getenv('ANDROID_KEY_ALIAS')
+                keyPassword System.getenv('ANDROID_KEYSTORE_PASSWORD')
+            }
+        }
+    }
     buildTypes {
         release {
+            if (keystoreFile) signingConfig signingConfigs.release
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
