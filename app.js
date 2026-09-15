@@ -956,6 +956,7 @@
       },
 
       init() {
+        this.startNativeUpdater();
         this.employees = JSON.parse(localStorage.getItem('pos_employees')) || [];
         const savedLockMin = localStorage.getItem('pos_autoLockMinutes');
         if (savedLockMin !== null) this.autoLockMinutes = Number(savedLockMin);
@@ -1042,6 +1043,7 @@
       // ใส่ query string กันไทม์ให้ fetch นี้ไม่โดน service worker คืนค่าที่ cache ไว้ (ต้องยิงเน็ตจริงถึงจะรู้ค่าล่าสุด)
       // ไม่ auto-reload เอง เพราะตะกร้าปัจจุบันยังไม่ได้ persist ไว้ที่ไหน เผลอ reload กลางคันจะเสียรายการที่พิมพ์ค้างอยู่
       async checkForAppUpdate() {
+        if (this.isNativeApp()) return this.checkNativeUpdate(false); // แอป Android มีระบบอัปเดตของตัวเอง ดูด้านล่าง
         if (this._updateAvailable) return; // แจ้งไปแล้วรอบหนึ่งพอ ไม่ต้องเช็คซ้ำ
         try {
           const res = await fetch('app.js?_=' + Date.now(), { cache: 'no-store' });
@@ -1063,6 +1065,7 @@
       },
 
       async applyAppUpdate() {
+        if (this.isNativeApp()) return this.applyNativeUpdate();
         try {
           const keys = await caches.keys();
           await Promise.all(keys.map(k => caches.delete(k)));
@@ -1070,6 +1073,225 @@
         // บังคับใส่ PIN ใหม่หลังอัปเดตแอปเสมอ กันกรณีคนละคนถืออุปกรณ์ต่อตอนอัปเดตพอดี ไม่ใช่แค่สลับแท็บ/รีเฟรชปกติ
         localStorage.removeItem('pos_loggedInUserId');
         location.reload();
+      },
+
+      // ===== อัปเดตแอป Android ผ่านปุ่ม ไม่ต้องติดตั้ง APK ใหม่ =====
+      // ไฟล์อัปเดตสร้างโดย scripts/build-update.js ตอน merge แล้ววางบน GitHub Pages
+      // ปลั๊กอิน @capgo/capacitor-updater ดาวน์โหลด ถอดรหัส ตรวจลายเซ็น แล้วสลับไปใช้ตอนเปิดแอปครั้งถัดไป หรือทันทีเมื่อกดอัปเดต
+      // ไม่ reload เอง เพราะตะกร้ายังไม่ได้ persist ไว้ อัปเดตกลางบิลรายการจะหาย
+      APP_UPDATE_URL: 'https://karmoo-blip.github.io/PUKFU-POS/app-update/latest.json',
+      APP_UPDATE_BUNDLE_PREFIX: 'https://karmoo-blip.github.io/PUKFU-POS/app-update/',
+      APP_UPDATE_APK_PREFIX: 'https://github.com/karmoo-blip/PUKFU-POS/releases/download/',
+      APP_UPDATE_AUTO_MS: 30 * 60 * 1000,
+      appUpdate: { state: 'idle', percent: 0, checkedAt: 0, latest: null, bundle: null, message: '' },
+
+      isNativeApp() {
+        return NativePrinter.available();
+      },
+
+      updaterCall(method, options) {
+        return window.Capacitor.nativePromise('CapacitorUpdater', method, options || {});
+      },
+
+      // เรียกตอนเปิดแอป: บอกปลั๊กอินว่าเวอร์ชันนี้เปิดขึ้นมาได้
+      // ถ้าไม่เรียกภายใน 10 วินาที ปลั๊กอินจะถือว่าเวอร์ชันใหม่พัง แล้วถอยกลับไปเวอร์ชันที่ใช้ได้ล่าสุดเอง
+      startNativeUpdater() {
+        if (!this.isNativeApp()) return;
+        this.updaterCall('notifyAppReady').catch(() => {});
+        try {
+          window.Capacitor.nativeCallback('CapacitorUpdater', 'addListener', { eventName: 'download' }, (data) => {
+            if (!data || this.appUpdate.state !== 'downloading') return;
+            this.appUpdate.percent = Math.max(0, Math.min(100, Math.round(Number(data.percent) || 0)));
+            this.renderUpdateCard();
+          });
+        } catch (e) { /* ไม่มีเปอร์เซ็นต์ก็ยังอัปเดตได้ */ }
+      },
+
+      // เวอร์ชันของไฟล์ชุดที่กำลังรันอยู่ (เขียนโดย scripts/build-app.js)
+      currentAppVersion() {
+        const v = window.PUKFU_APP;
+        return v && Number.isInteger(v.build) ? v : null;
+      },
+
+      // nativeApi ของ APK ที่ติดตั้งอยู่ อ่านจาก versionName "1.<nativeApi>.<build>" ของตัวแอป ไม่ใช่ของไฟล์ที่ดาวน์โหลดมา
+      async installedNativeApi() {
+        try {
+          const res = await this.updaterCall('getBuiltinVersion');
+          const m = /^1\.(\d+)\.\d+$/.exec((res && res.version) || '');
+          return m ? Number(m[1]) : 0;
+        } catch (e) {
+          return 0;
+        }
+      },
+
+      // ปลั๊กอินจะข้ามการตรวจลายเซ็นถ้าไม่ได้ส่ง sessionKey มา ฝั่งนี้จึงต้องไม่รับไฟล์อัปเดตที่ไม่มีลายเซ็นครบเด็ดขาด
+      isValidUpdateManifest(m) {
+        return !!m
+          && Number.isInteger(m.build) && Number.isInteger(m.minNativeApi)
+          && typeof m.version === 'string' && /^1\.\d+\.\d+$/.test(m.version)
+          && typeof m.url === 'string' && m.url.startsWith(this.APP_UPDATE_BUNDLE_PREFIX)
+          && typeof m.sessionKey === 'string' && /^[A-Za-z0-9+/]+=*:[A-Za-z0-9+/]+=*$/.test(m.sessionKey)
+          && typeof m.checksum === 'string' && /^[0-9a-f]{512}$/.test(m.checksum);
+      },
+
+      // manual = กดปุ่มเอง (แสดงทุกสถานะ) / ไม่ใช่ = รอบอัตโนมัติ (เงียบ ตรวจไม่เกินทุก 30 นาที)
+      async checkNativeUpdate(manual) {
+        if (!this.isNativeApp()) return;
+        const u = this.appUpdate;
+        if (u.state === 'checking' || u.state === 'downloading') return;
+        if (!manual && (u.state === 'ready' || Date.now() - u.checkedAt < this.APP_UPDATE_AUTO_MS)) return;
+        const shown = manual || u.state !== 'idle';
+        if (shown) { u.state = 'checking'; u.message = ''; this.renderUpdateCard(); }
+
+        let latest;
+        try {
+          const res = await fetch(this.APP_UPDATE_URL + '?_=' + Date.now(), { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          latest = await res.json();
+        } catch (e) {
+          if (shown) {
+            const offline = navigator.onLine === false || (e && e.name === 'TypeError'); // fetch ต่อเน็ตไม่ได้โยน TypeError
+            u.state = offline ? 'offline' : 'error';
+            u.message = offline ? '' : 'เปิดข้อมูลอัปเดตไม่ได้ (' + e.message + ')';
+            this.renderUpdateCard();
+          }
+          return;
+        }
+        u.checkedAt = Date.now();
+
+        if (!this.isValidUpdateManifest(latest)) {
+          u.state = 'error';
+          u.message = 'ไฟล์อัปเดตไม่ถูกต้อง ไม่ได้ติดตั้ง';
+          this.renderUpdateCard();
+          return;
+        }
+        u.latest = latest;
+        const current = this.currentAppVersion();
+        if (current && latest.build <= current.build) {
+          u.state = 'idle';
+          this.renderUpdateCard();
+          return;
+        }
+        if (latest.minNativeApi > await this.installedNativeApi()) {
+          u.state = 'native';
+          this.renderUpdateCard();
+          return;
+        }
+
+        u.state = 'downloading';
+        u.percent = 0;
+        this.renderUpdateCard();
+        try {
+          // ดาวน์โหลดเสร็จไปแล้วรอบก่อน (เช่นปิดแอปก่อนได้ใช้) ใช้ของเดิมเลย
+          let bundle = null;
+          try {
+            const list = await this.updaterCall('list');
+            bundle = ((list && list.bundles) || []).find(b => b.version === latest.version && b.status === 'success') || null;
+          } catch (e) { /* ดาวน์โหลดใหม่ */ }
+          if (!bundle) {
+            bundle = await this.updaterCall('download', {
+              url: latest.url,
+              version: latest.version,
+              sessionKey: latest.sessionKey,
+              checksum: latest.checksum,
+            });
+          }
+          await this.updaterCall('next', { id: bundle.id }); // ถ้าไม่กดอัปเดต จะสลับให้เองตอนเปิดแอปครั้งหน้า
+          u.bundle = bundle;
+          u.state = 'ready';
+          this.showNativeUpdateBanner();
+        } catch (e) {
+          u.state = 'error';
+          u.message = 'ดาวน์โหลดไม่สำเร็จ (' + ((e && e.message) || 'ไม่ทราบสาเหตุ') + ')';
+        }
+        this.renderUpdateCard();
+      },
+
+      showNativeUpdateBanner() {
+        this._updateAvailable = true;
+        const banner = document.getElementById('app-update-banner');
+        if (banner) {
+          const btn = banner.querySelector('button');
+          if (btn) btn.innerText = 'อัปเดตตอนนี้';
+          banner.classList.remove('hidden');
+        }
+        this.updateBellBadge();
+      },
+
+      async applyNativeUpdate() {
+        const bundle = this.appUpdate.bundle;
+        if (!bundle) return this.checkNativeUpdate(true);
+        if (this.cart && this.cart.length > 0) {
+          const ok = await this.showConfirm('ตะกร้ามีรายการค้างอยู่ ถ้าอัปเดตตอนนี้รายการจะหาย ต้องการอัปเดตเลยหรือไม่?', '');
+          if (!ok) return;
+        }
+        // เหมือนอัปเดตบนเว็บ: บังคับใส่ PIN ใหม่หลังแอปโหลดใหม่
+        localStorage.removeItem('pos_loggedInUserId');
+        try {
+          await this.updaterCall('set', { id: bundle.id }); // ปลั๊กอินโหลดหน้าใหม่ให้เอง
+        } catch (e) {
+          this.appUpdate.state = 'error';
+          this.appUpdate.message = 'สลับไปเวอร์ชันใหม่ไม่สำเร็จ (' + ((e && e.message) || 'ไม่ทราบสาเหตุ') + ')';
+          this.renderUpdateCard();
+        }
+      },
+
+      openNewApkDownload() {
+        const url = this.appUpdate.latest && this.appUpdate.latest.apkUrl;
+        if (typeof url !== 'string' || !url.startsWith(this.APP_UPDATE_APK_PREFIX)) return;
+        window.location.href = url; // Capacitor เปิดลิงก์นอกแอปในเบราว์เซอร์ของเครื่อง
+      },
+
+      // การ์ดท้ายรายการตั้งค่า (แบบ B ในม็อกอัป) แสดงเฉพาะในแอป Android
+      renderUpdateCard() {
+        const el = document.getElementById('app-update-card');
+        if (!el) return;
+        const u = this.appUpdate;
+        const current = this.currentAppVersion();
+        const builtAt = current && current.builtAt ? new Date(current.builtAt) : null;
+        const versionLine = current
+          ? 'เวอร์ชัน ' + escHtml(current.version) + (builtAt && !isNaN(builtAt) ? ' · อัปเดตเมื่อ ' + builtAt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : '')
+          : 'เวอร์ชันทดสอบ';
+        const latestVersion = u.latest ? escHtml(u.latest.version) : '';
+        const row = (tag, text) => '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">' + tag
+          + '<span style="font-size:13px;font-weight:700;color:var(--color-mute)">' + text + '</span></div>';
+        const hint = (t) => '<p style="margin-top:8px;font-size:11px;font-weight:700;color:#94a3b8;text-align:center">' + t + '</p>';
+        const icon = (d) => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex:none">' + d + '</svg>';
+        const refresh = icon('<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>');
+        const download = icon('<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/>');
+        const btn = (cls, label, ic, onclick, disabled) => '<button type="button" class="set-btn ' + cls + '" style="width:100%' + (disabled ? ';opacity:.5' : '') + '"'
+          + (disabled ? ' disabled' : '') + ' onclick="' + onclick + '">' + ic + label + '</button>';
+        const checkBtn = (label, disabled) => btn('set-btn-soft', label, refresh, 'Controller.checkNativeUpdate(true)', disabled);
+
+        let body;
+        if (u.state === 'checking') {
+          body = row('<svg class="spin-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="width:16px;height:16px;color:var(--color-primary)"><path d="M12 3a9 9 0 1 0 9 9"/></svg>', 'กำลังตรวจสอบ…')
+            + checkBtn('ตรวจหาอัปเดต', true);
+        } else if (u.state === 'downloading') {
+          body = row('<span class="set-tag set-tag-info">มีเวอร์ชันใหม่ ' + latestVersion + '</span>', 'กำลังดาวน์โหลด ' + u.percent + '%')
+            + '<div style="height:8px;border-radius:999px;background:var(--color-fill);overflow:hidden"><div style="height:100%;width:' + u.percent + '%;border-radius:999px;background:linear-gradient(to right,var(--color-primary),var(--color-secondary))"></div></div>'
+            + hint('ขายต่อได้ระหว่างรอ');
+        } else if (u.state === 'ready') {
+          body = row('<span class="set-tag set-tag-info">พร้อมอัปเดต</span>', 'เวอร์ชัน ' + latestVersion)
+            + btn('set-btn-go', 'อัปเดตตอนนี้', download, 'Controller.applyNativeUpdate()')
+            + hint('แอปจะโหลดใหม่และให้ใส่ PIN อีกครั้ง · ปิดบิลที่ค้างก่อนกด');
+        } else if (u.state === 'native') {
+          body = row('<span class="set-tag set-tag-warn">ต้องติดตั้งแอปใหม่</span>', 'เวอร์ชัน ' + latestVersion + ' มีการแก้ส่วนของแอป Android')
+            + btn('set-btn-go', 'ดาวน์โหลดแอปเวอร์ชันใหม่', download, 'Controller.openNewApkDownload()')
+            + hint('ติดตั้งทับแอปเดิมได้เลย ข้อมูลในเครื่องไม่หาย');
+        } else if (u.state === 'offline') {
+          body = row('<span class="set-tag set-tag-off">ไม่มีอินเทอร์เน็ต</span>', 'ต่อเน็ตแล้วลองอีกครั้ง') + checkBtn('ลองอีกครั้ง');
+        } else if (u.state === 'error') {
+          body = row('<span class="set-tag set-tag-off">อัปเดตไม่สำเร็จ</span>', escHtml(u.message)) + checkBtn('ลองอีกครั้ง');
+        } else {
+          const when = u.checkedAt
+            ? 'ตรวจล่าสุด ' + (new Date(u.checkedAt).toDateString() === new Date().toDateString() ? 'วันนี้ ' : new Date(u.checkedAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' ')
+              + new Date(u.checkedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+            : 'ยังไม่ได้ตรวจ';
+          body = row(u.checkedAt ? '<span class="set-tag set-tag-ok">ล่าสุดแล้ว</span>' : '', when) + checkBtn('ตรวจหาอัปเดต');
+        }
+
+        el.innerHTML = '<div class="set-card"><p class="set-card-t">แอป PUKFU POS</p><p class="set-card-sub">' + versionLine + '</p>' + body + '</div>';
       },
 
       // ดึงข้อมูลทั้งหมดจากเซิร์ฟเวอร์ใหม่ (เมนู/พนักงาน/add-ons/วิธีชำระเงิน/ข้อมูลร้าน/ประวัติออเดอร์)
@@ -1786,8 +2008,9 @@
         if (c.update || c.unsynced) {
           html += group('ระบบ');
           if (c.update) {
-            html += row('#10b981', 'มีเวอร์ชันใหม่พร้อมใช้งาน', 'กดรีเฟรชเพื่อโหลดตัวล่าสุด',
-              'text-emerald-600 bg-emerald-50', 'รีเฟรช', 'Controller.applyAppUpdate()');
+            const nativeApp = this.isNativeApp();
+            html += row('#10b981', 'มีเวอร์ชันใหม่พร้อมใช้งาน', nativeApp ? 'กดอัปเดตเพื่อใช้เวอร์ชันล่าสุด' : 'กดรีเฟรชเพื่อโหลดตัวล่าสุด',
+              'text-emerald-600 bg-emerald-50', nativeApp ? 'อัปเดต' : 'รีเฟรช', 'Controller.applyAppUpdate()');
           }
           if (c.unsynced) {
             html += row('#d97706', `ข้อมูลค้างซิงก์ ${c.unsynced} รายการ`, 'ยังไม่ได้ส่งขึ้นเซิร์ฟเวอร์',
@@ -2262,7 +2485,9 @@
           }
           html += '</div>';
         }
+        if (this.isNativeApp()) html += '<div id="app-update-card" style="margin-top:18px"></div>';
         nav.innerHTML = html;
+        this.renderUpdateCard();
       },
 
       // จอเล็กเข้าหน้าย่อยแล้วต้องมีทางกลับ จอใหญ่ไม่ต้องเพราะเมนูอยู่ข้างๆ ตลอด

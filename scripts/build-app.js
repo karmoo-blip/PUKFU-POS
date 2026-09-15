@@ -5,8 +5,10 @@
 // - ไม่ใส่ sw.js และไม่ลงทะเบียน service worker: ไฟล์อยู่ในตัวแอปอยู่แล้ว ถ้ามี SW จะคืน app.js เก่าจาก cache หลังอัปเดต APK
 // - Tailwind กับฟอนต์ Sarabun ใช้สำเนาในเครื่องแทน CDN เพื่อให้หน้าตาไม่พังตอนออฟไลน์
 // - ไม่ใส่ config.local.js เด็ดขาด (มี API key ของเครื่อง dev)
+// - เขียน app-version.js บอกเลข build ของชุดไฟล์นี้ ใช้เทียบกับอัปเดตบนเว็บ (ดู scripts/build-update.js)
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, 'www');
@@ -21,6 +23,16 @@ const FONT_LINK = '<link href="https://fonts.googleapis.com/css2?family=Sarabun:
 const TAILWIND_TAG = '<script src="https://cdn.tailwindcss.com"></script>';
 const CONFIG_LOCAL_TAG = '<script src="config.local.js" onerror="void 0"></script>';
 const SW_REGISTER = "navigator.serviceWorker.register('sw.js')";
+const APP_SCRIPT_TAG = '<script src="app.js"></script>';
+
+// เลข build = จำนวน commit ของ branch ปัจจุบัน ได้เลขเดียวกันทั้งตอนสร้าง APK และตอนสร้างไฟล์อัปเดต
+// (GitHub Actions ต้อง checkout แบบ fetch-depth: 0 ไม่งั้นนับได้ 1)
+function appVersion() {
+  const { nativeApi } = JSON.parse(fs.readFileSync(path.join(ROOT, 'app-version.json'), 'utf8'));
+  const build = Number(process.env.APP_BUILD) || Number(execSync('git rev-list --count HEAD', { cwd: ROOT }).toString().trim());
+  if (!Number.isInteger(nativeApi) || !Number.isInteger(build) || build < 1) throw new Error('อ่านเลขเวอร์ชันไม่ได้ ตรวจ app-version.json และประวัติ git');
+  return { build, nativeApi, version: `1.${nativeApi}.${build}`, builtAt: new Date().toISOString() };
+}
 
 // แทนข้อความแบบต้องเจอจริง ถ้า index.html เปลี่ยนจนหาไม่เจอให้ build ล้มไปเลย ดีกว่าได้แอปที่แอบโหลด CDN อยู่
 function replaceExactly(html, file, from, to) {
@@ -28,7 +40,7 @@ function replaceExactly(html, file, from, to) {
   return html.split(from).join(to);
 }
 
-async function main() {
+async function buildApp() {
   fs.rmSync(OUT, { recursive: true, force: true });
   fs.mkdirSync(path.join(OUT, 'icons'), { recursive: true });
   fs.mkdirSync(path.join(OUT, 'vendor'), { recursive: true });
@@ -49,14 +61,23 @@ async function main() {
     if (file === 'index.html') {
       html = replaceExactly(html, file, CONFIG_LOCAL_TAG, '');
       html = replaceExactly(html, file, SW_REGISTER, 'Promise.resolve()');
+      html = replaceExactly(html, file, APP_SCRIPT_TAG, '<script src="app-version.js"></script>\n  ' + APP_SCRIPT_TAG);
     }
     fs.writeFileSync(path.join(OUT, file), html);
   }
 
-  console.log('www/ พร้อมแล้ว:', fs.readdirSync(OUT).join(', '));
+  const version = appVersion();
+  fs.writeFileSync(path.join(OUT, 'app-version.js'), 'window.PUKFU_APP = ' + JSON.stringify(version) + ';\n');
+
+  console.log('www/ พร้อมแล้ว เวอร์ชัน', version.version);
+  return version;
 }
 
-main().catch((err) => {
-  console.error(err.message);
-  process.exit(1);
-});
+module.exports = { buildApp, OUT };
+
+if (require.main === module) {
+  buildApp().catch((err) => {
+    console.error(err.message);
+    process.exit(1);
+  });
+}

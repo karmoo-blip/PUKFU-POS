@@ -1,5 +1,6 @@
 // โหลด Controller ตัวจริงจาก app.js ในกล่องจำลอง ใช้ร่วมกันหลายไฟล์เทสต์
-// options: { native: fake PukfuPrinter plugin (ไม่ใส่ = รันแบบเว็บ), saved: { receipt, kitchen } ปลายทางเครื่องพิมพ์ที่เคยบันทึกไว้,
+// options: { native: fake PukfuPrinter plugin (ไม่ใส่ทั้ง native และ updater = รันแบบเว็บ), updater: fake CapacitorUpdater plugin,
+//            fetch: fetch ปลอม, app: window.PUKFU_APP, saved: { receipt, kitchen } ปลายทางเครื่องพิมพ์ที่เคยบันทึกไว้,
 //            views: ['pos', 'settings'] หน้าที่มี element .view อยู่ในหน้าจำลอง }
 const fs = require('node:fs');
 const path = require('node:path');
@@ -28,6 +29,7 @@ class FakeEl {
   set className(v) { this.classes = new Set(String(v).split(/\s+/).filter(Boolean)); }
   addEventListener() {}
   removeEventListener() {}
+  querySelector(sel) { this._q = this._q || {}; return this._q[sel] || (this._q[sel] = new FakeEl(this.id + ' ' + sel)); }
   appendChild() {}
   remove() {}
   getBoundingClientRect() { return { left: 0, top: 0, width: 0, height: 0 }; }
@@ -137,15 +139,24 @@ function loadController(options) {
     qrcode: () => ({ addData() {}, make() {}, createDataURL: () => '' }),
     btoa: (s) => Buffer.from(s, 'binary').toString('base64'),
   };
-  if (o.native) {
+  if (o.native || o.updater) {
+    const listeners = {};
     sandbox.Capacitor = {
       isNativePlatform: () => true,
       nativePromise: (plugin, method, options) => {
         calls.push({ fn: plugin + '.' + method, args: [options] });
-        return o.native[method] ? o.native[method](options) : Promise.resolve({});
+        const impl = (plugin === 'CapacitorUpdater' ? o.updater : o.native) || {};
+        return impl[method] ? impl[method](options) : Promise.resolve({});
       },
+      nativeCallback: (plugin, method, options, callback) => {
+        if (method === 'addListener') listeners[plugin + '.' + options.eventName] = callback;
+        return 'cb';
+      },
+      __emit: (plugin, eventName, data) => listeners[plugin + '.' + eventName] && listeners[plugin + '.' + eventName](data),
     };
   }
+  if (o.fetch) sandbox.fetch = o.fetch;
+  if (o.app) sandbox.PUKFU_APP = o.app;
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   sandbox.window.addEventListener = () => {};
@@ -162,7 +173,7 @@ function loadController(options) {
   C.showLoading = () => {};
   C.hideLoading = () => {};
   C.shopInfo = C.shopInfo || {};
-  return { C, calls, alerts, store, printers: sandbox.__printers, el: (id) => document.getElementById(id) };
+  return { C, calls, alerts, store, sandbox, printers: sandbox.__printers, el: (id) => document.getElementById(id) };
 }
 
 
