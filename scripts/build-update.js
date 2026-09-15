@@ -35,7 +35,8 @@ function encryptBundle(zip, privateKeyPem) {
 }
 
 async function main() {
-  const outDir = process.argv[2];
+  // zip รันจากในโฟลเดอร์ www/ ต้องแปลงเป็น path เต็มก่อน ไม่งั้น "dist/app-update" จะไปชี้ใน www/ แทน
+  const outDir = process.argv[2] && path.resolve(process.argv[2]);
   const privateKey = process.env.APP_UPDATE_PRIVATE_KEY;
   if (!outDir) throw new Error('ใส่โฟลเดอร์ปลายทาง เช่น node scripts/build-update.js dist/app-update');
   if (!privateKey) throw new Error('ไม่มี APP_UPDATE_PRIVATE_KEY');
