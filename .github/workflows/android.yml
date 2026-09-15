@@ -1,8 +1,8 @@
 name: Android App
 
 # สร้างไฟล์ APK ของแอป Android ให้ดาวน์โหลดจากหน้า Actions (หัวข้อ Artifacts ท้ายหน้า run)
-# ตอนนี้เป็น debug build ที่เซ็นด้วยกุญแจทดสอบ ซึ่งสร้างใหม่ทุกครั้งที่ build
-# ติดตั้งทับเครื่องเดิมไม่ได้ ต้องลบแอปเก่าก่อน (ข้อมูลในแอปจะหาย) — ห้ามใช้ขายจริงจนกว่าจะมีกุญแจถาวร
+# build จาก repo นี้เองเซ็นด้วยกุญแจถาวร (secrets ANDROID_KEYSTORE_*) APK ใหม่ติดตั้งทับของเดิมได้ ข้อมูลไม่หาย
+# PR จาก fork ไม่ได้รับ secrets อยู่แล้ว และเราไม่ถอดกุญแจให้ด้วย จึงได้แค่ debug build เซ็นกุญแจทดสอบ
 
 on:
   pull_request:
@@ -35,6 +35,9 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      # เปิดใช้กุญแจถาวรเฉพาะงานที่มาจาก repo นี้เอง (push หรือ PR จาก branch ใน repo) ไม่ใช่ PR จาก fork
+      SIGN_WITH_KEY: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -49,11 +52,28 @@ jobs:
       - run: npm ci
       - run: node scripts/build-app.js
       - run: npx cap sync android
-      - name: Build debug APK
+      - name: Build signed APK
+        if: env.SIGN_WITH_KEY == 'true'
         working-directory: android
-        run: ./gradlew assembleDebug --no-daemon
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then echo "::error::ANDROID_KEYSTORE_BASE64 secret is missing"; exit 1; fi
+          export ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/pukfu-release.p12"
+          echo "$KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_FILE"
+          ./gradlew assembleRelease -PversionCode=${{ github.run_number }} --no-daemon
+          rm -f "$ANDROID_KEYSTORE_FILE"
+          mv app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/PUKFU-POS.apk"
+      - name: Build debug APK (fork PR, no key)
+        if: env.SIGN_WITH_KEY != 'true'
+        working-directory: android
+        run: |
+          ./gradlew assembleDebug -PversionCode=${{ github.run_number }} --no-daemon
+          mv app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/PUKFU-POS.apk"
       - uses: actions/upload-artifact@v7
         with:
-          name: pukfu-pos-debug-apk
-          path: android/app/build/outputs/apk/debug/app-debug.apk
+          name: pukfu-pos-apk
+          path: ${{ runner.temp }}/PUKFU-POS.apk
           retention-days: 30
