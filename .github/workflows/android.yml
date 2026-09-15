@@ -20,6 +20,7 @@ on:
       - 'icons/**'
       - 'android/**'
       - 'capacitor.config.json'
+      - 'app-version.json'
       - 'scripts/build-app.js'
       - 'package.json'
       - 'package-lock.json'
@@ -40,6 +41,8 @@ jobs:
       SIGN_WITH_KEY: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # เลข build = จำนวน commit ต้องตรงกับไฟล์อัปเดตบน GitHub Pages
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
@@ -50,6 +53,12 @@ jobs:
           java-version: '21'
           cache: 'gradle'
       - run: npm ci
+      # ลองสร้างไฟล์อัปเดตด้วยกุญแจทิ้ง ให้รู้ตั้งแต่ใน PR ว่าสคริปต์ยังใช้ได้ (ของจริงสร้างใน deploy-pages.yml ตอน merge)
+      - name: Check the app update file builds
+        run: |
+          export APP_UPDATE_PRIVATE_KEY="$(openssl genrsa -traditional 2048 2>/dev/null || openssl genrsa 2048)"
+          node scripts/build-update.js "$RUNNER_TEMP/app-update-check"
+          node -e 'const m=require(process.argv[1]); if(!/^[0-9a-f]{512}$/.test(m.checksum)||!m.sessionKey.includes(":")) process.exit(1); console.log("update", m.version)' "$RUNNER_TEMP/app-update-check/latest.json"
       - run: node scripts/build-app.js
       - run: npx cap sync android
       - name: Build signed APK
@@ -63,17 +72,40 @@ jobs:
           if [ -z "$KEYSTORE_BASE64" ]; then echo "::error::ANDROID_KEYSTORE_BASE64 secret is missing"; exit 1; fi
           export ANDROID_KEYSTORE_FILE="$RUNNER_TEMP/pukfu-release.p12"
           echo "$KEYSTORE_BASE64" | base64 --decode > "$ANDROID_KEYSTORE_FILE"
-          ./gradlew assembleRelease -PversionCode=${{ github.run_number }} --no-daemon
+          ./gradlew assembleRelease -PappBuild=$(git rev-list --count HEAD) --no-daemon
           rm -f "$ANDROID_KEYSTORE_FILE"
           mv app/build/outputs/apk/release/app-release.apk "$RUNNER_TEMP/PUKFU-POS.apk"
       - name: Build debug APK (fork PR, no key)
         if: env.SIGN_WITH_KEY != 'true'
         working-directory: android
         run: |
-          ./gradlew assembleDebug -PversionCode=${{ github.run_number }} --no-daemon
+          ./gradlew assembleDebug -PappBuild=$(git rev-list --count HEAD) --no-daemon
           mv app/build/outputs/apk/debug/app-debug.apk "$RUNNER_TEMP/PUKFU-POS.apk"
       - uses: actions/upload-artifact@v7
         with:
           name: pukfu-pos-apk
           path: ${{ runner.temp }}/PUKFU-POS.apk
           retention-days: 30
+
+  # merge เข้า main แล้ว เอา APK ไปวางที่ลิงก์ถาวรเดิม ปุ่ม "ดาวน์โหลดแอปเวอร์ชันใหม่" ในแอปชี้มาที่นี่
+  # https://github.com/karmoo-blip/PUKFU-POS/releases/download/android-app/PUKFU-POS.apk
+  publish:
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: pukfu-pos-apk
+      - name: Update the fixed APK download link
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! gh release view android-app --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release create android-app --repo "$GITHUB_REPOSITORY" --latest=false \
+              --title "PUKFU POS Android app" \
+              --notes "The current Android app. This file is replaced on every merge to main; install it over the old app, no uninstall needed."
+          fi
+          gh release upload android-app PUKFU-POS.apk --clobber --repo "$GITHUB_REPOSITORY"

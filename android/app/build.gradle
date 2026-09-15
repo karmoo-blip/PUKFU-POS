@@ -7,9 +7,12 @@ android {
         applicationId "com.pukfu.pos"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        // GitHub Actions ส่งเลขรอบ build มาให้ (-PversionCode) เลขต้องเพิ่มขึ้นทุกครั้ง Android ถึงยอมติดตั้งทับ
-        versionCode((project.findProperty('versionCode') ?: '1') as Integer)
-        versionName "1.0.${project.findProperty('versionCode') ?: '0'}"
+        // เลข build = จำนวน commit (GitHub Actions ส่งมาเป็น -PappBuild) เพิ่มขึ้นทุก merge Android จึงยอมติดตั้งทับ
+        // versionName "1.<nativeApi>.<build>" ตัวกลางมาจาก app-version.json แอปอ่านค่านี้เพื่อรู้ว่ารับไฟล์อัปเดตรุ่นไหนได้
+        def appBuild = (project.findProperty('appBuild') ?: '1') as Integer
+        def nativeApi = new groovy.json.JsonSlurper().parse(rootProject.file('../app-version.json')).nativeApi
+        versionCode appBuild
+        versionName "1.${nativeApi}.${appBuild}"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

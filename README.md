@@ -30,3 +30,13 @@ Service Worker (sw.js) แคชหน้าเว็บและไฟล์ส
 ข้อควรระวัง
 
 repo นี้เป็น public ห้าม commit URL ของ Worker หรือ API_TOKEN ลงมาเด็ดขาด กุญแจ API_TOKEN ให้เก็บเป็น secret ฝั่ง Cloudflare Worker เท่านั้น หากสงสัยว่ากุญแจหลุด ให้เปลี่ยนค่า secret API_TOKEN ใหม่ใน Cloudflare แล้วกรอกค่าใหม่ทุกเครื่องที่ใช้งาน
+
+แอป Android
+
+แอปมือถือห่อโค้ดชุดเดียวกับเว็บด้วย Capacitor (โฟลเดอร์ android/) GitHub Actions สร้าง APK ที่เซ็นด้วยกุญแจถาวรทุกครั้งที่ merge และวางไว้ที่ลิงก์เดิมเสมอ: https://github.com/karmoo-blip/PUKFU-POS/releases/download/android-app/PUKFU-POS.apk (ติดตั้งทับของเดิมได้ ข้อมูลไม่หาย)
+
+อัปเดตผ่านปุ่ม: ตอน merge เข้า main, deploy-pages.yml สร้างไฟล์อัปเดต (scripts/build-update.js) ไว้ที่ /app-update/ บน GitHub Pages แอปตรวจเองทุก 30 นาที หรือกด "ตรวจหาอัปเดต" ท้ายหน้าตั้งค่า ไฟล์ถูกเซ็นด้วยกุญแจ APP_UPDATE_PRIVATE_KEY แอปไม่ติดตั้งไฟล์ที่ไม่ได้เซ็นด้วยกุญแจนี้
+
+ถ้าแก้โค้ดฝั่ง Android (android/ หรือปลั๊กอิน native) ให้เพิ่มเลข nativeApi ใน app-version.json แอปรุ่นเก่าจะบอกให้ติดตั้ง APK ใหม่แทนการอัปเดตผ่านปุ่ม
+
+กุญแจทั้งสองชุด (เซ็น APK และเซ็นไฟล์อัปเดต) เก็บใน GitHub secrets มีสำเนาสำรองนอก repo ห้าม commit ลงมาเด็ดขาด

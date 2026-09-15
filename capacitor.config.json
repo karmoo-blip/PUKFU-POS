@@ -4,5 +4,18 @@
   "webDir": "www",
   "android": {
     "backgroundColor": "#fbfaf4"
+  },
+  "plugins": {
+    "CapacitorUpdater": {
+      "autoUpdate": false,
+      "updateUrl": "",
+      "statsUrl": "",
+      "channelUrl": "",
+      "appReadyTimeout": 10000,
+      "autoDeleteFailed": true,
+      "autoDeletePrevious": true,
+      "resetWhenUpdate": true,
+      "publicKey": "-----BEGIN RSA PUBLIC KEY-----\nMIIBCgKCAQEApQgiDH/Xmim0b2FjLM1qSTPMrKcZoNINTacFQgDPuVJ5ufRMmhJO\nGSqiSkjXluVSSBtZFpUB0rdOTmrjBRbJi5nRgBwVc75dvXoYU4Zn+IrKK6anAKLa\nE0vmY3IoZ1DBJ6sfPzHpPEd1xTix//M2wA2C1wZDpY1TPfZMT4lZj4c2WtHvimDv\nxhDwYaFFe/OZhrPHHkHzv8oPrebWPPSlW7hMfAU+XIeduNze+dXYMh55+/P7phic\nlcQbBnsLZjV/nmgGL7v1uBVbtrRpmSKqrwsCOWSxZOIab5/UDazNFZVjI+ZmanDz\ny4kKOWJCJn0YQAJbpd0ruQ3ozJNfpZh3qQIDAQAB\n-----END RSA PUBLIC KEY-----"
+    }
   }
 }
