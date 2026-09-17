@@ -7719,11 +7719,14 @@ renderReport(r) {
           .withSuccessHandler(stats => {
             this.setBtnLoading(btn, false);
             const floatCash = stats.floatCash || 0;
-            const expectedDrawer = stats.cash + floatCash;
+            // ปิดยอดแล้ว เงินขายสดถูกย้ายเข้าเงินทอนเรียบร้อย ถ้ายังบวก stats.cash ซ้ำจะนับเงินก้อนเดียวสองรอบ
+            const closedToday = !!stats.closedInRange;
+            const expectedDrawer = closedToday ? floatCash : stats.cash + floatCash;
             // ตัวเลขวิ่งขึ้นแทนที่จะโผล่มาเต็มจำนวน หน้านี้เปิดเฉพาะตอนกดแท็บ ไม่ได้อยู่บน timer จึงไม่วิ่งซ้ำเอง
             this.countMoney('sales-total', stats.total);
             this.countMoney('sales-float', floatCash);
             this.countMoney('sales-expected', expectedDrawer);
+            this.setCloseDayState(closedToday);
             document.querySelectorAll('#settings-panel-sales .sales-sec').forEach(sec => this.replayClass(sec, 'is-entering'));
             
             // --- คำนวณต้นทุนและกำไรจาก History ภายในแอป ---
@@ -7813,12 +7816,22 @@ renderReport(r) {
           .getTodaySummary();
       },
 
+      // ปุ่มปิดยอดกดได้วันละครั้ง กดแล้วต้องเห็นเลยว่าเงินขายสดย้ายเข้าเงินทอนแล้ว
+      setCloseDayState(closed) {
+        const btn = document.getElementById('btn-close-day');
+        if (!btn) return;
+        btn.disabled = !!closed;
+        btn.innerText = closed ? 'ปิดยอดแล้ววันนี้' : 'ปิดยอดประจำวัน';
+      },
+
       closeDayCashManual(btn) {
         this.setBtnLoading(btn, true);
         google.script.run
           .withSuccessHandler(res => {
             this.setBtnLoading(btn, false);
             if (res.success) {
+              this.setCloseDayState(true);
+              if (typeof res.floatCash === 'number') this.countMoney('sales-float', res.floatCash);
               this.logPinAttempt(`ปิดยอดประจำวัน: ฿${res.amount}`, true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
               this.showAlert(`ปิดยอดประจำวันสำเร็จ นำยอดขายสด ฿${res.amount.toLocaleString(undefined, {minimumFractionDigits: 2})} เข้าเป็นเงินทอนแล้ว`, '');
               this.fetchSummary();
@@ -7842,7 +7855,7 @@ renderReport(r) {
 
         google.script.run
           .withSuccessHandler(stats => {
-            this.combinedAvailable = (stats.cash || 0) + (stats.floatCash || 0);
+            this.combinedAvailable = stats.closedInRange ? (stats.floatCash || 0) : (stats.cash || 0) + (stats.floatCash || 0);
             this.updateFloatAvailableDisplay();
           })
           .withFailureHandler(() => {
