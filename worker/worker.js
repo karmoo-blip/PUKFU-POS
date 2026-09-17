@@ -1390,6 +1390,37 @@ handlers.closeDayCash = async (env) => {
   return { success: true, amount, floatCash: s.floatCash + amount, message: "closed" };
 };
 
+// ประวัติเงินในลิ้นชัก ตารางนี้เคยเขียนอย่างเดียว ไม่มีใครอ่านกลับ เจ้าของร้านจึงหาไม่เจอว่าเงินเข้าออกตอนไหน
+// ยอดคงเหลือหลังแต่ละรายการคิดจากยอดรวมปัจจุบันแล้วถอยกลับ ถูกกว่าให้ SQLite ไล่สะสมทีละแถว
+handlers.getFloatLogs = async (env) => {
+  const balR = await env.DB.prepare(
+    "SELECT IFNULL(SUM(CASE WHEN LOWER(action) = 'out' THEN -total_amount ELSE total_amount END), 0) AS bal FROM float_log"
+  ).first();
+  const rowsR = await env.DB.prepare(
+    "SELECT id, timestamp, user, action, total_amount, note, b1000, b500, b100, b50, b20, c10, c5, c2, c1 FROM float_log ORDER BY id DESC LIMIT 100"
+  ).all();
+
+  let running = Number((balR && balR.bal) || 0);
+  const balance = running;
+  const rows = (rowsR.results || []).map((r) => {
+    const action = String(r.action || "").toLowerCase();
+    const amount = Number(r.total_amount || 0);
+    const signed = action === "out" ? -amount : amount;
+    const balanceAfter = running;
+    running -= signed;
+    return {
+      id: r.id, timestamp: r.timestamp, user: r.user || "", action, amount, signed, balanceAfter,
+      note: r.note || "",
+      denominations: {
+        b1000: Number(r.b1000 || 0), b500: Number(r.b500 || 0), b100: Number(r.b100 || 0),
+        b50: Number(r.b50 || 0), b20: Number(r.b20 || 0), c10: Number(r.c10 || 0),
+        c5: Number(r.c5 || 0), c2: Number(r.c2 || 0), c1: Number(r.c1 || 0),
+      },
+    };
+  });
+  return { success: true, balance, rows };
+};
+
 handlers.getAccessLogs = async (env) => {
   const r = await env.DB.prepare("SELECT * FROM access_log ORDER BY id DESC LIMIT 500").all();
   return r.results;

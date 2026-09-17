@@ -336,6 +336,7 @@
           </div>
           <div class="sales-btns">
             <button onclick="Controller.openFloatCashPrompt()" class="sales-btn sales-btn-ghost">นำเงินเข้า / นำเงินออก</button>
+            <button onclick="Controller.openFloatLog(this)" class="sales-btn sales-btn-ghost sales-btn-link">ดูประวัติเงินในลิ้นชัก</button>
             <button id="btn-close-day" onclick="Controller.closeDayCashManual(this)" class="sales-btn sales-btn-go">ปิดยอดประจำวัน</button>
           </div>
           <p class="sales-note">ปิดยอดได้วันละครั้ง กดแล้วเงินขายสดของวันนี้จะถูกย้ายเข้าเป็นเงินสำรองทอนทันที (ไม่มีระบบปิดยอดอัตโนมัติ ต้องกดเอง)</p>
@@ -1042,6 +1043,24 @@
   </div>
 
     <!-- Modal สำหรับตั้งเงินทอน -->
+  <!-- ประวัติเงินในลิ้นชัก เปิดจากหน้ายอดขาย ตรงที่ตัวเลขลิ้นชักอยู่ -->
+  <div id="modal-float-log" class="hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[70] flex items-end sm:items-center justify-center sm:p-4">
+    <div class="bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[86vh] sm:max-h-[90vh]">
+      <div class="p-5 bg-cream border-b border-sand flex justify-between items-center">
+        <h3 class="font-bold text-xl text-secondary">ประวัติเงินในลิ้นชัก</h3>
+        <button onclick="Controller.closeModal('modal-float-log')" class="text-slate-400 hover:text-red-500 text-2xl font-bold">&times;</button>
+      </div>
+      <div class="p-5 flex-1 overflow-y-auto">
+        <div class="fl-sum">
+          <div class="fl-sum-b"><p class="fl-sum-l">เข้า 7 วัน</p><p id="fl-sum-in" class="fl-sum-v fl-in">฿0.00</p></div>
+          <div class="fl-sum-b"><p class="fl-sum-l">ออก 7 วัน</p><p id="fl-sum-out" class="fl-sum-v fl-out">฿0.00</p></div>
+          <div class="fl-sum-b"><p class="fl-sum-l">คงเหลือ</p><p id="fl-sum-bal" class="fl-sum-v">฿0.00</p></div>
+        </div>
+        <div id="float-log-list"></div>
+      </div>
+    </div>
+  </div>
+
   <div id="modal-float-cash" class="hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
     <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
       <!-- Header -->
