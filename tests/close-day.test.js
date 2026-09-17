@@ -89,3 +89,101 @@ test('before the day is closed, the expected drawer is still cash sales plus the
   assert.strictEqual(el('sales-float').innerText, '฿2,000.00');
   assert.strictEqual(el('sales-expected').innerText, '฿6,350.00');
 });
+
+// กันพนักงานลืมกดปิดยอด cron ตอนตี 3 ต้องปิดของ "เมื่อวาน" ให้เอง แต่ต้องไม่ไปทับของที่ปิดมือไปแล้ว
+// D1 ปลอมตัวนี้จำทั้ง SQL และค่าที่ bind เพราะข้อสอบอยู่ที่ "ปิดวันไหน" และ "ลงวันที่แถวเป็นวันไหน"
+function fakeCronDb(opts) {
+  const o = opts || {};
+  const calls = [];
+  const db = {
+    calls,
+    prepare(text) {
+      const call = { text, args: [] };
+      calls.push(call);
+      const stmt = {
+        bind(...args) { call.args = args; return stmt; },
+        async run() { return { success: true }; },
+        async first() {
+          if (/schema_version/.test(text)) return { value: '999' };
+          if (/LOWER\(action\) = 'close_day'/.test(text)) {
+            return o.closedDays && o.closedDays.includes(call.args[0]) ? { hit: 1 } : null;
+          }
+          if (/FROM float_log/.test(text)) return { bal: o.floatBalance || 0 };
+          if (/FROM backups/.test(text)) return { created_at: new Date().toISOString() };
+          return null;
+        },
+        async all() {
+          if (/FROM payment_methods/.test(text)) return { results: [{ name: 'เงินสด', is_cash: 1 }] };
+          if (/FROM payments/.test(text)) return { results: o.payments || [] };
+          return { results: [] };
+        },
+      };
+      return stmt;
+    },
+  };
+  return db;
+}
+
+function yesterdayBkk() {
+  const d = new Date(Date.now() + 7 * 3600 * 1000);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().slice(0, 10);
+}
+
+function runCron(mod, db) {
+  const waits = [];
+  mod.default.scheduled({}, { DB: db, API_TOKEN: 'staff-token' }, { waitUntil: p => waits.push(p) });
+  return Promise.all(waits);
+}
+
+function floatInserts(db) {
+  return db.calls.filter(c => /INSERT INTO float_log/.test(c.text));
+}
+
+test('the nightly cron closes yesterday when the staff forgot to press the button', async () => {
+  const mod = await import(WORKER_URL + '?fresh=' + Date.now());
+  const day = yesterdayBkk();
+  const db = fakeCronDb({ payments: [{ total: 4350, payment_type: 'เงินสด', bkk_date: day, bkk_hour: '19' }] });
+  await runCron(mod, db);
+
+  const ins = floatInserts(db);
+  assert.strictEqual(ins.length, 1, 'ลืมกดปิดยอด cron ต้องปิดให้หนึ่งรอบ');
+  const [timestamp, user, action, amount, note] = ins[0].args;
+  assert.strictEqual(action, 'close_day');
+  assert.strictEqual(amount, 4350, 'ต้องย้ายเงินขายสดของเมื่อวานทั้งก้อน');
+  assert.strictEqual(timestamp.slice(0, 10), day,
+    'แถวต้องลงวันที่ของวันที่ปิด ไม่ใช่วันที่ cron ทำงาน ไม่งั้นพนักงานจะกดปิดยอดของวันนี้ไม่ได้');
+  assert.strictEqual(user, 'system:auto', 'ต้องแยกออกจากการกดเอง เจ้าของร้านจะได้เห็นว่าคืนไหนลืม');
+  assert.strictEqual(note, 'ปิดยอดอัตโนมัติ');
+});
+
+test('the nightly cron leaves yesterday alone when the staff already closed it by hand', async () => {
+  const mod = await import(WORKER_URL + '?fresh=' + Date.now());
+  const day = yesterdayBkk();
+  const db = fakeCronDb({ closedDays: [day], payments: [{ total: 4350, payment_type: 'เงินสด', bkk_date: day, bkk_hour: '19' }] });
+  await runCron(mod, db);
+
+  assert.strictEqual(floatInserts(db).length, 0,
+    'กดปิดยอดเองไปแล้ว cron ต้องไม่ปิดซ้ำ ไม่งั้นเงินก้อนเดียวเข้าเงินทอนสองรอบ');
+});
+
+test('a day with no cash sales is not closed by the cron, so the drawer history stays clean', async () => {
+  const mod = await import(WORKER_URL + '?fresh=' + Date.now());
+  const db = fakeCronDb({ payments: [] });
+  await runCron(mod, db);
+
+  assert.strictEqual(floatInserts(db).length, 0, 'ไม่มีเงินสดก็ไม่ต้องใส่แถว 0 บาท');
+});
+
+test('the manual button still closes today after the cron closed yesterday', async () => {
+  const mod = await import(WORKER_URL + '?fresh=' + Date.now());
+  const today = new Date(Date.now() + 7 * 3600 * 1000).toISOString().slice(0, 10);
+  const db = fakeCronDb({ closedDays: [yesterdayBkk()], payments: [{ total: 900, payment_type: 'เงินสด', bkk_date: today, bkk_hour: '11' }] });
+  const res = await mod.default.fetch(post('closeDayCash'), { DB: db, API_TOKEN: 'staff-token' });
+  const body = await res.json();
+
+  assert.strictEqual(body.result.success, true, 'เมื่อวานถูกปิดอัตโนมัติไปแล้ว วันนี้ต้องยังกดปิดได้');
+  const ins = floatInserts(db);
+  assert.strictEqual(ins.length, 1);
+  assert.strictEqual(ins[0].args[1], 'system', 'กดเองต้องยังบันทึกเป็นการกดเอง');
+});
