@@ -1076,6 +1076,30 @@
     .sales-btn-go { background: linear-gradient(to bottom, var(--color-primary), var(--color-secondary)); color: #ffffff; }
     .sales-btn-ghost { background: #ffffff; border: 1px solid var(--color-sand); color: #64748b; }
     .sales-btn[disabled] { background: #f1f5f9; border: 1px solid #e2e8f0; color: #94a3b8; pointer-events: none; }
+    .sales-btn-link { color: var(--color-primary); border-color: var(--color-primary); }
+
+    /* ---------- ประวัติเงินในลิ้นชัก ---------- */
+    .fl-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    .fl-sum-b { background: #f8fafc; border: 1px solid #f1f5f9; border-radius: 14px; padding: 10px 12px; }
+    .fl-sum-l { margin: 0; font-size: 11px; font-weight: 700; color: #64748b; }
+    .fl-sum-v { margin: 3px 0 0 0; font-size: 18px; font-weight: 900; color: var(--color-secondary); }
+    .fl-day { margin: 16px 0 2px 0; font-size: 11px; font-weight: 800; color: #94a3b8; letter-spacing: .04em; }
+    .fl-day:first-child { margin-top: 0; }
+    .fl-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 14px 2px; border-top: 1px solid #f1f5f9; }
+    .fl-what { margin: 0; font-size: 14px; font-weight: 800; color: var(--color-secondary); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .fl-meta { margin: 4px 0 0 0; font-size: 11px; font-weight: 700; color: #94a3b8; }
+    .fl-note { margin: 4px 0 0 0; font-size: 12px; font-weight: 700; color: #64748b; overflow-wrap: anywhere; }
+    .fl-amt { text-align: right; white-space: nowrap; }
+    .fl-amt b { display: block; font-size: 17px; font-weight: 900; }
+    .fl-amt span { display: block; font-size: 11px; font-weight: 700; color: #94a3b8; margin-top: 3px; }
+    .fl-in { color: #059669; }
+    .fl-out { color: #ef4444; }
+    .fl-close { color: var(--color-primary); }
+    .fl-pill { font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 999px; }
+    .fl-pill-in { background: #d1fae5; color: #047857; }
+    .fl-pill-out { background: #fee2e2; color: #b91c1c; }
+    .fl-pill-close { background: #e7efe9; color: var(--color-primary); }
+    .fl-empty { padding: 28px 0; text-align: center; font-size: 13px; font-weight: 700; color: #94a3b8; }
 
     /* ---- แถวกราฟแท่งนอน (เมนูขายดี, วันในสัปดาห์) ---- */
     .sales-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }

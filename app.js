@@ -7846,6 +7846,95 @@ renderReport(r) {
           .closeDayCash();
       },
 
+      // ประวัติเงินในลิ้นชัก เปิดจากปุ่มใต้ตัวเลขลิ้นชัก ไม่ต้องเข้าหน้าตั้งค่า
+      openFloatLog(btn) {
+        this.setBtnLoading(btn, true);
+        document.getElementById('float-log-list').innerHTML = '<p class="fl-empty">กำลังโหลด...</p>';
+        this.openModal('modal-float-log');
+        google.script.run
+          .withSuccessHandler(res => {
+            this.setBtnLoading(btn, false);
+            this.renderFloatLog(res);
+          })
+          .withFailureHandler(() => {
+            this.setBtnLoading(btn, false);
+            document.getElementById('float-log-list').innerHTML = '<p class="fl-empty">โหลดประวัติไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต</p>';
+          })
+          .getFloatLogs();
+      },
+
+      floatLogLabel(action) {
+        if (action === 'out') return { text: 'นำเงินออก', pill: 'ออก', cls: 'out' };
+        if (action === 'close_day') return { text: 'ปิดยอดประจำวัน', pill: 'ปิดยอด', cls: 'close' };
+        return { text: 'นำเงินเข้า', pill: 'เข้า', cls: 'in' };
+      },
+
+      // แบงก์ที่นับไว้ตอนนำเงินเข้า/ออก ช่วยตรวจย้อนว่านับอะไรไปบ้าง แถวไหนไม่ได้นับก็ไม่ต้องขึ้น
+      floatLogDenomText(d) {
+        if (!d) return '';
+        const order = [['b1000', 1000], ['b500', 500], ['b100', 100], ['b50', 50], ['b20', 20], ['c10', 10], ['c5', 5], ['c2', 2], ['c1', 1]];
+        return order
+          .filter(([key]) => Number(d[key] || 0) > 0)
+          .map(([key, face]) => `${face}×${Number(d[key])}`)
+          .join(' · ');
+      },
+
+      renderFloatLog(res) {
+        const list = document.getElementById('float-log-list');
+        if (!list) return;
+        const rows = (res && res.rows) || [];
+        const money = n => `฿${Math.abs(Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+        document.getElementById('fl-sum-bal').innerText = money((res && res.balance) || 0);
+        const weekAgo = Date.now() - 7 * 24 * 3600 * 1000;
+        let sumIn = 0, sumOut = 0;
+        for (const r of rows) {
+          if (new Date(r.timestamp).getTime() < weekAgo) continue;
+          if (r.signed < 0) sumOut += -r.signed; else sumIn += r.signed;
+        }
+        document.getElementById('fl-sum-in').innerText = '+' + money(sumIn);
+        document.getElementById('fl-sum-out').innerText = '−' + money(sumOut);
+
+        if (rows.length === 0) {
+          list.innerHTML = '<p class="fl-empty">ยังไม่มีรายการเงินเข้าออกในลิ้นชัก</p>';
+          return;
+        }
+
+        const today = new Date().toDateString();
+        const yesterday = new Date(Date.now() - 24 * 3600 * 1000).toDateString();
+        const dayName = (d) => {
+          const key = d.toDateString();
+          if (key === today) return 'วันนี้ ' + d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+          if (key === yesterday) return 'เมื่อวาน ' + d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
+          return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+        };
+
+        let html = '';
+        let lastDay = '';
+        for (const r of rows) {
+          const when = new Date(r.timestamp);
+          const day = dayName(when);
+          if (day !== lastDay) { html += `<p class="fl-day">${day}</p>`; lastDay = day; }
+          const label = this.floatLogLabel(r.action);
+          const who = r.user === 'system' ? 'ระบบ' : (r.user || 'ไม่ระบุ');
+          const denom = this.floatLogDenomText(r.denominations);
+          const meta = [when.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }), who, denom].filter(Boolean);
+          html += `
+          <div class="fl-row">
+            <div>
+              <p class="fl-what">${label.text} <span class="fl-pill fl-pill-${label.cls}">${label.pill}</span></p>
+              <p class="fl-meta">${escHtml(meta.join(' · '))}</p>
+              ${r.note ? `<p class="fl-note">${escHtml(r.note)}</p>` : ''}
+            </div>
+            <div class="fl-amt">
+              <b class="fl-${label.cls}">${r.signed < 0 ? '−' : '+'}${money(r.signed)}</b>
+              <span>เหลือ ${money(r.balanceAfter)}</span>
+            </div>
+          </div>`;
+        }
+        list.innerHTML = html;
+      },
+
       openFloatCashPrompt() {
         this.clearDenominations(); // ล้างค่าเก่าก่อนเปิด
         this.setFloatAction('IN');
