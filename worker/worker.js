@@ -1192,16 +1192,25 @@ async function summaryByRange(env, start, end) {
   }
   const byHour = Object.values(hourMap).sort((a, b) => a.hour - b.hour);
 
+  // ปิดยอดของวันนี้นับเข้าเงินทอนทันที ไม่ต้องรอข้ามวัน เงินขายสดจึงย้ายเข้าลิ้นชักให้เห็นตั้งแต่กดปุ่ม
   let floatCash = 0;
+  let closedInRange = false;
   try {
     const floatR = await env.DB.prepare(
-      "SELECT IFNULL(SUM(CASE WHEN LOWER(action) = 'out' THEN -total_amount ELSE total_amount END), 0) AS bal FROM float_log WHERE substr(timestamp, 1, 10) <= ? AND NOT (LOWER(action) = 'close_day' AND substr(timestamp, 1, 10) BETWEEN ? AND ?)"
+      "SELECT IFNULL(SUM(CASE WHEN LOWER(action) = 'out' THEN -total_amount ELSE total_amount END), 0) AS bal FROM float_log WHERE substr(timestamp, 1, 10) <= ?"
     )
-      .bind(endDay, startDay, endDay)
+      .bind(endDay)
       .first();
     floatCash = Number((floatR && floatR.bal) || 0);
+    const closedR = await env.DB.prepare(
+      "SELECT 1 AS hit FROM float_log WHERE LOWER(action) = 'close_day' AND substr(timestamp, 1, 10) BETWEEN ? AND ? LIMIT 1"
+    )
+      .bind(startDay, endDay)
+      .first();
+    closedInRange = !!(closedR && closedR.hit);
   } catch (err) {
     floatCash = 0;
+    closedInRange = false;
   }
 
   const menuR = await env.DB.prepare("SELECT sku, cost FROM menu").all();
@@ -1261,6 +1270,7 @@ async function summaryByRange(env, start, end) {
   return {
     success: true, total, totalProfit, billCount, cupCount, totalCost, wasteCost, refundedTotal,
     avgPerBill, cash, other, qr: other, byType, topSellers, daily: dailyList, byWeekday, byHour, floatCash,
+    closedInRange,
   };
 }
 
@@ -1365,12 +1375,19 @@ async function syncFloatCashLogs(env, args) {
 
 handlers.closeDayCash = async (env) => {
   const today = bkkToday();
+  // ปิดซ้ำในวันเดียวกันไม่ได้ ไม่งั้นเงินขายสดถูกบวกเข้าเงินทอนสองรอบ
+  const dup = await env.DB.prepare(
+    "SELECT 1 AS hit FROM float_log WHERE LOWER(action) = 'close_day' AND substr(timestamp, 1, 10) = ? LIMIT 1"
+  ).bind(today).first();
+  if (dup && dup.hit) {
+    return { success: false, message: "วันนี้ปิดยอดไปแล้ว" };
+  }
   const s = await summaryByRange(env, today, today);
   const amount = s.cash;
   await env.DB.prepare(
     "INSERT INTO float_log (timestamp, user, action, total_amount, note) VALUES (?,?,?,?,?)"
-  ).bind(nowIso(), "system", "close_day", amount, "auto close day").run();
-  return { success: true, amount, message: "closed" };
+  ).bind(nowIso(), "system", "close_day", amount, "close day").run();
+  return { success: true, amount, floatCash: s.floatCash + amount, message: "closed" };
 };
 
 handlers.getAccessLogs = async (env) => {

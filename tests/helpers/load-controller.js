@@ -1,7 +1,8 @@
 // โหลด Controller ตัวจริงจาก app.js ในกล่องจำลอง ใช้ร่วมกันหลายไฟล์เทสต์
 // options: { native: fake PukfuPrinter plugin (ไม่ใส่ทั้ง native และ updater = รันแบบเว็บ), updater: fake CapacitorUpdater plugin,
 //            fetch: fetch ปลอม, app: window.PUKFU_APP, saved: { receipt, kitchen } ปลายทางเครื่องพิมพ์ที่เคยบันทึกไว้,
-//            views: ['pos', 'settings'] หน้าที่มี element .view อยู่ในหน้าจำลอง }
+//            views: ['pos', 'settings'] หน้าที่มี element .view อยู่ในหน้าจำลอง,
+//            replies: { ชื่อฟังก์ชันฝั่งเซิร์ฟเวอร์: ค่าที่ให้ตอบกลับ หรือฟังก์ชัน(args) }
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
@@ -89,6 +90,11 @@ function loadController(options) {
               if (o.saveFails) return state.fail && state.fail(new Error('เน็ตหลุด'));
               if (args[0] && 'paymentQrImage' in args[0]) savedQr = args[0].paymentQrImage;
               return state.ok && state.ok({ success: true });
+            }
+            // o.replies: ค่าที่อยากให้เซิร์ฟเวอร์ปลอมตอบกลับต่อชื่อฟังก์ชัน
+            if (o.replies && Object.prototype.hasOwnProperty.call(o.replies, fn)) {
+              const reply = o.replies[fn];
+              return state.ok && state.ok(typeof reply === 'function' ? reply(args) : reply);
             }
             if (fn === 'getShopInfo') {
               return state.ok && state.ok({ paymentQrImage: o.serverForgets ? '' : savedQr });
