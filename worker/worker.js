@@ -1373,21 +1373,41 @@ async function syncFloatCashLogs(env, args) {
   return { success: true };
 }
 
-handlers.closeDayCash = async (env) => {
-  const today = bkkToday();
+// ปิดยอดของวันที่ระบุ ใช้ร่วมกันทั้งปุ่มที่พนักงานกดเอง และ cron ที่ปิดให้ตอนพนักงานลืม
+// stampIso ให้ใส่เวลาของวันที่ปิดได้ เพราะ cron ทำงานตอนตี 3 ของวันถัดไป แถวต้องลงวันที่ของวันที่ปิดจริง
+// ไม่งั้น dup check และ closedInRange จะอ่านเป็นวันใหม่ แล้วพนักงานจะกดปิดยอดของวันนี้ไม่ได้
+async function closeDayFor(env, day, actor, note, stampIso) {
   // ปิดซ้ำในวันเดียวกันไม่ได้ ไม่งั้นเงินขายสดถูกบวกเข้าเงินทอนสองรอบ
   const dup = await env.DB.prepare(
     "SELECT 1 AS hit FROM float_log WHERE LOWER(action) = 'close_day' AND substr(timestamp, 1, 10) = ? LIMIT 1"
-  ).bind(today).first();
+  ).bind(day).first();
   if (dup && dup.hit) {
-    return { success: false, message: "วันนี้ปิดยอดไปแล้ว" };
+    return { success: false, message: "วันนี้ปิดยอดไปแล้ว", alreadyClosed: true };
   }
-  const s = await summaryByRange(env, today, today);
+  const s = await summaryByRange(env, day, day);
   const amount = s.cash;
   await env.DB.prepare(
     "INSERT INTO float_log (timestamp, user, action, total_amount, note) VALUES (?,?,?,?,?)"
-  ).bind(nowIso(), "system", "close_day", amount, "close day").run();
+  ).bind(stampIso || nowIso(), actor, "close_day", amount, note).run();
   return { success: true, amount, floatCash: s.floatCash + amount, message: "closed" };
+}
+
+handlers.closeDayCash = async (env) => {
+  return closeDayFor(env, bkkToday(), "system", "close day");
+};
+
+// กันพนักงานลืมกดปิดยอด เรียกจาก Cron Trigger ตอน 20:00 UTC = ตี 3 เวลาไทย จึงปิดของ "เมื่อวาน" ซึ่งคือวันที่เพิ่งจบไป
+// ปิดตอนดึกแทนที่จะเป็นก่อนเที่ยงคืน เพราะร้านอาจยังขายอยู่ ถ้าปิดตอน 23:55 เงินสดหลังจากนั้นจะตกหล่นนอกรอบ
+// ถ้าพนักงานกดเองไปแล้ว หรือวันนั้นไม่มีเงินสดเลย ก็ไม่ต้องทำอะไร ไม่ต้องใส่แถว 0 บาทรกประวัติลิ้นชัก
+handlers.autoCloseDayIfMissed = async (env) => {
+  const day = addDays(bkkToday(), -1);
+  const dup = await env.DB.prepare(
+    "SELECT 1 AS hit FROM float_log WHERE LOWER(action) = 'close_day' AND substr(timestamp, 1, 10) = ? LIMIT 1"
+  ).bind(day).first();
+  if (dup && dup.hit) return { success: false, skipped: "already-closed", day };
+  const s = await summaryByRange(env, day, day);
+  if (!(s.cash > 0)) return { success: false, skipped: "no-cash", day };
+  return closeDayFor(env, day, "system:auto", "ปิดยอดอัตโนมัติ", day + "T23:55:00.000Z");
 };
 
 // ประวัติเงินในลิ้นชัก ตารางนี้เคยเขียนอย่างเดียว ไม่มีใครอ่านกลับ เจ้าของร้านจึงหาไม่เจอว่าเงินเข้าออกตอนไหน
@@ -1815,8 +1835,16 @@ export default {
   },
 
   // Cron Trigger ตั้งไว้แล้วใน wrangler.toml ("0 20 * * *" = 20:00 UTC = 03:00 เวลาไทย) deploy ผ่าน CI
-  // โค้ดข้างในจะเช็คเองว่าถึงรอบ 30 วันหรือยัง
+  // รอบเดียวทำสองอย่าง backup (เช็คเองว่าถึงรอบ 30 วันหรือยัง) และปิดยอดของเมื่อวานถ้าพนักงานลืมกด
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(ensureSchema(env).then(() => handlers.autoBackupIfDue(env)));
+    // สองงานนี้ไม่เกี่ยวกัน ถ้า backup พังก็ยังต้องปิดยอดให้ และกลับกัน จึงแยก catch ของใครของมัน
+    ctx.waitUntil(
+      ensureSchema(env).then(() =>
+        Promise.all([
+          handlers.autoBackupIfDue(env).catch(() => null),
+          handlers.autoCloseDayIfMissed(env).catch(() => null),
+        ])
+      )
+    );
   },
 };
