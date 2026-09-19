@@ -6139,15 +6139,7 @@ renderReport(r) {
         // ปลดล็อกปุ่มหลังถามเรื่องพิมพ์บิลเสร็จแล้ว ไม่ใช่ก่อน
         // เดิมปุ่มกลับมากดได้ทั้งที่ modal ยังปิดไม่สุด กดโดนอีกทีจะได้บิลเปล่าเพิ่มมาอีกใบ
         try {
-          if (this.receiptSettings.autoPrint) {
-            this.printReceipt(orderData, qStr);
-          } else {
-            // ถามลูกค้าว่าจะพิมพ์บิลหรือไม่
-            const ok = await this.showConfirm('ต้องการพิมพ์ใบเสร็จสำหรับออเดอร์นี้หรือไม่?', '');
-            if (ok) {
-              this.printReceipt(orderData, qStr);
-            }
-          }
+          await this.printAfterCheckout(orderData, qStr);
         } finally {
           document.getElementById('btn-submit-order').disabled = false;
           this.setSubmitButtonState('idle');
@@ -6260,17 +6252,51 @@ renderReport(r) {
         }
       },
 
-        async printReceipt(order, queueStr) {
+        // ปิดบิลแล้วต้องพิมพ์อะไรบ้าง แยกออกมาจาก submitOrder ให้เทสต์จับพฤติกรรมตรงนี้ได้
+        async printAfterCheckout(order, queueStr) {
+        if (this.receiptSettings.autoPrint) {
+          this.printReceipt(order, queueStr);
+          return;
+        }
+
+        // ใบสั่งทำเครื่องดื่มไม่ต้องรอคำตอบเรื่องใบเสร็จ ติ๊กไว้แล้วครัวต้องได้ออเดอร์ทันทีที่ปิดบิล
+        // ของเดิมใบนี้ออกได้ทางเดียวคือตอบว่าพิมพ์ใบเสร็จ ตอบว่าไม่แล้วครัวไม่ได้อะไรเลยทั้งที่ติ๊กไว้
+        if (this.receiptSettings.printOrderSlip) this.printOrderSlipFor(order, queueStr);
+
+        // ถามลูกค้าว่าจะพิมพ์บิลหรือไม่
+        const ok = await this.showConfirm('ต้องการพิมพ์ใบเสร็จสำหรับออเดอร์นี้หรือไม่?', '');
+        if (ok) this.printReceipt(order, queueStr, { skipOrderSlip: true });
+      },
+
+        // opts.skipOrderSlip: ใบสั่งครัวออกไปก่อนหน้านี้แล้ว (ตอนปิดบิล) อย่าพิมพ์ซ้ำอีกใบ
+        async printReceipt(order, queueStr, opts) {
         if (!ReceiptPrinter.isConnected) {
           this.showAlert('กรุณาเชื่อมต่อเครื่องพิมพ์ใบเสร็จก่อนพิมพ์', '');
           return;
         }
 
+        const settings = { ...this.receiptSettings, ...this.shopInfo };
+        if (opts && opts.skipOrderSlip) settings.printOrderSlip = false;
+
         try {
-          await ReceiptPrinter.printReceipt(order, queueStr, { ...this.receiptSettings, ...this.shopInfo }, KitchenPrinter);
+          await ReceiptPrinter.printReceipt(order, queueStr, settings, KitchenPrinter);
         } catch (e) {
           console.warn('BT Print Error:', e.message);
           this.showAlert('พิมพ์ไม่สำเร็จ: ' + e.message, '');
+        }
+      },
+
+      // ใบสั่งทำเครื่องดื่มใบเดียว ไม่พ่วงใบเสร็จ ใช้ตอนปิดบิลที่ยังไม่รู้ว่าลูกค้าจะเอาใบเสร็จไหม
+      // ออกที่เครื่องพิมพ์ครัวถ้าต่ออยู่ ไม่งั้น fallback ไปเครื่องใบเสร็จ เหมือนปุ่มพิมพ์ใบสั่งก่อนจ่ายเงิน
+      // ไม่มีเครื่องพิมพ์ก็เงียบไว้ ไม่เด้งเตือนคาหน้าคนจ่ายเงิน ทางใบเสร็จเตือนให้อยู่แล้ว
+      async printOrderSlipFor(order, queueStr) {
+        const target = KitchenPrinter.isConnected ? KitchenPrinter : ReceiptPrinter;
+        if (!target.isConnected) return;
+
+        try {
+          await target.sendData(await target.buildOrderSlip(order, queueStr, this.receiptSettings));
+        } catch (e) {
+          console.warn('BT Print Error:', e.message);
         }
       },
 
