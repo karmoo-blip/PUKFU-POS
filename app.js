@@ -3720,10 +3720,13 @@
         const max = Math.max(1, ...rows.map(r => Number(r.value) || 0));
         return rows.map(r => {
           const pct = Math.max(2, Math.round((Number(r.value) || 0) / max * 100));
+          // สี่ช่องเรียงตาม DOM ไว้ให้จอเล็ก (ชื่อ · รายละเอียด · ยอด แล้วแท่งลงบรรทัดใหม่)
+          // จอกว้างสลับลำดับด้วย order ใน CSS กลับไปเป็นแถวเดียวเหมือนเดิม
           return `<div class="sales-row">
             <span class="sales-row-lab">${escHtml(r.label)}</span>
+            ${r.extra ? `<span class="sales-row-extra">· ${escHtml(r.extra)}</span>` : ''}
+            <span class="sales-row-val">${r.display}</span>
             <span class="sales-row-track"><span class="sales-row-fill${r.peak ? ' sales-row-fill-peak' : ''}" style="width:${pct}%"></span></span>
-            <span class="sales-row-val">${r.display}${r.extra ? `<span class="sales-wide-only"> · ${escHtml(r.extra)}</span>` : ''}</span>
           </div>`;
         }).join('');
       },
@@ -3758,32 +3761,38 @@
       salesColumnChart(points, opts) {
         const o = opts || {};
         if (!points || points.length === 0) return '<p class="sales-empty">ไม่มีข้อมูล</p>';
-        const W = 720;
-        const H = 150;
-        const base = H - 28;
+        // กรอบ 720 ย่อลงมาใส่ช่องกว้าง 322px บนมือถือ ตัวหนังสือ 10px เหลือจริงแค่ 4.5px อ่านไม่ออก
+        // จอเล็กจึงวาดในกรอบเท่าความกว้างจริง ตัวหนังสือที่สั่ง 12px ก็ได้ 12px จริงๆ
+        const narrow = (typeof window !== 'undefined' ? window.innerWidth : 1280) < 1024;
+        const W = narrow ? 330 : 720;
+        const H = (o.height || 150) + (narrow ? 40 : 0);
+        const base = H - (narrow ? 24 : 28);
+        const fs = narrow ? 12 : 10;
         const max = Math.max(1, ...points.map(p => Number(p.value) || 0));
         const slot = W / points.length;
-        const bw = Math.max(6, Math.min(46, slot - 6));
+        const bw = Math.max(4, Math.min(narrow ? 26 : 46, slot - (narrow ? 3 : 6)));
+        // เว้นที่ข้างบนให้ป้ายพีค แท่งสูงสุดจะได้ไม่ทับ
+        const span = base - (narrow ? 26 : 8);
 
         const bars = points.map((p, i) => {
-          const h = Math.max(3, ((Number(p.value) || 0) / max) * (base - 8));
+          const h = Math.max(3, ((Number(p.value) || 0) / max) * span);
           const x = i * slot + (slot - bw) / 2;
           return `<rect x="${x.toFixed(1)}" y="${(base - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="4" fill="${p.peak ? '#d97706' : 'var(--color-primary)'}"></rect>`;
         }).join('');
 
-        // ป้ายแกนเฉพาะบางช่อง ไม่ใส่ทุกแท่งเพราะจะชนกันเอง
-        const step = Math.max(1, Math.ceil(points.length / 7));
+        // ป้ายแกนเฉพาะบางช่อง ไม่ใส่ทุกแท่งเพราะจะชนกันเอง จอเล็กตัวหนังสือใหญ่กว่าเลยใส่ได้น้อยช่องกว่า
+        const step = Math.max(1, Math.ceil(points.length / (narrow ? 6 : 7)));
         const ticks = points.map((p, i) => {
           if (i % step !== 0) return '';
           const x = i * slot + slot / 2;
-          return `<text x="${x.toFixed(1)}" y="${H - 8}" text-anchor="middle" font-family="Sarabun, system-ui, sans-serif" font-size="10" font-weight="700" fill="#94a3b8">${escHtml(p.label)}</text>`;
+          return `<text x="${x.toFixed(1)}" y="${H - (narrow ? 6 : 8)}" text-anchor="middle" font-family="Sarabun, system-ui, sans-serif" font-size="${fs}" font-weight="700" fill="${narrow ? 'var(--color-mute)' : '#94a3b8'}">${escHtml(p.label)}</text>`;
         }).join('');
 
         const peakNote = o.peakLabel
-          ? `<text x="${(W / 2).toFixed(1)}" y="12" text-anchor="middle" font-family="Sarabun, system-ui, sans-serif" font-size="10" font-weight="800" fill="#d97706">${escHtml(o.peakLabel)}</text>`
+          ? `<text x="${(W / 2).toFixed(1)}" y="${narrow ? 14 : 12}" text-anchor="middle" font-family="Sarabun, system-ui, sans-serif" font-size="${fs}" font-weight="800" fill="#d97706">${escHtml(o.peakLabel)}</text>`
           : '';
 
-        return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${o.height || 150}px" role="img" aria-label="${escAttr(o.aria || 'กราฟแท่ง')}">
+        return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:${H}px" role="img" aria-label="${escAttr(o.aria || 'กราฟแท่ง')}">
           <line x1="0" y1="${base}" x2="${W}" y2="${base}" stroke="#e2e8f0" stroke-width="1"></line>
           ${bars}${ticks}${peakNote}
         </svg>`;
@@ -3973,21 +3982,43 @@
         const saleDays = (r.daily || []).filter(d => d.bills > 0);
         const avg = saleDays.length ? saleDays.reduce((sum, d) => sum + (d.total || 0), 0) / saleDays.length : 0;
 
+        // แท่งในช่องยาวตามยอดเทียบกับวันที่ขายดีที่สุดของเดือน ไว้กวาดตาดูจังหวะโดยไม่ต้องอ่านตัวเลข
+        const topDay = Math.max(1, ...saleDays.map(d => d.total || 0));
+        const dayNames = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+
         let cells = '';
+        let list = '';
         for (let i = 0; i < leadingBlanks; i++) cells += '<div class="cal-cell cal-cell-blank"></div>';
         for (let day = 1; day <= totalDays; day++) {
           const dateStr = this.toLocalDateStr(new Date(this.calendarYear, this.calendarMonth, day));
           const d = byDate[dateStr];
           const hasSale = d && d.bills > 0;
           const strong = hasSale && avg > 0 && d.total >= avg;
+          const heat = hasSale
+            ? ` style="width:${Math.max(8, Math.round((d.total || 0) / topDay * 22))}px;background:${strong ? 'var(--color-mustard)' : 'var(--color-primary)'}"`
+            : '';
           cells += `<div class="cal-cell${hasSale ? ' has-sale' : ''}${strong ? ' is-strong' : ''}">
             <span class="cal-day">${day}</span>
+            <span class="cal-heat"${heat}></span>
             ${hasSale ? `<span class="cal-total">${fmt(d.total)}</span><span class="cal-bills">${d.bills} บิล</span>` : ''}
           </div>`;
+
+          if (hasSale) {
+            const dt = new Date(this.calendarYear, this.calendarMonth, day);
+            const short = dt.toLocaleDateString('th-TH', { month: 'short' });
+            list += `<div class="cal-row${strong ? ' is-strong' : ''}">
+              <span class="cal-row-d">${dayNames[dt.getDay()]}. ${day} ${escHtml(short)}</span>
+              <span class="cal-row-b">${d.bills} บิล</span>
+              <span class="cal-row-v">${fmt(d.total)}</span>
+            </div>`;
+          }
         }
 
         const grid = document.getElementById('cal-grid');
         if (grid) grid.innerHTML = cells;
+
+        const listEl = document.getElementById('cal-list');
+        if (listEl) listEl.innerHTML = list || '<p class="cal-empty">เดือนนี้ยังไม่มียอดขาย</p>';
 
         const daysWithSale = (r.daily || []).filter(d => d.bills > 0).length;
         const monthTotal = (r.daily || []).reduce((s, d) => s + (d.total || 0), 0);
@@ -4794,7 +4825,6 @@ renderReport(r) {
         set('sales-cups', (r.cupCount || 0).toLocaleString());
         const marginText = r.total > 0 ? Math.round((r.totalProfit / r.total) * 100) + '%' : '-';
         set('sales-margin', marginText);
-        set('sales-margin-narrow', marginText);
 
         this.countMoney('sales-waste', r.wasteCost);
         this.countMoney('sales-refund', r.refundedTotal);
@@ -7807,8 +7837,7 @@ renderReport(r) {
             this.countMoney('sales-avg', extras.bills > 0 ? stats.total / extras.bills : 0);
             const marginText = stats.total > 0 ? Math.round((totalProfit / stats.total) * 100) + '%' : '-';
             set('sales-margin', marginText);
-            set('sales-margin-narrow', marginText);
-            toggle('sales-cost-note', extras.noCost);
+                toggle('sales-cost-note', extras.noCost);
             this.updateSalesDelta(stats.total);
             this.updateCupUI();
 

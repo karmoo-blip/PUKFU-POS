@@ -1036,7 +1036,10 @@
     .sales-label { margin: 0 0 6px 0; font-size: 12px; font-weight: 700; color: #94a3b8; }
 
     .sales-chips { display: flex; gap: 8px; overflow-x: auto; }
-    .sales-chips-tail { display: none; gap: 8px; }
+    /* ปุ่มรีเฟรชกับ Export เคยซ่อนทั้งแถวบนจอเล็ก มือถือเลยไม่มีทางกดเลย
+       ตอนนี้ลงมาเป็นแถวที่สองใต้ชิปช่วงเวลา กว้างเท่ากันคนละครึ่ง */
+    .sales-chips-tail { display: flex; gap: 8px; margin-top: 10px; }
+    .sales-chips-tail .sales-chip { flex: 1 1 0; justify-content: center; }
     .sales-chip {
       min-height: 40px;
       padding: 0 14px;
@@ -1101,18 +1104,24 @@
     .fl-pill-close { background: #e7efe9; color: var(--color-primary); }
     .fl-empty { padding: 28px 0; text-align: center; font-size: 13px; font-weight: 700; color: #94a3b8; }
 
-    /* ---- แถวกราฟแท่งนอน (เมนูขายดี, วันในสัปดาห์) ---- */
-    .sales-row { display: flex; align-items: center; gap: 10px; font-size: 12px; }
-    .sales-row + .sales-row { margin-top: 9px; }
-    .sales-row-lab { width: 66px; flex: none; font-weight: 700; color: #64748b; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .sales-row-track { flex: 1 1 auto; height: 10px; background: #f1f5f9; border-radius: 5px; overflow: hidden; }
-    .sales-row-fill { display: block; height: 100%; border-radius: 5px; background: var(--color-primary); }
+    /* ---- แถวกราฟแท่งนอน (เมนูขายดี, วันในสัปดาห์) ----
+       จอเล็กอ่านเป็นสองบรรทัด: ชื่อเต็มกับยอดอยู่บรรทัดบน แท่งกราฟกินเต็มความกว้างบรรทัดล่าง
+       ของเดิมบีบชื่อไว้ในช่องตายตัว 66px ชื่อเมนูภาษาไทยเลยเหลือไม่กี่ตัวแล้วจบด้วยจุดไข่ปลา */
+    /* ตารางสองคอลัมน์ ไม่ใช่ flex ที่ห่อบรรทัด เพราะ flex จะดีดยอดเงินตกไปบรรทัดใหม่แทนที่จะย่อชื่อ
+       บรรทัดบน: ชื่อ (ยาวเกินก็ตัดด้วยจุดไข่ปลา) กับยอดเงิน  บรรทัดล่าง: แท่งกราฟกับจำนวนแก้ว */
+    .sales-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; align-items: baseline; font-size: 12px; }
+    .sales-row + .sales-row { margin-top: 14px; }
+    .sales-row-lab { grid-area: 1 / 1; min-width: 0; font-size: 14.5px; font-weight: 800; color: var(--color-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sales-row-val { grid-area: 1 / 2; font-size: 15px; font-weight: 900; color: var(--color-secondary); white-space: nowrap; font-variant-numeric: tabular-nums; }
+    /* แท่งกินเต็มความกว้างทุกแถว ความยาวจึงเทียบกันได้จริง ถ้าปล่อยให้อยู่คอลัมน์เดียว
+       ความกว้างรางจะไม่เท่ากันสักแถว เพราะคอลัมน์ขวากว้างตามยอดเงินของแถวนั้น */
+    .sales-row-track { grid-column: 1 / -1; grid-row: 2; height: 12px; margin-top: 7px; background: var(--color-fill); border-radius: 6px; overflow: hidden; }
+    .sales-row-extra { grid-column: 1 / -1; grid-row: 3; margin-top: 5px; font-weight: 700; color: var(--color-mute); }
+    .sales-row-fill { display: block; height: 100%; border-radius: 6px; background: var(--color-primary); }
     .sales-row-fill-peak { background: #d97706; }
-    .sales-row-val { width: 62px; flex: none; text-align: right; font-weight: 900; color: var(--color-secondary); white-space: nowrap; }
-    /* รายละเอียดรองที่มีที่พอจะโชว์เฉพาะจอกว้าง */
-    .sales-wide-only { display: none; }
-    /* จอเล็กมีที่แค่สองช่อง อัตรากำไรเลยย้ายไปอยู่บรรทัดสรุปแทนการห้อยเป็นกล่องเดี่ยว */
-    .sales-wide-box { display: none; }
+    /* จอเล็กเคยซ่อนกล่องอัตรากำไรแล้วเอาไปห้อยเป็นตัวหนังสือแถวสรุปจนมองข้าม
+       ตอนนี้เป็นกล่องเหมือนจอคอม แค่กินเต็มความกว้างเพราะแถวหนึ่งมีสองช่อง */
+    .sales-wide-box { grid-column: 1 / -1; }
 
     .sales-legend { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
     .sales-lg { display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; color: #64748b; }
@@ -1149,7 +1158,8 @@
         padding: 0 2px;
       }
       .sales-chips { overflow: visible; flex-wrap: wrap; }
-      .sales-chips-tail { display: flex; margin-left: auto; }
+      .sales-chips-tail { display: flex; margin-top: 0; margin-left: auto; }
+      .sales-chips-tail .sales-chip { flex: none; }
 
       .sales-hero { font-size: 52px; }
       .sales-label { font-size: 13px; }
@@ -1157,13 +1167,14 @@
       .sales-split-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
       .sales-btns { flex-direction: row; }
       .sales-btn { width: auto; padding: 0 18px; }
-      .sales-row { font-size: 13px; }
-      .sales-row-lab { width: 92px; }
-      /* ต้องกว้างพอใส่ยอดเงิน + จำนวนแก้ว + อัตรากำไรในบรรทัดเดียว ไม่งั้นตัวหนังสือล้นออกนอกการ์ด */
-      .sales-row-val { width: 208px; }
-      .sales-wide-only { display: inline; color: #64748b; font-weight: 700; }
-      .sales-wide-box { display: block; }
-      .sales-narrow-only { display: none; }
+      /* จอกว้างมีที่พอ กลับไปเป็นแถวเดียว: ชื่อ - แท่ง - ยอด - รายละเอียด เรียงเป็นคอลัมน์ตรงกันทุกแถว */
+      .sales-row { display: flex; flex-wrap: nowrap; align-items: center; gap: 10px; font-size: 13px; }
+      .sales-row + .sales-row { margin-top: 9px; }
+      .sales-row-lab { order: 1; flex: none; width: 92px; font-size: 13px; font-weight: 700; color: var(--color-mute); }
+      .sales-row-track { order: 2; flex: 1 1 auto; height: 10px; margin-top: 0; border-radius: 5px; }
+      .sales-row-val { order: 3; width: 104px; margin-left: 0; text-align: right; font-size: 13px; }
+      .sales-row-extra { order: 4; width: 116px; margin-top: 0; font-size: 13px; }
+      .sales-wide-box { grid-column: auto; }
       .sales-legend { flex-direction: row; flex-wrap: wrap; gap: 14px; }
     }
 
@@ -1326,32 +1337,61 @@
     .cost-note p { margin: 0; font-size: 11px; font-weight: 700; color: #c2410c; }
     .cost-note p + p { margin-top: 6px; }
 
-    /* ---------- ปฏิทินยอดขาย ---------- */
+    /* ---------- ปฏิทินยอดขาย ----------
+       จอเล็กช่องวันกว้างแค่ 43px ยอดเงินจึงโดนตัดเหลือ "฿1,2..." ทุกช่อง
+       ตารางเลยเหลือหน้าที่กวาดตาดูจังหวะของเดือน (แท่งยิ่งยาวยิ่งขายดี) ส่วนตัวเลขเต็มไปอยู่ในรายการข้างล่าง
+       จอกว้างช่องใหญ่พอใส่ยอดได้อยู่แล้ว เลยกลับไปหน้าตาเดิมและซ่อนรายการทิ้ง */
+    /* หัวเดือน: ลูกศรสองข้าง ชื่อเดือนตรงกลาง อยู่บรรทัดเดียวทุกความกว้าง
+       ของเดิมใช้ .set-toolbar ซึ่งบังคับปุ่มให้กินเต็มบรรทัดบนจอเล็ก ปฏิทินเลยถูกดันตกไปครึ่งจอ */
+    .cal-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .cal-head .set-btn { flex: none; min-width: 46px; }
+    .cal-head-mid { flex: 1 1 auto; min-width: 0; text-align: center; }
+    .cal-nav-t { display: none; }
+
     .cal-week { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-bottom: 6px; text-align: center; font-size: 11px; font-weight: 800; color: #94a3b8; }
     .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
     .cal-cell {
-      min-height: 62px;
+      min-height: 46px;
       min-width: 0;
-      padding: 6px;
+      padding: 5px 3px;
       border-radius: 12px;
       border: 1px solid var(--color-sand);
       background: var(--color-cream);
       display: flex;
       flex-direction: column;
+      align-items: center;
+      gap: 5px;
     }
     .cal-cell-blank { border-color: var(--color-sand); background: var(--color-cream); }
-    .cal-day { font-size: 10px; font-weight: 700; color: #94a3b8; }
+    .cal-day { font-size: 12px; font-weight: 800; color: var(--color-line); }
     .cal-cell.has-sale .cal-day { color: var(--color-secondary); }
+    .cal-heat { display: block; height: 6px; width: 22px; border-radius: 3px; background: var(--color-fill-2); }
+    .cal-total, .cal-bills { display: none; }
     .cal-total { margin-top: auto; font-size: 12px; font-weight: 900; color: var(--color-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .cal-bills { font-size: 10px; font-weight: 700; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .cal-cell.is-strong { background: var(--color-accent); border-color: var(--color-mustard); }
+
+    /* รายการยอดรายวัน อ่านตัวเลขเต็มไม่ย่อ เฉพาะวันที่มีขายจริง */
+    .cal-list-t { margin: 18px 0 2px; font-size: 11px; font-weight: 800; color: #94a3b8; letter-spacing: .04em; text-transform: uppercase; }
+    .cal-row { display: flex; align-items: center; gap: 12px; padding: 13px 2px; border-top: 1px solid var(--color-fill); }
+    .cal-row-d { flex: none; width: 86px; font-size: 13.5px; font-weight: 800; color: var(--color-secondary); }
+    .cal-row-b { flex: 1 1 auto; font-size: 12px; font-weight: 700; color: var(--color-mute); }
+    .cal-row-v { flex: none; font-size: 15px; font-weight: 900; color: var(--color-secondary); font-variant-numeric: tabular-nums; }
+    .cal-row.is-strong .cal-row-v { color: var(--color-mustard); }
+    .cal-empty { padding: 24px 0; text-align: center; font-size: 13px; font-weight: 700; color: #94a3b8; }
 
     @media (min-width: 1024px) {
       .cost-row { display: grid; grid-template-columns: 1fr 5.5rem 7rem 7rem 5rem 5.5rem; gap: 10px; align-items: center; }
       .cost-cell { display: block; text-align: right; font-size: 13px; font-weight: 700; color: var(--color-secondary); }
       .cost-act { margin-top: 0; text-align: right; }
       .cost-mobile-line { display: none; }
-      .cal-cell { min-height: 76px; padding: 8px; }
+      .cal-cell { min-height: 76px; padding: 8px; align-items: stretch; gap: 0; }
+      .cal-day { font-size: 10px; font-weight: 700; color: #94a3b8; }
+      .cal-cell.has-sale .cal-day { color: var(--color-secondary); }
+      .cal-heat { display: none; }
+      .cal-total, .cal-bills { display: block; }
+      .cal-nav-t { display: inline; }
+      #cal-list-wrap { display: none; }
     }
 
     /* ---------- ปุ่มสลับมุมมองในหน้าเดียว (ประวัติการใช้งาน) ---------- */
