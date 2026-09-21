@@ -761,6 +761,21 @@ test('the language switch sits on the lock screen, before anyone can log in', ()
     'มีสองที่: หน้าล็อกกับแถบบนหน้าขาย');
 });
 
+test('switching language re-measures the category underline, which changes width', () => {
+  const { C } = loadController({});
+  let moved = 0;
+  C.moveCategoryIndicator = () => { moved++; };
+  C.renderMenu = () => {};
+  C.renderCart = () => {};
+  C.menuData = [{ sku: 'A', name: 'ลาเต้' }];
+  C.cart = [];
+
+  C.lang = 'th';
+  C.setLang('my');
+  assert.ok(moved > 0,
+    'ปุ่ม All ถูกแปลแล้วกว้างไม่เท่าเดิม ตัวชี้สีเขียวใต้ปุ่มจะค้างอยู่ที่ความกว้างเก่า เหลือเป็นแถบสั้นๆ ใต้ปุ่มที่ยาวกว่า');
+});
+
 // ---- ชื่อสินค้าภาษาพม่า กับใบบาริสต้า ----
 test('a product with no Burmese name falls back to Thai, never to blank', () => {
   const { C } = loadController({});
