@@ -647,9 +647,8 @@
           <button onclick="Controller.calendarNextMonth()" class="set-btn set-btn-ghost" aria-label="เดือนถัดไป"><span class="cal-nav-t">เดือนถัดไป </span>›</button>
         </div>
         <div class="set-card">
-          <div class="cal-week">
-            <span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span>
-          </div>
+          <!-- ชื่อวันวาดด้วย JS (calDayNames) ไม่ใช่เขียนตายตัว เพราะต้องเปลี่ยนครบทั้งเจ็ดวันพร้อมกันตอนสลับภาษา -->
+          <div class="cal-week" id="cal-week"></div>
           <div id="cal-grid" class="cal-grid"></div>
           <!-- ยอดเต็มของแต่ละวัน โชว์เฉพาะจอเล็กที่ช่องปฏิทินแคบเกินกว่าจะใส่ตัวเลขได้ -->
           <div id="cal-list-wrap">

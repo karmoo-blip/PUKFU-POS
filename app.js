@@ -4253,7 +4253,18 @@
           .getSummaryByRange(start, end);
       },
 
+      // ชื่อวันในปฏิทิน ช่องกว้างแค่ 43px ภาษาพม่าจึงต้องใช้รูปสั้น
+      // (ကြာသပတေး เต็มๆ ล้นช่องจนโดนตัด) และต้องเปลี่ยนครบทั้งเจ็ดวัน ไม่ใช่บางวัน
+      // ไม่เอาไปไว้ในพจนานุกรม เพราะกุญแจอักษรเดียวอย่าง 'จ' หรือ 'อ' เสี่ยงไปแทนที่ข้อความอื่นที่บังเอิญตรงกัน
+      calDayNames() {
+        return this.lang === 'my'
+          ? ['နွေ', 'လာ', 'ဂါ', 'ဟူး', 'ကြာ', 'သော', 'နေ']
+          : ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+      },
+
       renderCalendar(r, start, end) {
+        const week = document.getElementById('cal-week');
+        if (week) week.innerHTML = this.calDayNames().map(n => '<span>' + n + '</span>').join('');
         const fmt = n => `฿${(n || 0).toLocaleString(undefined, {minimumFractionDigits: 0, maximumFractionDigits: 0})}`;
         const byDate = {};
         (r.daily || []).forEach(d => { byDate[d.date] = d; });
@@ -4269,7 +4280,7 @@
 
         // แท่งในช่องยาวตามยอดเทียบกับวันที่ขายดีที่สุดของเดือน ไว้กวาดตาดูจังหวะโดยไม่ต้องอ่านตัวเลข
         const topDay = Math.max(1, ...saleDays.map(d => d.total || 0));
-        const dayNames = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+        const dayNames = this.calDayNames();
 
         let cells = '';
         let list = '';

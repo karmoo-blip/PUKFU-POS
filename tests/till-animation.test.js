@@ -705,7 +705,11 @@ test('every key in the dictionary is a Thai string that exists in the app', () =
   // จึงเช็คว่าชิ้นส่วนภาษาไทยรอบๆ ยังมีอยู่จริง
   const present = (k) => {
     if (!k.includes('{n}') && !k.includes('{x}')) return whole(k);
-    return k.split(/\{[nx]\}/).filter(part => /[\u0E00-\u0E7F]/.test(part)).every(part => app.includes(part.trim()));
+    // เทียบเฉพาะแกนภาษาไทยของแต่ละชิ้น เพราะสัญลักษณ์อย่าง ฿ มาจากตัวจัดรูปแบบตอนรัน ไม่ได้เขียนอยู่ตรงนั้นในโค้ด
+    return k.split(/\{[nx]\}/)
+      .map(part => (part.match(/[\u0E00-\u0E3E\u0E40-\u0E7F][\u0E00-\u0E3E\u0E40-\u0E7F\s·]*/g) || []).sort((a, b) => b.length - a.length)[0])
+      .filter(Boolean)
+      .every(core => app.includes(core.trim()));
   };
   const missing = Object.keys(dict).filter(k => !present(k) && !ONLY_IN_OTHER_BUILD.includes(k));
   assert.deepEqual(missing, [],
