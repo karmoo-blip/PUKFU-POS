@@ -1445,6 +1445,7 @@
         width: 36px; height: 36px; padding: 0; border: none; border-radius: var(--r-pill);
         background: var(--color-fill); color: var(--color-primary);
       }
+      .langsw-nav .lang-toggle.is-on { background: var(--color-secondary); color: #ffffff; }
       .nav-status-word { display: none; }
     }
 

@@ -678,7 +678,13 @@ test('every key in the dictionary is a Thai string that exists in the app', () =
   const dict = langDict();
   const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8')
     + fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  const missing = Object.keys(dict).filter(k => !app.includes(k) && !ONLY_IN_OTHER_BUILD.includes(k));
+  // คีย์ที่มี {n} แทนตัวเลข ไม่มีทางเจอตรงๆ ในโค้ด เพราะโค้ดต่อตัวเลขเข้าไปตอนรัน
+  // จึงเช็คว่าชิ้นส่วนภาษาไทยรอบๆ {n} ยังมีอยู่จริง
+  const present = (k) => {
+    if (!k.includes('{n}')) return app.includes(k);
+    return k.split('{n}').filter(part => /[\u0E00-\u0E7F]/.test(part)).every(part => app.includes(part.trim()));
+  };
+  const missing = Object.keys(dict).filter(k => !present(k) && !ONLY_IN_OTHER_BUILD.includes(k));
   assert.deepEqual(missing, [],
     'กุญแจคือข้อความไทยที่อยู่ในโค้ดจริง ถ้าข้อความต้นทางถูกแก้ คำแปลจะเงียบหายไปเฉยๆ');
 
@@ -699,6 +705,33 @@ test('the Burmese font and dictionary are cached, or the app breaks offline', ()
   assert.ok(sw.includes('lang-my.js'), 'พจนานุกรมต้องอยู่ในเครื่อง');
   assert.ok(sw.includes('fonts-myanmar.css'),
     'ฟอนต์ต้องอยู่ในเครื่อง ไม่งั้นสลับเป็นพม่าตอนเน็ตหลุดแล้วได้สี่เหลี่ยมเปล่า');
+});
+
+test('text with a number in it still translates, because most of the till screen has one', () => {
+  const { C } = langController();
+  C.lang = 'my';
+  const dict = langDict();
+  assert.equal(C.lookup(dict, 'พักไว้ (3)'), 'ခဏထား (3)', 'ตัวเลขต้องอยู่ที่เดิม ไม่ใช่หายไปกับคำแปล');
+  assert.equal(C.lookup(dict, '12 แก้ว'), '12 ခွက်');
+  assert.equal(C.lookup(dict, 'พักไว้ (0)'), 'ခဏထား (0)');
+  assert.equal(C.lookup(dict, 'ข้อความที่ไม่มีในพจนานุกรม (9)'), null,
+    'คำที่ไม่รู้จักต้องคืน null แล้วปล่อยให้เป็นไทยตามเดิม');
+});
+
+test('the one-button switch shows whether it is on, or pressing it looks like nothing happened', () => {
+  const { C, document: d, FakeEl } = langController();
+  const toggle = new FakeEl('globe');
+  toggle.dataset = {};
+  d.__qa['.lang-toggle'] = [toggle];
+  d.__qa['[data-lang-btn]'] = [];
+
+  C.lang = 'my';
+  C.renderLangSwitch();
+  assert.ok(toggle.classes.has('is-on'), 'เปิดพม่าอยู่ ปุ่มต้องบอกว่าติด');
+
+  C.lang = 'th';
+  C.renderLangSwitch();
+  assert.ok(!toggle.classes.has('is-on'));
 });
 
 test('the top bar still fits a phone after the language button went in', () => {
