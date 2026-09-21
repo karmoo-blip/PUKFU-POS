@@ -837,6 +837,33 @@ test('what gets written to the shop log is never translated', () => {
     'บันทึกถูกเก็บลงฐานข้อมูล ถ้าแปลตอนเขียน ประวัติของร้านจะกลายเป็นสองภาษาปนกันตามคนที่ล็อกอินอยู่'));
 });
 
+// คำที่เจ้าของร้านสั่งเลิกใช้ ต้องไม่หลงเหลือในข้อความที่คนใช้เห็น
+// ตอนแก้รอบแรกผมค้นแต่สตริงที่อยู่ในเครื่องหมายคำพูดกับข้อความใน HTML
+// เลยพลาด template literal (`พักไว้ (${n})`) ที่เขียนทับป้ายปุ่มตอนมีบิลค้าง
+// ทำให้ปุ่มกลับไปเป็นคำเดิมทันทีที่พักบิลใบแรก
+test('retired words are gone from everything a user can see, template literals included', () => {
+  const RETIRED = ['ตะกร้า', 'พักไว้'];
+  const files = ['app.js', 'index.html'];
+  const bad = [];
+  for (const f of files) {
+    const src = fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
+    src.split('\n').forEach((line, n) => {
+      if (line.trim().startsWith('//')) return;          // คอมเมนต์ในโค้ดไม่นับ
+      const code = line.replace(/\s\/\/.*$/, '');
+      const strings = [
+        ...(code.match(/'[^'\\]*'/g) || []),
+        ...(code.match(/"[^"\\]*"/g) || []),
+        ...(code.match(/`[^`]*`/g) || []),
+        ...(code.match(/>[^<>]+</g) || []),
+      ];
+      strings.forEach(s => {
+        RETIRED.forEach(w => { if (s.includes(w)) bad.push(f + ':' + (n + 1) + ' ' + s.slice(0, 50)); });
+      });
+    });
+  }
+  assert.deepEqual(bad, [], 'คำที่เลิกใช้แล้วยังโผล่ในข้อความที่คนใช้เห็น');
+});
+
 // ---- ชื่อสินค้าภาษาพม่า กับใบบาริสต้า ----
 test('a product with no Burmese name falls back to Thai, never to blank', () => {
   const { C } = loadController({});
