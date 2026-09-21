@@ -48,7 +48,7 @@ async function ensureSchema(env) {
   const stmts = [
     // ตารางหลัก 11 ตัว เดิมสร้างนอก repo ตรงๆ ไม่มี schema เก็บไว้เลย — กู้คืนโครงสร้างจาก repo อย่างเดียวไม่ได้ถ้า D1 หายทั้งฐาน
     // ก็อปมาจาก schema จริงบน production (sqlite_master) เป๊ะๆ ใส่ IF NOT EXISTS ไม่กระทบข้อมูลเดิม
-    "CREATE TABLE IF NOT EXISTS menu (sku TEXT PRIMARY KEY, name TEXT, price REAL, image TEXT, lang2 TEXT, category TEXT, cost REAL, is_sold_out INTEGER DEFAULT 0)",
+    "CREATE TABLE IF NOT EXISTS menu (sku TEXT PRIMARY KEY, name TEXT, price REAL, image TEXT, lang2 TEXT, lang3 TEXT, category TEXT, cost REAL, is_sold_out INTEGER DEFAULT 0)",
     "CREATE TABLE IF NOT EXISTS employees (id TEXT PRIMARY KEY, name TEXT, pin TEXT, role TEXT, active INTEGER, permission TEXT, created_by TEXT, photo TEXT)",
     "CREATE TABLE IF NOT EXISTS addons (id TEXT PRIMARY KEY, name TEXT, price REAL, active INTEGER, created_by TEXT)",
     "CREATE TABLE IF NOT EXISTS payment_methods (id TEXT PRIMARY KEY, name TEXT, is_cash INTEGER, enabled INTEGER, sort_order INTEGER, created_by TEXT)",
@@ -89,6 +89,9 @@ async function ensureSchema(env) {
     ["pending_orders", "ready_at", "TEXT"],
     ["pending_orders", "ready_by", "TEXT"],
     ["sweetness_levels", "lang2", "TEXT"],
+    // lang3 = ชื่อภาษาพม่า ใช้กับหน้าจอพนักงานและใบบาริสต้า ปล่อยว่างได้ จะ fallback ไปชื่อไทย
+    ["menu", "lang3", "TEXT"],
+    ["sweetness_levels", "lang3", "TEXT"],
   ];
 
   // idx_payments_invoice เป็น UNIQUE กันบิลซ้ำตอนซิงก์ออฟไลน์ อันอื่นเป็น index ธรรมดาไว้ค้นให้ไว
@@ -214,19 +217,20 @@ handlers.saveMenuItem = async (env, args) => {
   const cost = Number(m.cost) || 0;
   const category = String(m.category || "").trim();
   const lang2 = String(m.lang2 || "").trim();
+  const lang3 = String(m.lang3 || "").trim();
   const image = String(m.image || "").trim();
   const existing = await env.DB.prepare("SELECT * FROM menu WHERE sku = ?").bind(sku).first();
   if (m.isNew && existing) return { success: false, error: "มีรหัสสินค้านี้อยู่แล้ว" };
   if (existing) {
-    await env.DB.prepare("UPDATE menu SET name=?, price=?, image=?, lang2=?, category=?, cost=? WHERE sku=?")
-      .bind(name, price, image, lang2, category, cost, sku).run();
+    await env.DB.prepare("UPDATE menu SET name=?, price=?, image=?, lang2=?, lang3=?, category=?, cost=? WHERE sku=?")
+      .bind(name, price, image, lang2, lang3, category, cost, sku).run();
   } else {
-    await env.DB.prepare("INSERT INTO menu (sku, name, price, image, lang2, category, cost, is_sold_out) VALUES (?,?,?,?,?,?,?,0)")
-      .bind(sku, name, price, image, lang2, category, cost).run();
+    await env.DB.prepare("INSERT INTO menu (sku, name, price, image, lang2, lang3, category, cost, is_sold_out) VALUES (?,?,?,?,?,?,?,?,0)")
+      .bind(sku, name, price, image, lang2, lang3, category, cost).run();
   }
   const actor = m.actorName || "";
   const details = existing
-    ? diffFields(existing, { name, price, cost, category, lang2 }, ["name", "price", "cost", "category", "lang2"])
+    ? diffFields(existing, { name, price, cost, category, lang2, lang3 }, ["name", "price", "cost", "category", "lang2", "lang3"])
     : `เพิ่มสินค้าใหม่ ราคา ${price} ต้นทุน ${cost}`;
   await logChange(env, actor, "menu", existing ? "update" : "create", name || sku, details);
   return { success: true, sku };
