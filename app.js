@@ -965,6 +965,7 @@
         this.startAutoLockWatcher();
         this.initCartDrag();
         this.checkIosInstallBanner();
+        this.watchInstallPrompt();
 
         this.switchView('pos'); // ตั้งต้นให้แสดงหน้า POS
         this.checkAndClearDailyCache();
@@ -1037,6 +1038,87 @@
         localStorage.setItem('pos_iosInstallBannerDismissed', '1');
         const banner = document.getElementById('ios-install-banner');
         if (banner) banner.classList.add('hidden');
+      },
+
+      // ---- ติดตั้งเป็นแอป ----
+      // ทุกอย่างที่ต้องใช้ติดตั้ง (manifest ไอคอน service worker) มีครบมานานแล้ว
+      // ที่ขาดคือทางเข้า: เบราว์เซอร์ซ่อนปุ่มไว้ในไอคอนเล็กๆ ในแถบที่อยู่ หรือในเมนู File ที่ไม่มีใครเปิด
+      // การ์ดนี้เอาทางเข้านั้นมาไว้ท้ายรายการตั้งค่า และกดแล้วเรียกหน้าต่างติดตั้งจริงของเบราว์เซอร์เลยถ้าทำได้
+      // (แถบล่างบน iOS ที่มีอยู่เดิมปิดแล้วปิดเลย การ์ดนี้เลยเป็นที่ที่กลับมาหาได้ตลอด)
+      watchInstallPrompt() {
+        // สัญญาณนี้มาถึงก่อน init() จะทำงานก็ได้ index.html จึงรับไว้ให้ก่อนแล้วฝากไว้ที่ window
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault(); // กันแถบของเบราว์เซอร์เด้งเอง เก็บไว้ให้ปุ่มในการ์ดเรียกแทน
+          window.__installPrompt = e;
+          this.renderInstallCard();
+        });
+        window.addEventListener('appinstalled', () => {
+          window.__installPrompt = null;
+          this.renderInstallCard();
+        });
+      },
+
+      // เปิดจากไอคอนที่ติดตั้งไว้ ไม่ใช่จากแท็บเบราว์เซอร์
+      isAppInstalled() {
+        return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+          || window.navigator.standalone === true;
+      },
+
+      isIosDevice() {
+        const ua = navigator.userAgent;
+        return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      },
+
+      async promptAppInstall() {
+        const prompt = window.__installPrompt;
+        if (!prompt) return;
+        window.__installPrompt = null; // ใช้ได้ครั้งเดียว ถ้าคนกดยกเลิกเบราว์เซอร์จะส่งมาใหม่เอง
+        try { prompt.prompt(); await prompt.userChoice; }
+        catch (err) { /* ปิดหน้าต่างไปเฉยๆ ก็มาทางนี้ ไม่ต้องบอกอะไร */ }
+        this.renderInstallCard();
+      },
+
+      renderInstallCard() {
+        const el = document.getElementById('app-install-card');
+        if (!el) return;
+        const card = (body) => '<div class="set-card"><p class="set-card-t">ติดตั้งเป็นแอป</p>' + body + '</div>';
+        const sub = (t) => '<p class="set-card-sub">' + t + '</p>';
+        const steps = (items) => '<ol class="set-steps">' + items.map(s => '<li>' + s + '</li>').join('') + '</ol>';
+        const hint = (t) => '<p class="set-install-hint">' + t + '</p>';
+        const download = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex:none"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>';
+
+        if (this.isAppInstalled()) {
+          el.innerHTML = card('<div class="set-install-row"><span class="set-tag set-tag-ok">ติดตั้งแล้ว</span>'
+            + '<span class="set-install-t">กำลังเปิดจากไอคอนบนเครื่อง</span></div>'
+            + '<p class="set-card-sub" style="margin:0">ถ้าอยากเอาออก ลบไอคอนเหมือนแอปทั่วไป ข้อมูลที่ขายไว้ยังอยู่</p>');
+          return;
+        }
+
+        if (window.__installPrompt) {
+          el.innerHTML = card(sub('เปิดจากไอคอนบนเครื่องได้เลย เต็มจอ ไม่มีแถบเบราว์เซอร์')
+            + '<button type="button" class="set-btn set-btn-go" style="width:100%" onclick="Controller.promptAppInstall()">' + download + 'ติดตั้งแอป</button>'
+            + hint('กดแล้วเบราว์เซอร์จะถามยืนยันอีกที'));
+          return;
+        }
+
+        if (this.isIosDevice()) {
+          el.innerHTML = card(sub('Safari ไม่มีปุ่มให้กดแทนได้ ทำตามสามขั้นนี้')
+            + steps(['กดปุ่ม <b>แชร์</b> ข้างล่างจอ', 'เลื่อนหา <b>เพิ่มลงในหน้าจอโฮม</b>', 'กด <b>เพิ่ม</b> มุมขวาบน']));
+          return;
+        }
+
+        const ua = navigator.userAgent;
+        if (/Safari/.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|Firefox/.test(ua)) {
+          el.innerHTML = card(sub('Safari บน Mac ใช้เมนูข้างบนจอ')
+            + steps(['เมนู <b>File</b> ข้างบนจอ', 'เลือก <b>Add to Dock…</b>', 'กด <b>Add</b>'])
+            + hint('Safari 17 ขึ้นไป · ถ้าไม่มีเมนูนี้ให้เปิดด้วย Chrome แทน'));
+          return;
+        }
+
+        // Chrome/Edge ที่ยังไม่ส่งสัญญาณมา: เพิ่งเปิดหน้ายังตรวจไม่เสร็จ หรือเครื่องนี้ติดตั้งไปแล้ว
+        el.innerHTML = card(sub('เปิดจากไอคอนบนเครื่องได้เลย เต็มจอ ไม่มีแถบเบราว์เซอร์')
+          + steps(['เปิดเมนู <b>\u22ee</b> ของเบราว์เซอร์', 'เลือก <b>ติดตั้งแอป</b> หรือ <b>Install</b>'])
+          + hint('ถ้าเมนูนี้ไม่มีให้เลือก แปลว่าเครื่องนี้ติดตั้งไปแล้ว'));
       },
 
       // เช็คว่ามีเวอร์ชันใหม่ deploy ขึ้นมาหรือยัง โดยดู ETag ของ app.js เทียบกับตอนเปิดแอปครั้งนี้
@@ -2485,9 +2567,12 @@
           }
           html += '</div>';
         }
+        // แอป Android ติดตั้งอยู่แล้ว การ์ดติดตั้งจึงไม่มีความหมาย มีแต่การ์ดอัปเดต
         if (this.isNativeApp()) html += '<div id="app-update-card" style="margin-top:18px"></div>';
+        else html += '<div id="app-install-card" style="margin-top:18px"></div>';
         nav.innerHTML = html;
         this.renderUpdateCard();
+        this.renderInstallCard();
       },
 
       // จอเล็กเข้าหน้าย่อยแล้วต้องมีทางกลับ จอใหญ่ไม่ต้องเพราะเมนูอยู่ข้างๆ ตลอด

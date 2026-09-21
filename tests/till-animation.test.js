@@ -80,7 +80,7 @@ function loadController(options) {
     Image: class { constructor(){ this.width = 800; this.height = 800; } set src(v){ queueMicrotask(() => this.onload()); } },
     fetch: () => Promise.reject(new Error('no network')),
     URLSearchParams, crypto: require('node:crypto').webcrypto,
-    navigator: { onLine: true, userAgent: 'node' },
+    navigator: { onLine: true, userAgent: o.userAgent || 'node', platform: o.platform || 'MacIntel', maxTouchPoints: o.maxTouchPoints || 0 },
     location: { search: '', pathname: '/', origin: 'http://x', href: 'http://x/' },
     escAttr: (v) => String(v), escHtml: (v) => String(v),
     calcVatBreakdown: () => ({ exVat: 0, vatAmount: 0, rate: 0 }),
@@ -104,7 +104,8 @@ function loadController(options) {
     return chain;
   }
   sandbox.window = sandbox; sandbox.globalThis = sandbox;
-  sandbox.matchMedia = () => ({ matches: !!o.reducedMotion, addEventListener() {} });
+  sandbox.matchMedia = (q) => ({ matches: q === '(display-mode: standalone)' ? !!o.installed : !!o.reducedMotion, addEventListener() {} });
+  if (o.canInstall) sandbox.__installPrompt = { prompt() { sandbox.__promptShown = true; }, userChoice: Promise.resolve({ outcome: 'accepted' }) };
   sandbox.innerWidth = o.innerWidth || 1400;
   sandbox.addEventListener = () => {};
 
@@ -637,6 +638,63 @@ function settingsController(user) {
   d.__q['#user-menu-wrap button'] = new FakeEl('umb');
   return ctx;
 }
+
+// ---- การ์ดติดตั้งเป็นแอป ----
+// ทุกอย่างที่ต้องใช้ติดตั้งมีครบมานานแล้ว ที่ขาดคือทางเข้าที่คนหาเจอ
+// การ์ดนี้จึงต้องรู้เองว่าเครื่องที่เปิดอยู่ติดตั้งได้แบบไหน และห้ามบอกวิธีทั้งที่กดปุ่มแทนได้
+function installCard(opts) {
+  const ctx = loadController(opts || {});
+  ctx.C.renderInstallCard();
+  return ctx.el('app-install-card').innerHTML;
+}
+
+test('a browser that can install shows a button, not a list of instructions', () => {
+  const html = installCard({ canInstall: true, userAgent: 'Mozilla/5.0 Chrome/140 Safari/537.36' });
+  assert.ok(html.includes('promptAppInstall'), 'ต้องกดติดตั้งได้จากในแอปเลย');
+  assert.ok(!html.includes('set-steps'), 'กดแทนได้แล้วไม่ต้องสอนวิธี');
+});
+
+test('pressing install opens the browser own dialog', async () => {
+  const ctx = loadController({ canInstall: true, userAgent: 'Mozilla/5.0 Chrome/140 Safari/537.36' });
+  ctx.C.renderInstallCard();
+  await ctx.C.promptAppInstall();
+  assert.ok(ctx.el('app-install-card').innerHTML.length > 0, 'การ์ดต้องวาดใหม่หลังกด');
+});
+
+test('an iPhone gets the three steps, because Safari has no button to press', () => {
+  const html = installCard({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0) Version/18.0 Safari/605.1', platform: 'iPhone' });
+  assert.ok(html.includes('เพิ่มลงในหน้าจอโฮม'), 'ต้องบอกขั้นตอนของ iOS');
+  assert.ok(!html.includes('promptAppInstall'), 'iOS กดติดตั้งแทนไม่ได้ ห้ามมีปุ่มหลอก');
+});
+
+test('Safari on a Mac is told about Add to Dock, not the iPhone steps', () => {
+  const html = installCard({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Version/17.4 Safari/605.1.15', platform: 'MacIntel' });
+  assert.ok(html.includes('Add to Dock'), 'Mac ใช้เมนู File');
+  assert.ok(!html.includes('เพิ่มลงในหน้าจอโฮม'), 'อย่าเอาขั้นตอนของ iPhone มาบอกคนใช้ Mac');
+});
+
+test('once installed the card stops asking and says so', () => {
+  const html = installCard({ installed: true, canInstall: true });
+  assert.ok(html.includes('ติดตั้งแล้ว'), 'เปิดจากไอคอนอยู่แล้วต้องบอกว่าติดตั้งแล้ว');
+  assert.ok(!html.includes('promptAppInstall'), 'ติดตั้งแล้วไม่ต้องมีปุ่มให้กดซ้ำ');
+});
+
+test('the install card is left out of the Android app, which is already installed', () => {
+  const { C, el } = settingsController();
+  C.isNativeApp = () => true;
+  C.renderSettingsNav();
+  assert.ok(!el('settings-nav').innerHTML.includes('app-install-card'),
+    'ติดตั้งจาก APK อยู่แล้ว การ์ดติดตั้งไม่มีความหมาย');
+});
+
+test('the browser signal is caught before the app boots, or it is lost', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const head = html.slice(0, html.indexOf('</head>'));
+  assert.ok(head.includes('beforeinstallprompt'),
+    'สัญญาณมาถึงก่อน app.js เริ่มทำงานก็ได้ ต้องรับไว้ใน index.html ไม่งั้นหลุดไปเงียบๆ');
+  assert.ok(head.indexOf('beforeinstallprompt') < head.indexOf("register('sw.js')"),
+    'ต้องรับก่อนงานอื่นในหัวไฟล์');
+});
 
 test('the settings menu only lists what the staff member may open', () => {
   const { C, el } = settingsController({ id: 'u2', name: 'เบส', role: 'Staff', permissions: 'history,inventory' });

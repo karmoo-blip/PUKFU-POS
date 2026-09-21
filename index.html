@@ -34,6 +34,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <script>
+      // เบราว์เซอร์ส่งสัญญาณ "หน้านี้ติดตั้งเป็นแอปได้" ก่อน app.js จะเริ่มทำงานก็ได้
+      // รับไว้ตรงนี้ก่อน แล้วการ์ดในหน้าตั้งค่าค่อยมาหยิบไปใช้ ไม่งั้นสัญญาณหลุดไปเงียบๆ
+      window.__installPrompt = null;
+      window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); window.__installPrompt = e; });
+
       // ลงทะเบียน Service Worker เพื่อแคชหน้าเว็บไว้ใช้งานแบบ offline
       if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
