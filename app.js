@@ -1126,6 +1126,11 @@
         document.head.appendChild(link);
       },
 
+      // จอเล็กมีปุ่มเดียว กดแล้วสลับไปอีกภาษา
+      toggleLang() {
+        this.setLang(this.lang === 'my' ? 'th' : 'my');
+      },
+
       renderLangSwitch() {
         document.querySelectorAll('[data-lang-btn]').forEach(btn => {
           btn.classList.toggle('is-on', btn.dataset.langBtn === this.lang);

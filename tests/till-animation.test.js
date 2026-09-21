@@ -701,6 +701,18 @@ test('the Burmese font and dictionary are cached, or the app breaks offline', ()
     'ฟอนต์ต้องอยู่ในเครื่อง ไม่งั้นสลับเป็นพม่าตอนเน็ตหลุดแล้วได้สี่เหลี่ยมเปล่า');
 });
 
+test('the top bar still fits a phone after the language button went in', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
+  const phone = css.slice(css.indexOf('@media (max-width: 1023px)', css.indexOf('.lang-toggle')));
+  const block = phone.slice(0, phone.indexOf('\n    }'));
+
+  assert.ok(block.includes('.langsw-nav [data-lang-btn] { display: none; }'),
+    'ชิปสองภาษากว้าง 108px แถบบนบนมือถือไม่มีที่พอ ดันทั้งหน้ากว้างเกินจอ');
+  assert.ok(block.includes('.langsw-nav .lang-toggle'), 'จอเล็กต้องเหลือปุ่มกลมปุ่มเดียวแทน');
+  assert.ok(block.includes('.nav-status-word { display: none; }'),
+    'คำว่า STATUS เป็นของประดับ จุดสีบอกสถานะอยู่แล้ว จอเล็กต้องคืนที่ตรงนี้ให้แถบบน');
+});
+
 test('the language switch sits on the lock screen, before anyone can log in', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const lock = html.slice(html.indexOf('id="pin-lock-screen"'), html.indexOf('id="pin-lock-screen"') + 900);

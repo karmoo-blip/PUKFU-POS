@@ -1432,6 +1432,22 @@
     #pin-lock-screen .langsw button.is-on { background: var(--color-cream); color: var(--color-primary); }
     .lock-langsw { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 16px; z-index: 2; }
 
+    /* แถบบนบนมือถือไม่มีที่พอจะใส่ชิปสองภาษา (ชื่อร้าน + ชิป + ชื่อคนขาย + กระดิ่ง + สถานะ
+       รวมกันแล้วกว้างกว่าจอ ดันหน้าทั้งหน้าให้เลื่อนไปทางขวาได้)
+       จอเล็กจึงเหลือปุ่มกลมปุ่มเดียว กดสลับไปมา ส่วนชิปที่เป็นคำเต็มยังอยู่บนหน้าล็อกซึ่งมีที่เหลือเฟือ */
+    .lang-toggle { display: none; }
+    .lang-toggle svg { width: 19px; height: 19px; }
+    @media (max-width: 1023px) {
+      .langsw-nav { background: none; padding: 0; }
+      .langsw-nav [data-lang-btn] { display: none; }
+      .langsw-nav .lang-toggle {
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 36px; height: 36px; padding: 0; border: none; border-radius: var(--r-pill);
+        background: var(--color-fill); color: var(--color-primary);
+      }
+      .nav-status-word { display: none; }
+    }
+
     /* ตัวพม่าไม่มีใน Sarabun ต้องยืม Noto Sans Myanmar มาเฉพาะช่วงตัวอักษรพม่า
        ตัวเลขกับตัวละตินยังเป็น Sarabun เหมือนเดิม เพราะ unicode-range ในไฟล์ฟอนต์กันไว้ให้แล้ว */
     [lang="my"], body.lang-my { font-family: 'Noto Sans Myanmar', 'Sarabun', sans-serif; }
