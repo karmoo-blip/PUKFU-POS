@@ -679,7 +679,8 @@ const ONLY_IN_OTHER_BUILD = [
   'คิวและเวลารอของลูกค้า', 'จัดการ',
   'ตั้งสั้นไปคิวจะหายทั้งที่ลูกค้ายังรออยู่ ตั้งยาวไปบิลที่เสร็จแล้วจะค้างในคิว', 'นับคิวย้อนหลังกี่นาที',
   'บันทึกการตั้งค่าคิว', 'บันทึกการตั้งค่าคิวแล้ว', 'ปฏิเสธ', 'ปฏิเสธออเดอร์แล้ว', 'ปฏิเสธออเดอร์ไม่สำเร็จ',
-  'ประวัติออเดอร์ออนไลน์ 50 รายการล่าสุด', 'ปิดคิวไม่สำเร็จ', 'ปิดตัวอย่าง', 'ยกเลิกโดยลูกค้า',
+  'ประวัติออเดอร์ออนไลน์ 50 รายการล่าสุด', 'ปิดคิวไม่สำเร็จ', 'ปิดตัวอย่าง',
+  'ยกเลิก QR ของ "{x}" ใช่ไหม แผ่นที่แปะไว้ที่โต๊ะจะสั่งไม่ได้อีก', 'ยกเลิกโดยลูกค้า',
   'ยังไม่มีการสำรองข้อมูลในระบบเลย กด "สำรองข้อมูล + ดาวน์โหลดทันที" ด้านบนเพื่อสร้างไฟล์แรก',
   'ยังไม่มีสินค้าในเมนู', 'ยืนยันออเดอร์เรียบร้อยแล้ว บันทึกเข้าระบบขายแล้ว', 'ยืนยันออเดอร์ไม่สำเร็จ',
   'รอยืนยัน', 'รายการล่าสุด', 'ลบรูป QR', 'ลบรูป QR ไม่สำเร็จ:', 'ลูกค้า', 'สร้าง QR', 'สร้างเมื่อ',
@@ -700,9 +701,11 @@ test('every key in the dictionary is a Thai string that exists in the app', () =
   // ของเดิมใช้ includes เฉยๆ กุญแจที่ขาดเครื่องหมายคำถามท้ายประโยคจึงผ่านเทสต์ไปได้
   // ทั้งที่ตอนรันเทียบไม่มีวันตรง เพราะข้อความจริงมี "?" ต่อท้าย
   const whole = (k) => new RegExp('[\'"`>]\\s*' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*[\'"`<]').test(app);
+  // {n} = ตัวเลข, {x} = ชื่อที่โค้ดแทรกเข้ามา ทั้งคู่ไม่มีทางเจอตรงๆ ในโค้ด
+  // จึงเช็คว่าชิ้นส่วนภาษาไทยรอบๆ ยังมีอยู่จริง
   const present = (k) => {
-    if (!k.includes('{n}')) return whole(k);
-    return k.split('{n}').filter(part => /[\u0E00-\u0E7F]/.test(part)).every(part => app.includes(part.trim()));
+    if (!k.includes('{n}') && !k.includes('{x}')) return whole(k);
+    return k.split(/\{[nx]\}/).filter(part => /[\u0E00-\u0E7F]/.test(part)).every(part => app.includes(part.trim()));
   };
   const missing = Object.keys(dict).filter(k => !present(k) && !ONLY_IN_OTHER_BUILD.includes(k));
   assert.deepEqual(missing, [],
@@ -805,6 +808,28 @@ test('switching language re-measures the category underline, which changes width
   C.setLang('my');
   assert.ok(moved > 0,
     'ปุ่ม All ถูกแปลแล้วกว้างไม่เท่าเดิม ตัวชี้สีเขียวใต้ปุ่มจะค้างอยู่ที่ความกว้างเก่า เหลือเป็นแถบสั้นๆ ใต้ปุ่มที่ยาวกว่า');
+});
+
+test('a sentence with a product name in the middle translates as one piece', () => {
+  const { C } = loadController({});
+  C.lang = 'my';
+  const out = C.tf('ต้องการลบสินค้า "{x}" ออกจากเมนูหรือไม่?', 'ลาเต้');
+  assert.ok(!/[\u0E00-\u0E3E\u0E40-\u0E7F]/.test(out.replace('ลาเต้', '')),
+    'ส่วนที่เป็นประโยคต้องเป็นพม่าหมด เหลือแต่ชื่อสินค้าที่เป็นข้อมูลของร้าน');
+  assert.ok(out.includes('ลาเต้'), 'ชื่อสินค้าต้องอยู่ในประโยค ไม่ใช่ {x}');
+  assert.ok(!out.includes('{x}'), 'ตัวแทนต้องถูกแทนที่หมด');
+
+  C.lang = 'th';
+  assert.equal(C.tf('ต้องการลบสินค้า "{x}" ออกจากเมนูหรือไม่?', 'ลาเต้'),
+    'ต้องการลบสินค้า "ลาเต้" ออกจากเมนูหรือไม่?', 'ภาษาไทยต้องได้ประโยคไทยเต็ม');
+});
+
+test('what gets written to the shop log is never translated', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  const logs = app.split('\n').filter(l => l.includes('logPinAttempt(') && /[\u0E00-\u0E7F]/.test(l));
+  assert.ok(logs.length > 0, 'ต้องมีบรรทัดที่เขียนลงบันทึกจริง');
+  logs.forEach(l => assert.ok(!l.includes('this.t(') && !l.includes('this.tf('),
+    'บันทึกถูกเก็บลงฐานข้อมูล ถ้าแปลตอนเขียน ประวัติของร้านจะกลายเป็นสองภาษาปนกันตามคนที่ล็อกอินอยู่'));
 });
 
 // ---- ชื่อสินค้าภาษาพม่า กับใบบาริสต้า ----
