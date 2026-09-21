@@ -271,6 +271,9 @@ const OrderPage = {
   _welcomeResize: null,
 
   async init() {
+    // ปิดรับออเดอร์ออนไลน์อยู่ ต้องบอกลูกค้าตรงนี้เลย ไม่ใช่ให้สั่งจนจบแล้วไม่มีใครเห็น
+    if (typeof ONLINE_ORDER_ENABLED !== 'undefined' && !ONLINE_ORDER_ENABLED) return this.showClosed();
+
     const params = new URLSearchParams(location.search);
     this.location = (params.get('loc') || '').trim();
 
@@ -1198,6 +1201,24 @@ const OrderPage = {
       });
       this._alertResolve = resolve;
     });
+  },
+
+  // หน้าปิดรับ: เรียบๆ ไม่มีปุ่มอะไรให้กด ลูกค้าจะได้รู้ว่าต้องสั่งที่เคาน์เตอร์
+  showClosed() {
+    const th = (navigator.language || '').toLowerCase().startsWith('th');
+    document.body.innerHTML =
+      '<div style="min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:32px 24px">'
+      + '<div style="max-width:340px;text-align:center">'
+      + '<div style="width:72px;height:72px;margin:0 auto 20px;border-radius:50%;background:#e8f0e4;'
+      + 'display:flex;align-items:center;justify-content:center">'
+      + '<svg viewBox="0 0 24 24" fill="none" stroke="#1f4d3a" stroke-width="1.8" stroke-linecap="round" '
+      + 'style="width:34px;height:34px"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>'
+      + '<p style="margin:0;font-size:21px;font-weight:800;color:#163828">'
+      + (th ? 'ปิดรับออเดอร์ออนไลน์ชั่วคราว' : 'Online ordering is closed') + '</p>'
+      + '<p style="margin:10px 0 0;font-size:15px;font-weight:500;color:#5b6559;line-height:1.55">'
+      + (th ? 'สั่งที่เคาน์เตอร์ได้ตามปกติครับ' : 'Please order at the counter.') + '</p>'
+      + '</div></div>';
+    document.title = th ? 'ปิดรับออเดอร์ออนไลน์' : 'Online ordering closed';
   },
 };
 

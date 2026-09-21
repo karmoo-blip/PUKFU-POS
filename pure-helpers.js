@@ -1,3 +1,9 @@
+/* สั่งอาหารออนไลน์: ปิดอยู่ชั่วคราวตามที่เจ้าของร้านสั่ง
+   ตั้งไว้ที่เดียวตรงนี้เพราะทั้ง app.js (ฝั่งร้าน) และ order.js (ฝั่งลูกค้า) โหลดไฟล์นี้เหมือนกัน
+   ถ้าแยกไปตั้งคนละไฟล์ มีโอกาสเปิดฝั่งหนึ่งลืมอีกฝั่ง แล้วออเดอร์จะเข้ามาโดยไม่มีใครเห็น
+   เปิดใหม่: เปลี่ยนเป็น true แล้ว deploy */
+const ONLINE_ORDER_ENABLED = false;
+
 function escAttr(str) {
   return String(str)
     .replace(/&/g, '&amp;')
@@ -82,5 +88,5 @@ function queueEtaRange(drinksAhead, minutesPerDrink) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { escAttr, escHtml, bufToHex, sha256Hex, hashPinWithSalt, calcVatBreakdown, unitCost, recipeCost, queueEtaRange };
+  module.exports = { ONLINE_ORDER_ENABLED, escAttr, escHtml, bufToHex, sha256Hex, hashPinWithSalt, calcVatBreakdown, unitCost, recipeCost, queueEtaRange };
 }
