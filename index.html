@@ -321,7 +321,6 @@
             <div class="sales-box sales-wide-box"><p class="sales-box-l">อัตรากำไร</p><p id="sales-margin" class="sales-box-v">-</p></div>
           </div>
           <div class="sales-facts">
-            <span class="sales-fact sales-narrow-only">อัตรากำไร <b id="sales-margin-narrow">-</b></span>
             <span id="sales-waste-wrap" class="sales-fact hidden" style="color:#f97316">ของเสีย <b id="sales-waste" style="color:#f97316">฿0.00</b></span>
             <span id="sales-refund-wrap" class="sales-fact hidden" style="color:#0284c7">คืนเงิน <b id="sales-refund" style="color:#0284c7">฿0.00</b></span>
           </div>
@@ -628,19 +627,26 @@
       </div>
 
       <div id="settings-panel-calendar" class="settings-panel hidden">
-        <div class="set-toolbar">
-          <button onclick="Controller.calendarPrevMonth()" class="set-btn set-btn-ghost">‹ เดือนก่อน</button>
-          <div style="flex:1 1 auto;text-align:center;min-width:0">
+        <!-- หัวเดือนเป็นลูกศรสองข้างกับชื่อเดือนตรงกลาง อยู่บรรทัดเดียวทั้งบนมือถือและจอคอม
+             ของเดิมใช้ .set-toolbar ที่บังคับปุ่มให้กินเต็มบรรทัดบนจอเล็ก -->
+        <div class="cal-head">
+          <button onclick="Controller.calendarPrevMonth()" class="set-btn set-btn-ghost" aria-label="เดือนก่อน">‹<span class="cal-nav-t"> เดือนก่อน</span></button>
+          <div class="cal-head-mid">
             <p id="cal-month-label" class="set-card-t" style="margin:0">-</p>
             <p id="cal-month-summary" class="set-card-sub" style="margin:2px 0 0"></p>
           </div>
-          <button onclick="Controller.calendarNextMonth()" class="set-btn set-btn-ghost">เดือนถัดไป ›</button>
+          <button onclick="Controller.calendarNextMonth()" class="set-btn set-btn-ghost" aria-label="เดือนถัดไป"><span class="cal-nav-t">เดือนถัดไป </span>›</button>
         </div>
         <div class="set-card">
           <div class="cal-week">
             <span>อา</span><span>จ</span><span>อ</span><span>พ</span><span>พฤ</span><span>ศ</span><span>ส</span>
           </div>
           <div id="cal-grid" class="cal-grid"></div>
+          <!-- ยอดเต็มของแต่ละวัน โชว์เฉพาะจอเล็กที่ช่องปฏิทินแคบเกินกว่าจะใส่ตัวเลขได้ -->
+          <div id="cal-list-wrap">
+            <p class="cal-list-t">ยอดแต่ละวัน</p>
+            <div id="cal-list"></div>
+          </div>
         </div>
       </div>
 

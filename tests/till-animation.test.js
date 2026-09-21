@@ -105,7 +105,7 @@ function loadController(options) {
   }
   sandbox.window = sandbox; sandbox.globalThis = sandbox;
   sandbox.matchMedia = () => ({ matches: !!o.reducedMotion, addEventListener() {} });
-  sandbox.innerWidth = 1400;
+  sandbox.innerWidth = o.innerWidth || 1400;
   sandbox.addEventListener = () => {};
 
   vm.createContext(sandbox);
@@ -766,6 +766,76 @@ test('the calendar marks the days that beat the month average', () => {
   const html = el('cal-grid').innerHTML;
   assert.equal((html.match(/is-strong/g) || []).length, 1, 'วันที่ขายดีกว่าค่าเฉลี่ยต้องถูกทำเครื่องหมายไว้วันเดียว');
   assert.ok(el('cal-month-summary').innerText.includes('2 วันที่มีขาย'));
+});
+
+// ---- สองหน้านี้บนจอมือถือ: ของที่เคยถูกซ่อน ถูกตัด และตัวหนังสือที่เล็กจนอ่านไม่ออก ----
+test('the phone can still refresh and export the sales page', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
+  const base = css.slice(css.indexOf('.sales-chips-tail'), css.indexOf('@media (min-width: 1024px)'));
+  assert.ok(!/\.sales-chips-tail \{[^}]*display:\s*none/.test(base),
+    'ซ่อนทั้งแถวบนจอเล็กแปลว่ามือถือกดรีเฟรชกับ Export PDF ไม่ได้เลย ไม่มีทางอื่นให้กด');
+});
+
+test('the phone sales page shows every figure the desktop shows', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const base = css.slice(0, css.indexOf('@media (min-width: 1024px)'));
+
+  assert.ok(!/\.sales-wide-box \{[^}]*display:\s*none/.test(base),
+    'กล่องอัตรากำไรต้องขึ้นบนมือถือด้วย ไม่ใช่มีเฉพาะจอกว้าง');
+  assert.ok(!html.includes('sales-margin-narrow'),
+    'มีกล่องอัตรากำไรแล้ว ไม่ต้องมีตัวหนังสือสำรองของจอเล็กซ้ำอีกที่');
+  assert.ok(html.includes('sales-chips-tail'), 'ปุ่มรีเฟรช/Export ยังต้องอยู่ในหน้า');
+});
+
+test('menu names on the phone are not squeezed into a fixed column', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
+  const base = css.slice(0, css.indexOf('@media (min-width: 1024px)'));
+  const rule = base.slice(base.indexOf('.sales-row-lab'));
+  const decl = rule.slice(0, rule.indexOf('}'));
+
+  assert.ok(decl.includes('minmax(0, 1fr)') === false, 'อ่านกฎของชื่อ ไม่ใช่ของแถว');
+  assert.ok(decl.includes('min-width: 0'), 'ชื่อเมนูต้องย่อได้ตามที่ว่างที่เหลือ');
+  assert.ok(!decl.includes('width: 66px'),
+    'ช่องตายตัว 66px ตัดชื่อเมนูภาษาไทยเหลือไม่กี่ตัว');
+
+  const row = base.slice(base.indexOf('.sales-row {'));
+  assert.ok(row.slice(0, row.indexOf('}')).includes('display: grid'),
+    'flex ที่ห่อบรรทัดจะดีดยอดเงินตกไปบรรทัดใหม่แทนที่จะย่อชื่อ');
+
+  const track = base.slice(base.indexOf('.sales-row-track {'));
+  assert.ok(track.slice(0, track.indexOf('}')).includes('grid-column: 1 / -1'),
+    'รางต้องกว้างเท่ากันทุกแถว ไม่งั้นความยาวแท่งเทียบกันไม่ได้');
+});
+
+test('the sales charts are drawn in a frame the phone can actually read', () => {
+  const points = [{ label: '09', value: 4 }, { label: '10', value: 9 }, { label: '11', value: 6 }];
+
+  const phone = loadController({ innerWidth: 390 }).C.salesColumnChart(points, { aria: 'x' });
+  assert.ok(phone.includes('viewBox="0 0 330'),
+    'กรอบ 720 ย่อลงมาใส่ช่อง 322px ทำให้ตัวหนังสือ 10px เหลือจริง 4.5px');
+  assert.ok(phone.includes('font-size="12"'), 'และตัวหนังสือต้องได้ 12px จริงๆ');
+
+  const desktop = loadController({}).C.salesColumnChart(points, { aria: 'x' });
+  assert.ok(desktop.includes('viewBox="0 0 720'), 'จอกว้างยังวาดกรอบเดิม');
+});
+
+test('the calendar spells out each day in full, because the grid cells are too narrow', () => {
+  const { C, el } = loadController({});
+  C.calendarYear = 2026; C.calendarMonth = 7;
+  C.renderCalendar({ daily: [
+    { date: '2026-08-01', total: 2000, bills: 20 },
+    { date: '2026-08-02', total: 6000, bills: 60 }
+  ]}, '2026-08-01', '2026-08-31');
+
+  const list = el('cal-list').innerHTML;
+  assert.ok(list.includes('฿6,000') && list.includes('฿2,000'),
+    'ช่องวันกว้าง 43px ใส่ยอดไม่ได้ ตัวเลขเต็มจึงต้องอยู่ในรายการข้างล่าง');
+  assert.ok(list.includes('60 บิล'), 'และบอกจำนวนบิลของวันนั้นด้วย');
+  assert.equal((list.match(/cal-row /g) || []).length + (list.match(/cal-row"/g) || []).length, 2,
+    'เฉพาะวันที่มีขายจริง ไม่ใช่ทั้งเดือน');
+  assert.ok(el('cal-grid').innerHTML.includes('cal-heat'),
+    'ตารางเหลือหน้าที่กวาดตาดูจังหวะ แท่งยิ่งยาวยิ่งขายดี');
 });
 
 // ---- หน้ากลุ่มคนและระบบ ----
