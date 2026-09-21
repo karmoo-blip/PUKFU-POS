@@ -674,7 +674,13 @@ test('Thai is left alone when Thai is the chosen language', () => {
 // คำพวกนี้มีอยู่จริงในอีกรุ่นหนึ่ง ไม่ใช่กุญแจที่พิมพ์ผิด
 const ONLY_IN_OTHER_BUILD = ['ยังไม่มีสินค้าในเมนู', 'ไม่มีสินค้าในหมวดนี้',
   // กระดิ่งส่วนออเดอร์ออนไลน์ รุ่นเก็บข้อมูลในเครื่องเอาออกไปแล้ว
-  'ลูกค้า', 'รอยืนยัน', 'จัดการ'];
+  'ลูกค้า', 'รอยืนยัน', 'จัดการ', 'ปฏิเสธ',
+  // หน้าจอที่มีเฉพาะรุ่นบนเว็บ (คิว ออเดอร์ออนไลน์ QR ชำระเงิน)
+  'รายการล่าสุด', 'ปิดตัวอย่าง', 'สร้างเมื่อ', 'เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่',
+  'คิวและเวลารอของลูกค้า', 'บันทึกการตั้งค่าคิว', 'บันทึกการตั้งค่าคิวแล้ว',
+  'นับคิวย้อนหลังกี่นาที', 'ปิดคิวไม่สำเร็จ', 'ใส่ตัวเลขติดลบไม่ได้',
+  'กรุณาระบุเหตุผลก่อนปฏิเสธ', 'ยกเลิกโดยลูกค้า',
+  'QR ชำระเงิน', 'สร้าง QR', 'ลบรูป QR'];
 
 test('every key in the dictionary is a Thai string that exists in the app', () => {
   const dict = langDict();
@@ -704,6 +710,18 @@ test('the dictionary translates into Burmese, not back into Thai', () => {
   assert.deepEqual(bad, [], 'คำแปลต้องไม่มีตัวอักษรไทยหลงเหลือ');
   const notMyanmar = Object.entries(dict).filter(([, v]) => !/[\u1000-\u109F]/.test(v));
   assert.deepEqual(notMyanmar, [], 'ทุกคำแปลต้องมีตัวอักษรพม่า');
+});
+
+test('changing only the dictionary still deploys, or corrections never reach the till', () => {
+  const wf = path.join(__dirname, '..', '.github', 'workflows', 'deploy-pages.yml');
+  if (!fs.existsSync(wf)) return; // รุ่นเก็บข้อมูลในเครื่องไม่ได้ deploy ขึ้นเว็บ
+  const yml = fs.readFileSync(wf, 'utf8');
+  const triggers = yml.slice(0, yml.indexOf('jobs:'));
+  assert.ok(triggers.includes("'lang-my.js'"),
+    'คำแปลถูกคัดลงเว็บอยู่แล้ว แต่ถ้าไม่ได้อยู่ในรายการที่ปลุก workflow แก้คำแปลอย่างเดียวจะไม่ deploy เลย');
+  assert.ok(triggers.includes("'fonts-myanmar.css'"), 'ฟอนต์ก็เหมือนกัน');
+  assert.ok(yml.includes('lang-my.js') && yml.includes('fonts-myanmar.css'),
+    'และต้องยังถูกคัดลง dist/ ด้วย');
 });
 
 test('the Burmese font and dictionary are cached, or the app breaks offline', () => {

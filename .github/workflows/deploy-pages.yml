@@ -13,6 +13,8 @@ on:
       - 'style.css'
       - 'sw.js'
       - 'fonts-sarabun.css'
+      - 'fonts-myanmar.css'
+      - 'lang-my.js'
       - 'app-version.json'
       - 'capacitor.config.json'
       - 'scripts/**'
