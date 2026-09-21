@@ -973,6 +973,11 @@
         this.checkIosInstallBanner();
         this.watchInstallPrompt();
         this.initLang();
+        // ปิดรับออเดอร์ออนไลน์: ซ่อนทางเข้าในเมนูใต้ชื่อพนักงานด้วย ไม่งั้นกดแล้วเงียบ
+        if (!this.onlineOrderEnabled()) {
+          const mo = document.getElementById('menu-online-order');
+          if (mo) mo.classList.add('hidden');
+        }
 
         this.switchView('pos'); // ตั้งต้นให้แสดงหน้า POS
         this.checkAndClearDailyCache();
@@ -1081,6 +1086,11 @@
       isIosDevice() {
         const ua = navigator.userAgent;
         return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      },
+
+      // สวิตช์สั่งอาหารออนไลน์ อยู่ใน pure-helpers.js ที่หน้าลูกค้าโหลดไฟล์เดียวกัน
+      onlineOrderEnabled() {
+        return typeof ONLINE_ORDER_ENABLED === 'undefined' ? true : ONLINE_ORDER_ENABLED;
       },
 
       // ---- ภาษาของหน้าจอ ----
@@ -2201,7 +2211,9 @@
       // ตัวเลขกับรายการในหน้าต่างอ่านจากฟังก์ชันเดียวกัน จะได้ไม่มีทางไม่ตรงกัน
       bellCounts() {
         const { expired, soon } = this._getActiveNotifications();
-        const waitingOrders = (this.pendingOrders || []).filter(o => (o.status || 'pending') === 'pending');
+        const waitingOrders = this.onlineOrderEnabled()
+          ? (this.pendingOrders || []).filter(o => (o.status || 'pending') === 'pending')
+          : [];
         // นับให้ตรงกับตัวเลขบนปุ่ม STATUS ซึ่งรวมคิวเงินทอน/ล็อก/สถานะบิลด้วย ไม่ใช่แค่บิลขาย
         const unsynced = (this.syncQueue || []).length
           + (this.floatCashQueue || []).length
@@ -2378,6 +2390,7 @@
       },
 
       openPendingOrdersModal() {
+        if (!this.onlineOrderEnabled()) return; // ปิดรับออเดอร์ออนไลน์อยู่
         this.renderPendingOrdersList();
         this.openModal('modal-pending-orders');
       },
@@ -2732,7 +2745,7 @@
           { tab: 'log', label: 'ประวัติการใช้งาน', icon: '<rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/>' },
           { tab: 'backup', label: 'สำรองข้อมูล', icon: '<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><path d="M8 13h8v6H8z"/>' },
           { tab: 'printer', label: 'เครื่องพิมพ์', icon: '<path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/>' },
-          { tab: 'onlineorder', label: 'สั่งอาหารออนไลน์', icon: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 14v3M14 19h3M19 19h2"/>' }
+          { tab: 'onlineorder', label: 'สั่งอาหารออนไลน์', hidden: () => !Controller.onlineOrderEnabled(), icon: '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 14v3M14 19h3M19 19h2"/>' }
         ]}
       ],
 
@@ -2753,7 +2766,7 @@
 
         let html = '';
         for (const group of this.SETTINGS_GROUPS) {
-          const items = group.items.filter(i => !allowed || allowed.includes(i.tab));
+          const items = group.items.filter(i => (!allowed || allowed.includes(i.tab)) && !(i.hidden && i.hidden()));
           if (items.length === 0) continue;
           html += `<div class="set-nav-group"><p class="set-nav-title">${escHtml(group.title)}</p>`;
           for (const item of items) {
@@ -8652,8 +8665,11 @@ renderReport(r) {
                     setInterval(() => this.checkNotifications(), 60000);
 
                     // เช็คออเดอร์ออนไลน์ใหม่เป็นระยะ (ต้องยิงไปเซิร์ฟเวอร์จริงเพราะลูกค้าสั่งจากเครื่องอื่น)
-                    this.checkPendingOrders();
-                    setInterval(() => this.checkPendingOrders(), 8000);
+                    // ปิดรับออเดอร์ออนไลน์อยู่ จึงไม่ต้องถามเซิร์ฟเวอร์ทุกแปดวินาทีให้เปลืองเน็ต
+                    if (this.onlineOrderEnabled()) {
+                      this.checkPendingOrders();
+                      setInterval(() => this.checkPendingOrders(), 8000);
+                    }
 
                     // มือถือมักหยุด/หน่วง setInterval ตอนแอปถูกสลับไปพัก (background tab/PWA)
                     // พอสลับกลับมาเปิดอีกครั้ง (visibilitychange) ให้ดึงข้อมูลใหม่ + ลอง sync คิวที่ค้างทันที

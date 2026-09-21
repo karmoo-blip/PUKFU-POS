@@ -864,6 +864,35 @@ test('retired words are gone from everything a user can see, template literals i
   assert.deepEqual(bad, [], 'คำที่เลิกใช้แล้วยังโผล่ในข้อความที่คนใช้เห็น');
 });
 
+// ---- ปิดสั่งอาหารออนไลน์ ----
+// สวิตช์อยู่ใน pure-helpers.js ที่ทั้งหน้าร้านและหน้าลูกค้าโหลดไฟล์เดียวกัน
+// ถ้าแยกกันตั้ง มีโอกาสปิดฝั่งร้านแต่ลืมฝั่งลูกค้า แล้วออเดอร์จะเข้ามาโดยไม่มีใครเห็น
+test('the online-order switch is one flag both sides read', () => {
+  const helpers = fs.readFileSync(path.join(__dirname, '..', 'pure-helpers.js'), 'utf8');
+  assert.ok(/const ONLINE_ORDER_ENABLED = (true|false);/.test(helpers), 'ต้องมีสวิตช์ตัวเดียวในไฟล์ที่ใช้ร่วมกัน');
+
+  const orderHtml = fs.readFileSync(path.join(__dirname, '..', 'order.html'), 'utf8');
+  assert.ok(orderHtml.includes('pure-helpers.js'), 'หน้าลูกค้าต้องโหลดไฟล์ที่มีสวิตช์');
+
+  const orderJs = fs.readFileSync(path.join(__dirname, '..', 'order.js'), 'utf8');
+  assert.ok(orderJs.includes('ONLINE_ORDER_ENABLED'), 'หน้าลูกค้าต้องเช็คสวิตช์');
+  assert.ok(orderJs.includes('showClosed'), 'ปิดอยู่ต้องบอกลูกค้า ไม่ใช่ให้สั่งจนจบแล้วเงียบ');
+});
+
+test('with ordering off, the staff side stops asking the server and hides the way in', () => {
+  const { C } = loadController({});
+  C.onlineOrderEnabled = () => false;
+
+  C.pendingOrders = [{ id: 'a', status: 'pending', customerName: 'A', items: [] }];
+  assert.equal(C.bellCounts().waitingOrders.length, 0, 'กระดิ่งต้องไม่นับออเดอร์ที่ไม่มีใครดูแล้ว');
+
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  assert.ok(/if \(this\.onlineOrderEnabled\(\)\) \{[\s\S]{0,200}setInterval\(\(\) => this\.checkPendingOrders\(\), 8000\)/.test(app),
+    'ปิดแล้วต้องไม่ยิงถามเซิร์ฟเวอร์ทุกแปดวินาที');
+  assert.ok(app.includes("openPendingOrdersModal() {\n        if (!this.onlineOrderEnabled()) return"),
+    'กดจากที่ไหนก็ต้องไม่เปิดหน้าต่างออเดอร์ออนไลน์');
+});
+
 // ---- ชื่อสินค้าภาษาพม่า กับใบบาริสต้า ----
 test('a product with no Burmese name falls back to Thai, never to blank', () => {
   const { C } = loadController({});
