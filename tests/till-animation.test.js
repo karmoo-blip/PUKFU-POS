@@ -672,7 +672,9 @@ test('Thai is left alone when Thai is the chosen language', () => {
 
 // พจนานุกรมใช้ไฟล์เดียวกันทั้ง PUKFU-POS และ PeePukFu แต่สองรุ่นมีหน้าจอไม่เท่ากัน
 // คำพวกนี้มีอยู่จริงในอีกรุ่นหนึ่ง ไม่ใช่กุญแจที่พิมพ์ผิด
-const ONLY_IN_OTHER_BUILD = ['ยังไม่มีสินค้าในเมนู', 'ไม่มีสินค้าในหมวดนี้'];
+const ONLY_IN_OTHER_BUILD = ['ยังไม่มีสินค้าในเมนู', 'ไม่มีสินค้าในหมวดนี้',
+  // กระดิ่งส่วนออเดอร์ออนไลน์ รุ่นเก็บข้อมูลในเครื่องเอาออกไปแล้ว
+  'ลูกค้า', 'รอยืนยัน', 'จัดการ'];
 
 test('every key in the dictionary is a Thai string that exists in the app', () => {
   const dict = langDict();
@@ -680,8 +682,12 @@ test('every key in the dictionary is a Thai string that exists in the app', () =
     + fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   // คีย์ที่มี {n} แทนตัวเลข ไม่มีทางเจอตรงๆ ในโค้ด เพราะโค้ดต่อตัวเลขเข้าไปตอนรัน
   // จึงเช็คว่าชิ้นส่วนภาษาไทยรอบๆ {n} ยังมีอยู่จริง
+  // เทียบแบบ "เป็นข้อความทั้งก้อน" ไม่ใช่แค่เป็นส่วนหนึ่งของข้อความอื่น
+  // ของเดิมใช้ includes เฉยๆ กุญแจที่ขาดเครื่องหมายคำถามท้ายประโยคจึงผ่านเทสต์ไปได้
+  // ทั้งที่ตอนรันเทียบไม่มีวันตรง เพราะข้อความจริงมี "?" ต่อท้าย
+  const whole = (k) => new RegExp('[\'"`>]\\s*' + k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*[\'"`<]').test(app);
   const present = (k) => {
-    if (!k.includes('{n}')) return app.includes(k);
+    if (!k.includes('{n}')) return whole(k);
     return k.split('{n}').filter(part => /[\u0E00-\u0E7F]/.test(part)).every(part => app.includes(part.trim()));
   };
   const missing = Object.keys(dict).filter(k => !present(k) && !ONLY_IN_OTHER_BUILD.includes(k));

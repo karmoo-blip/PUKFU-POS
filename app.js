@@ -1175,6 +1175,12 @@
 
       // ข้อความบนหน้าขายส่วนใหญ่มีตัวเลขปนอยู่ ("พักไว้ (3)", "2 แก้ว") ซึ่งเทียบตรงๆ ไม่มีวันตรง
       // จึงแทนตัวเลขด้วย {n} แล้วค่อยเทียบ ได้คำแปลแล้วเอาตัวเลขชุดเดิมใส่กลับตามลำดับ
+      // ชุดกุญแจทั้งหมด ทำครั้งเดียวแล้วเก็บไว้ ตัววาดเรียกตัวนี้ทุกโหนดที่ไม่มีตัวไทย
+      langKeys() {
+        if (!this._langKeySet) this._langKeySet = new Set(Object.keys(window.LANG_MY || {}));
+        return this._langKeySet;
+      },
+
       lookup(dict, key) {
         if (dict[key]) return dict[key];
         const numbers = [];
@@ -1199,7 +1205,9 @@
 
         for (const node of nodes) {
           if (node.__th === undefined) {
-            if (!/[\u0E00-\u0E7F]/.test(node.nodeValue)) continue; // ไม่มีตัวไทยก็ไม่มีอะไรให้แปล
+            // ปกติดูแค่ข้อความที่มีตัวไทย แต่บางปุ่มในแอปเป็นภาษาอังกฤษมาแต่เดิม (Checkout, All)
+            // ซึ่งคนอ่านพม่าก็อ่านไม่ออกเหมือนกัน จึงเปิดทางให้คำที่อยู่ในพจนานุกรมด้วย
+            if (!/[\u0E00-\u0E7F]/.test(node.nodeValue) && !this.langKeys().has(node.nodeValue.trim())) continue;
             node.__th = node.nodeValue;
           }
           const key = node.__th.trim();
