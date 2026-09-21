@@ -965,6 +965,8 @@
         this.startAutoLockWatcher();
         this.initCartDrag();
         this.checkIosInstallBanner();
+        this.watchInstallPrompt();
+        this.initLang();
 
         this.switchView('pos'); // ตั้งต้นให้แสดงหน้า POS
         this.checkAndClearDailyCache();
@@ -1037,6 +1039,226 @@
         localStorage.setItem('pos_iosInstallBannerDismissed', '1');
         const banner = document.getElementById('ios-install-banner');
         if (banner) banner.classList.add('hidden');
+      },
+
+      // ---- ติดตั้งเป็นแอป ----
+      // ทุกอย่างที่ต้องใช้ติดตั้ง (manifest ไอคอน service worker) มีครบมานานแล้ว
+      // ที่ขาดคือทางเข้า: เบราว์เซอร์ซ่อนปุ่มไว้ในไอคอนเล็กๆ ในแถบที่อยู่ หรือในเมนู File ที่ไม่มีใครเปิด
+      // การ์ดนี้เอาทางเข้านั้นมาไว้ท้ายรายการตั้งค่า และกดแล้วเรียกหน้าต่างติดตั้งจริงของเบราว์เซอร์เลยถ้าทำได้
+      // (แถบล่างบน iOS ที่มีอยู่เดิมปิดแล้วปิดเลย การ์ดนี้เลยเป็นที่ที่กลับมาหาได้ตลอด)
+      watchInstallPrompt() {
+        // สัญญาณนี้มาถึงก่อน init() จะทำงานก็ได้ index.html จึงรับไว้ให้ก่อนแล้วฝากไว้ที่ window
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault(); // กันแถบของเบราว์เซอร์เด้งเอง เก็บไว้ให้ปุ่มในการ์ดเรียกแทน
+          window.__installPrompt = e;
+          this.renderInstallCard();
+        });
+        window.addEventListener('appinstalled', () => {
+          window.__installPrompt = null;
+          this.renderInstallCard();
+        });
+      },
+
+      // เปิดจากไอคอนที่ติดตั้งไว้ ไม่ใช่จากแท็บเบราว์เซอร์
+      isAppInstalled() {
+        return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches)
+          || window.navigator.standalone === true;
+      },
+
+      isIosDevice() {
+        const ua = navigator.userAgent;
+        return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      },
+
+      // ---- ภาษาของหน้าจอ ----
+      // แอปนี้เขียนข้อความไทยฝังไว้ในโค้ดราวสองพันเจ็ดร้อยจุด การไล่แก้ให้เป็น t('คีย์') ทุกจุด
+      // แปลว่าต้องตั้งชื่อคีย์ใหม่สองพันกว่าอัน และระหว่างทางแอปจะพังเป็นหน้าๆ
+      // จึงแปลที่ชั้น DOM แทน: ข้อความไทยที่เขียนไว้เดิมคือกุญแจ คำไหนไม่มีในพจนานุกรมก็คงเป็นไทยอยู่อย่างนั้น
+      //
+      // ทุกครั้งที่แอปวาดหน้าใหม่ (ซึ่งมีเยอะมากและกระจายอยู่ทั่วไฟล์) MutationObserver จะเห็นเอง
+      // ไม่ต้องไปไล่เรียก applyLang ตามหลังทุกจุดที่วาด
+      lang: 'th',
+      _langNodes: null,
+
+      initLang() {
+        const saved = localStorage.getItem('pos_lang');
+        this.lang = saved === 'my' ? 'my' : 'th';
+        this.watchLangDom();
+        this.applyLangChrome();
+        this.applyLang();
+      },
+
+      // ของที่ต้องตั้งให้ตรงกับภาษาปัจจุบันเสมอ ทั้งตอนเปิดแอปและตอนกดสลับ
+      // เปิดแอปมาเป็นพม่าแล้วไม่เรียกตัวนี้ จะได้ปุ่มไฮไลต์ผิดข้าง และฟอนต์พม่าไม่ถูกโหลด
+      // (เครื่องที่บังเอิญมีฟอนต์พม่าอยู่แล้วจะดูเหมือนปกติ เครื่องที่ไม่มีจะได้สี่เหลี่ยมเปล่า)
+      applyLangChrome() {
+        if (this.lang === 'my') this.ensureMyanmarFont();
+        if (document.body) document.body.classList.toggle('lang-my', this.lang === 'my');
+        if (document.documentElement) document.documentElement.lang = this.lang === 'my' ? 'my' : 'th';
+        this.renderLangSwitch();
+      },
+
+      // คำแปลของข้อความเดี่ยวๆ ที่โค้ดเอาไปต่อกับตัวเลขหรือชื่อสินค้าก่อนจะถึง DOM
+      // (ข้อความที่ลงไปเป็นก้อนเดียวใน DOM ไม่ต้องใช้ตัวนี้ ตัววาดข้างล่างจัดการให้แล้ว)
+      t(text) {
+        if (this.lang !== 'my') return text;
+        const dict = window.LANG_MY || {};
+        return dict[text] || text;
+      },
+
+      setLang(lang) {
+        const next = lang === 'my' ? 'my' : 'th';
+        if (next === this.lang) return;
+        this.lang = next;
+        try { localStorage.setItem('pos_lang', next); } catch (err) { /* จำไม่ได้ก็ยังใช้ได้ */ }
+        this.applyLangChrome();
+        this.applyLang();
+      },
+
+      // ฟอนต์พม่าหนักสองแสนไบต์ ไม่ต้องโหลดให้คนที่ใช้ไทย โหลดตอนสลับมาพม่าครั้งแรกพอ
+      // (service worker เก็บไว้ให้แล้ว เปลี่ยนภาษาตอนเน็ตหลุดก็ยังได้ฟอนต์)
+      ensureMyanmarFont() {
+        if (document.getElementById('myanmar-font')) return;
+        const link = document.createElement('link');
+        link.id = 'myanmar-font';
+        link.rel = 'stylesheet';
+        link.href = 'fonts-myanmar.css';
+        document.head.appendChild(link);
+      },
+
+      renderLangSwitch() {
+        document.querySelectorAll('[data-lang-btn]').forEach(btn => {
+          btn.classList.toggle('is-on', btn.dataset.langBtn === this.lang);
+        });
+      },
+
+      // แปลเฉพาะกิ่งที่เพิ่งเปลี่ยน ไม่ใช่ทั้งหน้าทุกครั้ง หน้าขายวาดตะกร้าใหม่ทุกครั้งที่กดบวกลบ
+      watchLangDom() {
+        if (this._langObserver || typeof MutationObserver !== 'function') return;
+        let pending = new Set();
+        let queued = false;
+        const flush = () => {
+          queued = false;
+          const roots = pending; pending = new Set();
+          if (this.lang === 'th' && !this._langTouched) return;
+          this._langObserver.disconnect(); // กันไม่ให้การแก้ของเราเองวนกลับเข้ามาอีกรอบ
+          roots.forEach(node => this.applyLang(node));
+          this.connectLangObserver();
+        };
+        this._langObserver = new MutationObserver(records => {
+          for (const r of records) {
+            if (r.type === 'characterData') pending.add(r.target);
+            else r.addedNodes.forEach(n => pending.add(n));
+          }
+          if (pending.size && !queued) {
+            queued = true;
+            (window.requestAnimationFrame || setTimeout)(flush, 0);
+          }
+        });
+        this.connectLangObserver();
+      },
+
+      connectLangObserver() {
+        if (!this._langObserver || !document.body) return;
+        this._langObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+      },
+
+      applyLang(root) {
+        const target = root || document.body;
+        if (!target || !document.createTreeWalker) return;
+        const dict = this.lang === 'my' ? (window.LANG_MY || {}) : null;
+        if (dict) this._langTouched = true; // สลับกลับเป็นไทยต้องวาดทับของที่แปลไปแล้ว
+
+        const nodes = [];
+        if (target.nodeType === 3) nodes.push(target);
+        else if (target.nodeType === 1) {
+          const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+          while (walker.nextNode()) nodes.push(walker.currentNode);
+        }
+
+        for (const node of nodes) {
+          if (node.__th === undefined) {
+            if (!/[\u0E00-\u0E7F]/.test(node.nodeValue)) continue; // ไม่มีตัวไทยก็ไม่มีอะไรให้แปล
+            node.__th = node.nodeValue;
+          }
+          const key = node.__th.trim();
+          const hit = dict && dict[key];
+          const next = hit ? node.__th.replace(key, hit) : node.__th;
+          if (node.nodeValue !== next) node.nodeValue = next;
+        }
+
+        // ข้อความที่อยู่ในแอตทริบิวต์ ตัววาดข้อความข้างบนมองไม่เห็น
+        if (target.nodeType === 1) {
+          const attrs = ['placeholder', 'title', 'aria-label'];
+          const els = target.querySelectorAll ? [target, ...target.querySelectorAll('[placeholder],[title],[aria-label]')] : [target];
+          for (const el of els) {
+            if (!el.getAttribute) continue;
+            for (const name of attrs) {
+              const now = el.getAttribute(name);
+              if (now === null) continue;
+              const store = '__th_' + name;
+              if (el[store] === undefined) {
+                if (!/[\u0E00-\u0E7F]/.test(now)) continue;
+                el[store] = now;
+              }
+              const hit = dict && dict[el[store].trim()];
+              const next = hit || el[store];
+              if (now !== next) el.setAttribute(name, next);
+            }
+          }
+        }
+      },
+
+      async promptAppInstall() {
+        const prompt = window.__installPrompt;
+        if (!prompt) return;
+        window.__installPrompt = null; // ใช้ได้ครั้งเดียว ถ้าคนกดยกเลิกเบราว์เซอร์จะส่งมาใหม่เอง
+        try { prompt.prompt(); await prompt.userChoice; }
+        catch (err) { /* ปิดหน้าต่างไปเฉยๆ ก็มาทางนี้ ไม่ต้องบอกอะไร */ }
+        this.renderInstallCard();
+      },
+
+      renderInstallCard() {
+        const el = document.getElementById('app-install-card');
+        if (!el) return;
+        const card = (body) => '<div class="set-card"><p class="set-card-t">ติดตั้งเป็นแอป</p>' + body + '</div>';
+        const sub = (t) => '<p class="set-card-sub">' + t + '</p>';
+        const steps = (items) => '<ol class="set-steps">' + items.map(s => '<li>' + s + '</li>').join('') + '</ol>';
+        const hint = (t) => '<p class="set-install-hint">' + t + '</p>';
+        const download = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px;flex:none"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>';
+
+        if (this.isAppInstalled()) {
+          el.innerHTML = card('<div class="set-install-row"><span class="set-tag set-tag-ok">ติดตั้งแล้ว</span>'
+            + '<span class="set-install-t">กำลังเปิดจากไอคอนบนเครื่อง</span></div>'
+            + '<p class="set-card-sub" style="margin:0">ถ้าอยากเอาออก ลบไอคอนเหมือนแอปทั่วไป ข้อมูลที่ขายไว้ยังอยู่</p>');
+          return;
+        }
+
+        if (window.__installPrompt) {
+          el.innerHTML = card(sub('เปิดจากไอคอนบนเครื่องได้เลย เต็มจอ ไม่มีแถบเบราว์เซอร์')
+            + '<button type="button" class="set-btn set-btn-go" style="width:100%" onclick="Controller.promptAppInstall()">' + download + 'ติดตั้งแอป</button>'
+            + hint('กดแล้วเบราว์เซอร์จะถามยืนยันอีกที'));
+          return;
+        }
+
+        if (this.isIosDevice()) {
+          el.innerHTML = card(sub('Safari ไม่มีปุ่มให้กดแทนได้ ทำตามสามขั้นนี้')
+            + steps(['กดปุ่ม <b>แชร์</b> ข้างล่างจอ', 'เลื่อนหา <b>เพิ่มลงในหน้าจอโฮม</b>', 'กด <b>เพิ่ม</b> มุมขวาบน']));
+          return;
+        }
+
+        const ua = navigator.userAgent;
+        if (/Safari/.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|Firefox/.test(ua)) {
+          el.innerHTML = card(sub('Safari บน Mac ใช้เมนูข้างบนจอ')
+            + steps(['เมนู <b>File</b> ข้างบนจอ', 'เลือก <b>Add to Dock…</b>', 'กด <b>Add</b>'])
+            + hint('Safari 17 ขึ้นไป · ถ้าไม่มีเมนูนี้ให้เปิดด้วย Chrome แทน'));
+          return;
+        }
+
+        // Chrome/Edge ที่ยังไม่ส่งสัญญาณมา: เพิ่งเปิดหน้ายังตรวจไม่เสร็จ หรือเครื่องนี้ติดตั้งไปแล้ว
+        el.innerHTML = card(sub('เปิดจากไอคอนบนเครื่องได้เลย เต็มจอ ไม่มีแถบเบราว์เซอร์')
+          + steps(['เปิดเมนู <b>\u22ee</b> ของเบราว์เซอร์', 'เลือก <b>ติดตั้งแอป</b> หรือ <b>Install</b>'])
+          + hint('ถ้าเมนูนี้ไม่มีให้เลือก แปลว่าเครื่องนี้ติดตั้งไปแล้ว'));
       },
 
       // เช็คว่ามีเวอร์ชันใหม่ deploy ขึ้นมาหรือยัง โดยดู ETag ของ app.js เทียบกับตอนเปิดแอปครั้งนี้
@@ -2485,9 +2707,12 @@
           }
           html += '</div>';
         }
+        // แอป Android ติดตั้งอยู่แล้ว การ์ดติดตั้งจึงไม่มีความหมาย มีแต่การ์ดอัปเดต
         if (this.isNativeApp()) html += '<div id="app-update-card" style="margin-top:18px"></div>';
+        else html += '<div id="app-install-card" style="margin-top:18px"></div>';
         nav.innerHTML = html;
         this.renderUpdateCard();
+        this.renderInstallCard();
       },
 
       // จอเล็กเข้าหน้าย่อยแล้วต้องมีทางกลับ จอใหญ่ไม่ต้องเพราะเมนูอยู่ข้างๆ ตลอด

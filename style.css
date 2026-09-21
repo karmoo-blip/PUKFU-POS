@@ -1418,6 +1418,33 @@
       .set-seg { flex: 0 1 auto; }
     }
 
+    /* ---------- ปุ่มสลับภาษา ----------
+       อยู่บนหน้าล็อกกับแถบบนหน้าขาย สองที่ที่คนอ่านไทยไม่ออกไปถึงได้เอง */
+    .langsw { display: inline-flex; gap: 2px; padding: 3px; border-radius: var(--r-pill); background: var(--color-fill); flex: none; }
+    .langsw button {
+      padding: 5px 11px; border: none; border-radius: var(--r-pill); background: none;
+      font-family: inherit; font-size: 12.5px; font-weight: 800; color: var(--color-mute); white-space: nowrap;
+    }
+    .langsw button.is-on { background: var(--color-secondary); color: #ffffff; }
+    /* บนพื้นเขียวของหน้าล็อก */
+    #pin-lock-screen .langsw { background: rgba(255, 255, 255, .16); }
+    #pin-lock-screen .langsw button { color: rgba(255, 255, 255, .72); }
+    #pin-lock-screen .langsw button.is-on { background: var(--color-cream); color: var(--color-primary); }
+    .lock-langsw { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 16px; z-index: 2; }
+
+    /* ตัวพม่าไม่มีใน Sarabun ต้องยืม Noto Sans Myanmar มาเฉพาะช่วงตัวอักษรพม่า
+       ตัวเลขกับตัวละตินยังเป็น Sarabun เหมือนเดิม เพราะ unicode-range ในไฟล์ฟอนต์กันไว้ให้แล้ว */
+    [lang="my"], body.lang-my { font-family: 'Noto Sans Myanmar', 'Sarabun', sans-serif; }
+
+    /* ---------- การ์ดติดตั้งเป็นแอป ---------- */
+    .set-steps { margin: 0; padding-left: 18px; font-size: 12.5px; font-weight: 700; color: var(--color-mute); }
+    .set-steps li { margin-bottom: 5px; }
+    .set-steps li:last-child { margin-bottom: 0; }
+    .set-steps b { color: var(--color-secondary); font-weight: 800; }
+    .set-install-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 14px; }
+    .set-install-t { font-size: 13px; font-weight: 700; color: var(--color-mute); }
+    .set-install-hint { margin: 8px 0 0; font-size: 11px; font-weight: 700; color: #94a3b8; text-align: center; }
+
     /* ---------- ช่องติ๊กและอัปโหลดในหน้าตั้งค่า ---------- */
     .set-check { display: flex; align-items: center; gap: 9px; font-size: 13px; font-weight: 700; color: var(--color-secondary); min-height: 32px; }
     .set-check input[type="checkbox"] { width: 18px; height: 18px; border-radius: 5px; accent-color: var(--color-primary); flex: none; }

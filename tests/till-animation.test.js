@@ -80,7 +80,7 @@ function loadController(options) {
     Image: class { constructor(){ this.width = 800; this.height = 800; } set src(v){ queueMicrotask(() => this.onload()); } },
     fetch: () => Promise.reject(new Error('no network')),
     URLSearchParams, crypto: require('node:crypto').webcrypto,
-    navigator: { onLine: true, userAgent: 'node' },
+    navigator: { onLine: true, userAgent: o.userAgent || 'node', platform: o.platform || 'MacIntel', maxTouchPoints: o.maxTouchPoints || 0 },
     location: { search: '', pathname: '/', origin: 'http://x', href: 'http://x/' },
     escAttr: (v) => String(v), escHtml: (v) => String(v),
     calcVatBreakdown: () => ({ exVat: 0, vatAmount: 0, rate: 0 }),
@@ -104,11 +104,13 @@ function loadController(options) {
     return chain;
   }
   sandbox.window = sandbox; sandbox.globalThis = sandbox;
-  sandbox.matchMedia = () => ({ matches: !!o.reducedMotion, addEventListener() {} });
+  sandbox.matchMedia = (q) => ({ matches: q === '(display-mode: standalone)' ? !!o.installed : !!o.reducedMotion, addEventListener() {} });
+  if (o.canInstall) sandbox.__installPrompt = { prompt() { sandbox.__promptShown = true; }, userChoice: Promise.resolve({ outcome: 'accepted' }) };
   sandbox.innerWidth = o.innerWidth || 1400;
   sandbox.addEventListener = () => {};
 
   vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'lang-my.js'), 'utf8'), sandbox, { filename: 'lang-my.js' });
   const code = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
   vm.runInContext(code + '\nglobalThis.__Controller = Controller; globalThis.__ReceiptPrinter = ReceiptPrinter;', sandbox, { filename: 'app.js' });
 
@@ -637,6 +639,133 @@ function settingsController(user) {
   d.__q['#user-menu-wrap button'] = new FakeEl('umb');
   return ctx;
 }
+
+// อ่านพจนานุกรมจากไฟล์จริง ไม่ใช่สำเนาในเทสต์ จะได้จับตอนไฟล์จริงเพี้ยน
+function langDict() {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'lang-my.js'), 'utf8');
+  const sandbox = { window: {} };
+  vm.createContext(sandbox);
+  vm.runInContext(src, sandbox, { filename: 'lang-my.js' });
+  return sandbox.window.LANG_MY;
+}
+
+// ---- ภาษาพม่าสำหรับพนักงาน ----
+// แปลที่ชั้น DOM โดยใช้ข้อความไทยเดิมเป็นกุญแจ กฎที่ห้ามพังคือ "ไม่มีคำแปลต้องได้ไทย ไม่ใช่ช่องว่าง"
+function langController(opts) {
+  const ctx = loadController(opts || {});
+  ctx.C.lang = 'th';
+  return ctx;
+}
+
+test('a word with no translation stays Thai instead of going blank', () => {
+  const { C } = langController();
+  C.lang = 'my';
+  assert.equal(C.t('ล้าง'), 'ရှင်းရန်', 'คำที่แปลไว้ต้องได้พม่า');
+  assert.equal(C.t('ข้อความที่ยังไม่ได้แปล'), 'ข้อความที่ยังไม่ได้แปล',
+    'คำที่ยังไม่ได้แปลต้องคงเป็นไทย ไม่ใช่ช่องว่างหรือชื่อคีย์');
+});
+
+test('Thai is left alone when Thai is the chosen language', () => {
+  const { C } = langController();
+  assert.equal(C.t('ล้าง'), 'ล้าง');
+});
+
+// พจนานุกรมใช้ไฟล์เดียวกันทั้ง PUKFU-POS และ PeePukFu แต่สองรุ่นมีหน้าจอไม่เท่ากัน
+// คำพวกนี้มีอยู่จริงในอีกรุ่นหนึ่ง ไม่ใช่กุญแจที่พิมพ์ผิด
+const ONLY_IN_OTHER_BUILD = ['ยังไม่มีสินค้าในเมนู', 'ไม่มีสินค้าในหมวดนี้'];
+
+test('every key in the dictionary is a Thai string that exists in the app', () => {
+  const dict = langDict();
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8')
+    + fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const missing = Object.keys(dict).filter(k => !app.includes(k) && !ONLY_IN_OTHER_BUILD.includes(k));
+  assert.deepEqual(missing, [],
+    'กุญแจคือข้อความไทยที่อยู่ในโค้ดจริง ถ้าข้อความต้นทางถูกแก้ คำแปลจะเงียบหายไปเฉยๆ');
+
+  const stale = ONLY_IN_OTHER_BUILD.filter(k => !dict[k]);
+  assert.deepEqual(stale, [], 'คำที่ยกเว้นไว้ต้องยังอยู่ในพจนานุกรมจริง ไม่งั้นรายการยกเว้นค้างเปล่า');
+});
+
+test('the dictionary translates into Burmese, not back into Thai', () => {
+  const dict = langDict();
+  const bad = Object.entries(dict).filter(([, v]) => /[\u0E00-\u0E7F]/.test(v));
+  assert.deepEqual(bad, [], 'คำแปลต้องไม่มีตัวอักษรไทยหลงเหลือ');
+  const notMyanmar = Object.entries(dict).filter(([, v]) => !/[\u1000-\u109F]/.test(v));
+  assert.deepEqual(notMyanmar, [], 'ทุกคำแปลต้องมีตัวอักษรพม่า');
+});
+
+test('the Burmese font and dictionary are cached, or the app breaks offline', () => {
+  const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+  assert.ok(sw.includes('lang-my.js'), 'พจนานุกรมต้องอยู่ในเครื่อง');
+  assert.ok(sw.includes('fonts-myanmar.css'),
+    'ฟอนต์ต้องอยู่ในเครื่อง ไม่งั้นสลับเป็นพม่าตอนเน็ตหลุดแล้วได้สี่เหลี่ยมเปล่า');
+});
+
+test('the language switch sits on the lock screen, before anyone can log in', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const lock = html.slice(html.indexOf('id="pin-lock-screen"'), html.indexOf('id="pin-lock-screen"') + 900);
+  assert.ok(lock.includes('data-lang-btn'),
+    'คนที่อ่านไทยไม่ออกหาเมนูตั้งค่าไม่เจอ ปุ่มต้องอยู่ตรงที่เห็นก่อนใส่ PIN');
+  assert.equal((html.match(/data-lang-btn="my"/g) || []).length, 2,
+    'มีสองที่: หน้าล็อกกับแถบบนหน้าขาย');
+});
+
+// ---- การ์ดติดตั้งเป็นแอป ----
+// ทุกอย่างที่ต้องใช้ติดตั้งมีครบมานานแล้ว ที่ขาดคือทางเข้าที่คนหาเจอ
+// การ์ดนี้จึงต้องรู้เองว่าเครื่องที่เปิดอยู่ติดตั้งได้แบบไหน และห้ามบอกวิธีทั้งที่กดปุ่มแทนได้
+function installCard(opts) {
+  const ctx = loadController(opts || {});
+  ctx.C.renderInstallCard();
+  return ctx.el('app-install-card').innerHTML;
+}
+
+test('a browser that can install shows a button, not a list of instructions', () => {
+  const html = installCard({ canInstall: true, userAgent: 'Mozilla/5.0 Chrome/140 Safari/537.36' });
+  assert.ok(html.includes('promptAppInstall'), 'ต้องกดติดตั้งได้จากในแอปเลย');
+  assert.ok(!html.includes('set-steps'), 'กดแทนได้แล้วไม่ต้องสอนวิธี');
+});
+
+test('pressing install opens the browser own dialog', async () => {
+  const ctx = loadController({ canInstall: true, userAgent: 'Mozilla/5.0 Chrome/140 Safari/537.36' });
+  ctx.C.renderInstallCard();
+  await ctx.C.promptAppInstall();
+  assert.ok(ctx.el('app-install-card').innerHTML.length > 0, 'การ์ดต้องวาดใหม่หลังกด');
+});
+
+test('an iPhone gets the three steps, because Safari has no button to press', () => {
+  const html = installCard({ userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0) Version/18.0 Safari/605.1', platform: 'iPhone' });
+  assert.ok(html.includes('เพิ่มลงในหน้าจอโฮม'), 'ต้องบอกขั้นตอนของ iOS');
+  assert.ok(!html.includes('promptAppInstall'), 'iOS กดติดตั้งแทนไม่ได้ ห้ามมีปุ่มหลอก');
+});
+
+test('Safari on a Mac is told about Add to Dock, not the iPhone steps', () => {
+  const html = installCard({ userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Version/17.4 Safari/605.1.15', platform: 'MacIntel' });
+  assert.ok(html.includes('Add to Dock'), 'Mac ใช้เมนู File');
+  assert.ok(!html.includes('เพิ่มลงในหน้าจอโฮม'), 'อย่าเอาขั้นตอนของ iPhone มาบอกคนใช้ Mac');
+});
+
+test('once installed the card stops asking and says so', () => {
+  const html = installCard({ installed: true, canInstall: true });
+  assert.ok(html.includes('ติดตั้งแล้ว'), 'เปิดจากไอคอนอยู่แล้วต้องบอกว่าติดตั้งแล้ว');
+  assert.ok(!html.includes('promptAppInstall'), 'ติดตั้งแล้วไม่ต้องมีปุ่มให้กดซ้ำ');
+});
+
+test('the install card is left out of the Android app, which is already installed', () => {
+  const { C, el } = settingsController();
+  C.isNativeApp = () => true;
+  C.renderSettingsNav();
+  assert.ok(!el('settings-nav').innerHTML.includes('app-install-card'),
+    'ติดตั้งจาก APK อยู่แล้ว การ์ดติดตั้งไม่มีความหมาย');
+});
+
+test('the browser signal is caught before the app boots, or it is lost', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const head = html.slice(0, html.indexOf('</head>'));
+  assert.ok(head.includes('beforeinstallprompt'),
+    'สัญญาณมาถึงก่อน app.js เริ่มทำงานก็ได้ ต้องรับไว้ใน index.html ไม่งั้นหลุดไปเงียบๆ');
+  assert.ok(head.indexOf('beforeinstallprompt') < head.indexOf("register('sw.js')"),
+    'ต้องรับก่อนงานอื่นในหัวไฟล์');
+});
 
 test('the settings menu only lists what the staff member may open', () => {
   const { C, el } = settingsController({ id: 'u2', name: 'เบส', role: 'Staff', permissions: 'history,inventory' });

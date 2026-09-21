@@ -62,6 +62,15 @@ module.exports = [
     },
   },
 
+  // lang-my.js — พจนานุกรมภาษาพม่า โหลดเป็น <script> ธรรมดาก่อน app.js
+  {
+    files: ['lang-my.js'],
+    languageOptions: {
+      sourceType: 'script',
+      globals: { ...globals.browser, ...globals.es2021 },
+    },
+  },
+
   // pure-helpers.js — shared by app.js/order.js (classic <script>) and Node tests (require)
   {
     files: ['pure-helpers.js'],
