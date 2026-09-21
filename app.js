@@ -1504,7 +1504,7 @@
         const bundle = this.appUpdate.bundle;
         if (!bundle) return this.checkNativeUpdate(true);
         if (this.cart && this.cart.length > 0) {
-          const ok = await this.showConfirm('ตะกร้ามีรายการค้างอยู่ ถ้าอัปเดตตอนนี้รายการจะหาย ต้องการอัปเดตเลยหรือไม่?', '');
+          const ok = await this.showConfirm('ออเดอร์มีรายการค้างอยู่ ถ้าอัปเดตตอนนี้รายการจะหาย ต้องการอัปเดตเลยหรือไม่?', '');
           if (!ok) return;
         }
         // เหมือนอัปเดตบนเว็บ: บังคับใส่ PIN ใหม่หลังแอปโหลดใหม่
@@ -6018,7 +6018,7 @@ renderReport(r) {
         if (this.cart.length === 0) {
            container.innerHTML = `<div class="cart-empty-in flex flex-col items-center justify-center gap-2 my-auto" style="color:var(--color-mute)">
              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem;color:var(--color-line)"><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.5 11h10L20 7H6"/></svg>
-             <span class="text-sm font-bold">ไม่มีสินค้าในตะกร้า</span>
+             <span class="text-sm font-bold">ไม่มีสินค้าในออเดอร์</span>
            </div>`;
            if(btnHold) btnHold.classList.add('hidden');
            if(btnPrintSlip) btnPrintSlip.classList.add('hidden');
@@ -6108,7 +6108,7 @@ renderReport(r) {
           items: [...this.cart], total, summary: name
         });
         this.cart = []; this.saveLocalState(); this.renderCart();
-        this.showAlert('พักบิลเรียบร้อยแล้วครับ', '');
+        this.showAlert('เก็บเป็นบิลค้างชำระแล้ว', '');
       },
 
       openHeldOrdersModal(e) {
@@ -6120,7 +6120,7 @@ renderReport(r) {
       renderHeldOrders() {
         const list = document.getElementById('held-orders-list');
         if (this.heldOrders.length === 0) {
-          list.innerHTML = '<div class="text-center text-slate-400 font-bold py-8">ไม่มีบิลที่พักไว้</div>';
+          list.innerHTML = '<div class="text-center text-slate-400 font-bold py-8">ไม่มีบิลค้างชำระ</div>';
           return;
         }
         list.innerHTML = this.heldOrders.map((h, idx) => `
@@ -6139,7 +6139,7 @@ renderReport(r) {
 
       async restoreHeldOrder(idx) {
         if (this.cart.length > 0) {
-          const ok = await this.showConfirm('มีสินค้าค้างอยู่ในตะกร้า ต้องการ "พักบิลปัจจุบัน" แล้วดึงบิลนี้มาแทนที่ไหม?', '');
+          const ok = await this.showConfirm('มีสินค้าค้างอยู่ในออเดอร์ ต้องการ "พักเป็นบิลค้างชำระ" แล้วดึงบิลนี้มาแทนที่ไหม?', '');
           if (!ok) return;
           this.holdCurrentOrder(); 
         }
@@ -6149,7 +6149,7 @@ renderReport(r) {
       },
 
       async deleteHeldOrder(idx) {
-        const ok = await this.showConfirm('ต้องการลบบิลที่พักไว้นี้ทิ้งใช่ไหม?', '');
+        const ok = await this.showConfirm('ต้องการลบบิลค้างชำระนี้ทิ้งใช่ไหม?', '');
         if (ok) {
           this.heldOrders.splice(idx, 1);
           this.saveLocalState(); this.renderHeldOrders(); this.renderCart(); 
@@ -6162,7 +6162,7 @@ renderReport(r) {
         const newQty = item.qty + change;
         
         if (newQty <= 0) {
-          const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกจากตะกร้าใช่ไหม?', '');
+          const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกจากออเดอร์ใช่ไหม?', '');
           if (ok) {
             await this.animateCartLineOut(idx);
             this.cart.splice(idx, 1);
@@ -6190,7 +6190,7 @@ renderReport(r) {
       },
 
       async removeFromCart(idx) {
-        const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกจากตะกร้าใช่ไหม?', '');
+        const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกจากออเดอร์ใช่ไหม?', '');
         if (ok) {
           await this.animateCartLineOut(idx);
           this.cart.splice(idx, 1);
@@ -6199,7 +6199,7 @@ renderReport(r) {
       },
       
       async openCheckout() {
-        if (this.cart.length === 0) return this.showAlert('ยังไม่มีสินค้าในตะกร้าเลยครับ', '');
+        if (this.cart.length === 0) return this.showAlert('ยังไม่มีสินค้าในออเดอร์เลยครับ', '');
         this.checkoutDiscount = 0;
         this.checkoutDiscountRaw = 0;
         this.checkoutDiscountReason = '';
@@ -6557,7 +6557,7 @@ renderReport(r) {
       // พิมพ์ใบสั่งครัวจากตะกร้าปัจจุบันก่อนลูกค้าจ่ายเงิน ไม่สร้างออเดอร์/บิลใดๆ ในระบบ
       // (บิลจริงยังสร้างตอน Checkout ตามปกติ เลขคิวจริงก็ยังผูกกับตอนนั้น ไม่ใช่ตอนนี้)
       async printOrderSlipNow() {
-        if (this.cart.length === 0) return this.showAlert('ตะกร้าว่าง ไม่มีอะไรให้พิมพ์', '');
+        if (this.cart.length === 0) return this.showAlert('ออเดอร์ว่าง ไม่มีอะไรให้พิมพ์', '');
 
         const fakeOrder = {
           items: this.cart,

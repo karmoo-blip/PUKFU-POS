@@ -203,7 +203,7 @@
             Order
             <span id="cart-badge-mobile" class="bg-primary text-white text-xs px-2 py-0.5 rounded-full lg:hidden">0</span>
             <button id="btn-show-held-orders" onclick="event.stopPropagation(); Controller.openHeldOrdersModal()" class="hidden ml-2 bg-amber-100 text-amber-600 text-xs px-2 py-1 rounded-lg font-bold hover:bg-amber-200 shadow-sm whitespace-nowrap shrink-0">
-              พักไว้ (0)
+              บิลค้างชำระ (0)
             </button>
             <!-- เลขคิวของบิลที่เพิ่งปิด เดิมมีแต่บนใบเสร็จที่พิมพ์ออกมา บนจอไม่เคยโชว์เลย -->
             <span id="cart-queue-chip" class="hidden ml-2 text-secondary text-xs px-2.5 py-1 rounded-full font-black whitespace-nowrap shrink-0" style="background:color-mix(in srgb, var(--color-mustard) 18%, #fff);border:1px solid var(--color-mustard)"></span>
@@ -233,7 +233,7 @@
           </div>
           <div class="flex gap-2">
             <button id="btn-print-order-slip" onclick="Controller.printOrderSlipNow()" class="btn-till is-ghost hidden shrink-0 w-14" title="พิมพ์ใบสั่ง (ก่อนชำระเงิน)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg></button>
-            <button id="btn-hold-order" onclick="Controller.holdCurrentOrder()" class="btn-till is-warn hidden flex-1">พักบิล</button>
+            <button id="btn-hold-order" onclick="Controller.holdCurrentOrder()" class="btn-till is-warn hidden flex-1">บิลค้างชำระ</button>
             <button id="btn-checkout" onclick="Controller.openCheckout()" class="btn-till is-primary flex-1">Checkout</button>
           </div>
         </div>
@@ -629,7 +629,7 @@
 
       <div id="settings-panel-sweetness" class="settings-panel hidden">
         <div class="set-toolbar">
-          <p class="set-card-sub" style="margin:0;flex:1 1 200px">ตัวเลือกบังคับตอนกดสินค้าเข้าตะกร้า ถ้าลิสต์นี้ว่างจะสั่งของไม่ได้</p>
+          <p class="set-card-sub" style="margin:0;flex:1 1 200px">ตัวเลือกบังคับตอนกดสินค้าเข้าออเดอร์ ถ้าลิสต์นี้ว่างจะสั่งของไม่ได้</p>
           <button onclick="Controller.openSweetnessForm()" class="set-btn set-btn-go">+ เพิ่มระดับความหวาน</button>
         </div>
         <div class="set-card"><div id="sweetness-list"></div></div>
@@ -908,7 +908,7 @@
   <div id="modal-held-orders" class="hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[65] flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col max-h-[80vh]">
       <div class="p-5 border-b border-slate-100 font-bold text-xl text-secondary flex justify-between items-center">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/></svg> บิลที่พักไว้ชั่วคราว
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4h6v3H9z"/><path d="M8 11h8M8 15h6"/></svg> บิลค้างชำระ
         <button onclick="Controller.closeModal('modal-held-orders')" class="text-slate-400 hover:text-red-500 text-2xl leading-none">&times;</button>
       </div>
       <div id="held-orders-list" class="p-3 flex-1 overflow-y-auto divide-y divide-slate-100"></div>
