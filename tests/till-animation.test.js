@@ -712,6 +712,18 @@ test('the dictionary translates into Burmese, not back into Thai', () => {
   assert.deepEqual(notMyanmar, [], 'ทุกคำแปลต้องมีตัวอักษรพม่า');
 });
 
+test('changing only the dictionary still deploys, or corrections never reach the till', () => {
+  const wf = path.join(__dirname, '..', '.github', 'workflows', 'deploy-pages.yml');
+  if (!fs.existsSync(wf)) return; // รุ่นเก็บข้อมูลในเครื่องไม่ได้ deploy ขึ้นเว็บ
+  const yml = fs.readFileSync(wf, 'utf8');
+  const triggers = yml.slice(0, yml.indexOf('jobs:'));
+  assert.ok(triggers.includes("'lang-my.js'"),
+    'คำแปลถูกคัดลงเว็บอยู่แล้ว แต่ถ้าไม่ได้อยู่ในรายการที่ปลุก workflow แก้คำแปลอย่างเดียวจะไม่ deploy เลย');
+  assert.ok(triggers.includes("'fonts-myanmar.css'"), 'ฟอนต์ก็เหมือนกัน');
+  assert.ok(yml.includes('lang-my.js') && yml.includes('fonts-myanmar.css'),
+    'และต้องยังถูกคัดลง dist/ ด้วย');
+});
+
 test('the Burmese font and dictionary are cached, or the app breaks offline', () => {
   const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
   assert.ok(sw.includes('lang-my.js'), 'พจนานุกรมต้องอยู่ในเครื่อง');
