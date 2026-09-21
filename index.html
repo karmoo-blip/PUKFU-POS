@@ -143,7 +143,7 @@
         <h1 class="text-xl font-bold text-secondary">PUKFU</h1>
       </button>
       <!-- สลับภาษาอยู่ตรงนี้เพราะคนที่อ่านไทยไม่ออกหาเมนูตั้งค่าไม่เจอ ถ้าซ่อนไว้ในนั้นก็เท่ากับไม่มี -->
-      <div class="langsw"><button type="button" data-lang-btn="th" onclick="Controller.setLang('th')" class="is-on">ไทย</button><button type="button" data-lang-btn="my" onclick="Controller.setLang('my')" lang="my">မြန်မာ</button></div>
+      <div class="langsw langsw-nav"><button type="button" data-lang-btn="th" onclick="Controller.setLang('th')" class="is-on">ไทย</button><button type="button" data-lang-btn="my" onclick="Controller.setLang('my')" lang="my">မြန်မာ</button><button type="button" class="lang-toggle" onclick="Controller.toggleLang()" title="ภาษา / ဘာသာစကား" aria-label="สลับภาษา ไทย หรือ พม่า"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg></button></div>
     </div>
 
     <div class="flex items-center gap-4">
@@ -161,7 +161,7 @@
         <span id="bell-badge" class="hidden bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center">0</span>
       </button>
       <div onclick="Controller.showSyncQueueInfo()" class="nav-chip flex items-center gap-3 px-3 py-1.5 rounded-full cursor-pointer transition">
-        <span class="text-xs font-bold">STATUS</span>
+        <span class="text-xs font-bold nav-status-word">STATUS</span>
         <div id="sync-indicator" class="indicator synced w-3 h-3 rounded-full shadow-inner"></div>
       </div>
     </div>
