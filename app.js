@@ -1200,6 +1200,15 @@
         return this._langKeySet;
       },
 
+      // แปลประโยคที่มีชื่อสินค้า/ชื่อเครื่องแทรกอยู่ตรงกลาง
+      // โค้ดเดิมต่อสตริงทีละชิ้น ('ต้องการลบ "' + ชื่อ + '" ออกจากเมนูหรือไม่?') พจนานุกรมจึงเห็นแต่ชิ้นส่วน
+      // เทียบไม่มีวันตรงสักครั้ง ต้องประกอบทั้งประโยคก่อนแล้วค่อยแปล โดยเว้น {x} ไว้ให้ค่าจริง
+      tf(text) {
+        const vals = Array.prototype.slice.call(arguments, 1);
+        let i = 0;
+        return this.t(text).replace(/\{x\}/g, () => (i < vals.length ? vals[i++] : '{x}'));
+      },
+
       lookup(dict, key) {
         if (dict[key]) return dict[key];
         const numbers = [];
@@ -2891,7 +2900,7 @@
           const twin = skusByKey[recipeKey(recipeRows)] || [];
 
           const warn = [];
-          if (result.missingPrice.length) warn.push('ยังไม่ใส่ราคา: ' + result.missingPrice.map(x => escHtml(x.name)).join(', '));
+          if (result.missingPrice.length) warn.push(this.tf('ยังไม่ใส่ราคา: {x}', result.missingPrice.map(x => escHtml(x.name)).join(', ')));
           if (twin.length > 1) warn.push('สูตรซ้ำกับ ' + twin.filter(n => n !== m.name).map(escHtml).join(', ') + ' — น่าจะยังไม่ได้ใส่วัตถุดิบที่ทำให้ต่างกัน');
 
           rowsHtml.push(`
@@ -3136,7 +3145,7 @@
       },
 
       async removeTableQr(loc) {
-        const ok = await this.showConfirm('ยกเลิก QR ของ "' + loc + '" ใช่ไหม แผ่นที่แปะไว้ที่โต๊ะจะสั่งไม่ได้อีก', '');
+        const ok = await this.showConfirm(this.tf('ยกเลิก QR ของ "{x}" ใช่ไหม แผ่นที่แปะไว้ที่โต๊ะจะสั่งไม่ได้อีก', loc), '');
         if (!ok) return;
         this.saveTableQrList(this.tableQrList().filter(q => q.loc !== loc));
         if (this.shownTableQr === loc) this.hideTableQr();
@@ -4519,7 +4528,7 @@
 
         async deleteInventoryItemConfirm(id) {
           const item = (this.inventoryData || []).find(x => String(x.id) === String(id));
-          const ok = await this.showConfirm('ต้องการลบ "' + (item ? item.name : id) + '" ออกจากคลังหรือไม่?', '');
+          const ok = await this.showConfirm(this.tf('ต้องการลบ "{x}" ออกจากคลังหรือไม่?', item ? item.name : id), '');
           if (!ok) return;
           this.showLoading();
           google.script.run
@@ -4736,7 +4745,7 @@
 
         async deleteProductConfirm(sku) {
           const item = (this.menuData || []).find(x => String(x.sku) === String(sku));
-          const ok = await this.showConfirm('ต้องการลบสินค้า "' + (item ? item.name : sku) + '" ออกจากเมนูหรือไม่?', '');
+          const ok = await this.showConfirm(this.tf('ต้องการลบสินค้า "{x}" ออกจากเมนูหรือไม่?', item ? item.name : sku), '');
           if (!ok) return;
           const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการลบสินค้า:');
           if (!auth) return;
@@ -5963,7 +5972,7 @@ renderReport(r) {
         this.editingCartIndex = idx;
         this.selectedAddons = info.addons.slice();
 
-        document.getElementById('modal-product-name').innerText = 'แก้ไข: ' + item.name;
+        document.getElementById('modal-product-name').innerText = this.tf('แก้ไข: {x}', item.name);
         document.getElementById('modal-note').value = info.textNote || '';
         this.updateAddonButtons();
         this.updateSweetnessButtons();
@@ -6899,9 +6908,9 @@ renderReport(r) {
         this._printerSheetIpTimer = setTimeout(async () => {
           try {
             await NativePrinter.call('lanCheck', { host, port: 9100 });
-            if (seq === sheet.checkSeq) this.showPrinterSheetNote(true, 'เจอเครื่องพิมพ์ที่ ' + host);
+            if (seq === sheet.checkSeq) this.showPrinterSheetNote(true, this.tf('เจอเครื่องพิมพ์ที่ {x}', host));
           } catch (e) {
-            if (seq === sheet.checkSeq) this.showPrinterSheetNote(false, 'ยังหาเครื่องพิมพ์ที่ ' + host + ' ไม่เจอ ตรวจว่าเครื่องพิมพ์เปิดอยู่ และโทรศัพท์ต่อ Wi-Fi วงเดียวกัน');
+            if (seq === sheet.checkSeq) this.showPrinterSheetNote(false, this.tf('ยังหาเครื่องพิมพ์ที่ {x} ไม่เจอ ตรวจว่าเครื่องพิมพ์เปิดอยู่ และโทรศัพท์ต่อ Wi-Fi วงเดียวกัน', host));
           }
         }, 600);
       },
@@ -6978,7 +6987,7 @@ renderReport(r) {
           trial.useNativeTarget(target);
           try {
             await trial.printTest(this.receiptSettings);
-            this.showPrinterSheetNote(true, 'ส่งหน้าทดสอบไปที่ ' + NativePrinter.describe(target) + ' แล้ว');
+            this.showPrinterSheetNote(true, this.tf('ส่งหน้าทดสอบไปที่ {x} แล้ว', NativePrinter.describe(target)));
           } catch (e) {
             this.showPrinterSheetNote(false, 'พิมพ์ไม่สำเร็จ: ' + e.message);
           }
