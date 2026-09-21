@@ -6149,7 +6149,7 @@ renderReport(r) {
       },
 
       async deleteHeldOrder(idx) {
-        const ok = await this.showConfirm('ต้องการลบบิลค้างชำระนี้ทิ้งใช่ไหม?', '');
+        const ok = await this.showConfirm('ต้องการลบบิลนี้ทิ้งใช่ไหม?', '');
         if (ok) {
           this.heldOrders.splice(idx, 1);
           this.saveLocalState(); this.renderHeldOrders(); this.renderCart(); 
@@ -6162,7 +6162,7 @@ renderReport(r) {
         const newQty = item.qty + change;
         
         if (newQty <= 0) {
-          const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกจากออเดอร์ใช่ไหม?', '');
+          const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกใช่ไหม?', '');
           if (ok) {
             await this.animateCartLineOut(idx);
             this.cart.splice(idx, 1);
@@ -6190,7 +6190,7 @@ renderReport(r) {
       },
 
       async removeFromCart(idx) {
-        const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกจากออเดอร์ใช่ไหม?', '');
+        const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกใช่ไหม?', '');
         if (ok) {
           await this.animateCartLineOut(idx);
           this.cart.splice(idx, 1);
@@ -6199,7 +6199,7 @@ renderReport(r) {
       },
       
       async openCheckout() {
-        if (this.cart.length === 0) return this.showAlert('ยังไม่มีสินค้าในออเดอร์เลยครับ', '');
+        if (this.cart.length === 0) return this.showAlert('ยังไม่มีสินค้า', '');
         this.checkoutDiscount = 0;
         this.checkoutDiscountRaw = 0;
         this.checkoutDiscountReason = '';
