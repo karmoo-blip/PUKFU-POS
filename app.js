@@ -1135,6 +1135,11 @@
         document.querySelectorAll('[data-lang-btn]').forEach(btn => {
           btn.classList.toggle('is-on', btn.dataset.langBtn === this.lang);
         });
+        // ปุ่มกลมบนจอเล็กมีปุ่มเดียว ถ้าไม่เปลี่ยนหน้าตาเลยคนกดจะไม่รู้ว่าติดหรือยัง
+        document.querySelectorAll('.lang-toggle').forEach(btn => {
+          btn.classList.toggle('is-on', this.lang === 'my');
+          btn.setAttribute('title', this.lang === 'my' ? 'ဘာသာစကား / ภาษา' : 'ภาษา / ဘာသာစကား');
+        });
       },
 
       // แปลเฉพาะกิ่งที่เพิ่งเปลี่ยน ไม่ใช่ทั้งหน้าทุกครั้ง หน้าขายวาดตะกร้าใหม่ทุกครั้งที่กดบวกลบ
@@ -1168,6 +1173,17 @@
         this._langObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
       },
 
+      // ข้อความบนหน้าขายส่วนใหญ่มีตัวเลขปนอยู่ ("พักไว้ (3)", "2 แก้ว") ซึ่งเทียบตรงๆ ไม่มีวันตรง
+      // จึงแทนตัวเลขด้วย {n} แล้วค่อยเทียบ ได้คำแปลแล้วเอาตัวเลขชุดเดิมใส่กลับตามลำดับ
+      lookup(dict, key) {
+        if (dict[key]) return dict[key];
+        const numbers = [];
+        const masked = key.replace(/\d[\d,.]*/g, (m) => { numbers.push(m); return '{n}'; });
+        if (!numbers.length || !dict[masked]) return null;
+        let i = 0;
+        return dict[masked].replace(/\{n\}/g, () => (i < numbers.length ? numbers[i++] : '{n}'));
+      },
+
       applyLang(root) {
         const target = root || document.body;
         if (!target || !document.createTreeWalker) return;
@@ -1187,7 +1203,7 @@
             node.__th = node.nodeValue;
           }
           const key = node.__th.trim();
-          const hit = dict && dict[key];
+          const hit = dict && this.lookup(dict, key);
           const next = hit ? node.__th.replace(key, hit) : node.__th;
           if (node.nodeValue !== next) node.nodeValue = next;
         }
