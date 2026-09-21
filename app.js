@@ -966,6 +966,7 @@
         this.initCartDrag();
         this.checkIosInstallBanner();
         this.watchInstallPrompt();
+        this.initLang();
 
         this.switchView('pos'); // ตั้งต้นให้แสดงหน้า POS
         this.checkAndClearDailyCache();
@@ -1067,6 +1068,145 @@
       isIosDevice() {
         const ua = navigator.userAgent;
         return /iPad|iPhone|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      },
+
+      // ---- ภาษาของหน้าจอ ----
+      // แอปนี้เขียนข้อความไทยฝังไว้ในโค้ดราวสองพันเจ็ดร้อยจุด การไล่แก้ให้เป็น t('คีย์') ทุกจุด
+      // แปลว่าต้องตั้งชื่อคีย์ใหม่สองพันกว่าอัน และระหว่างทางแอปจะพังเป็นหน้าๆ
+      // จึงแปลที่ชั้น DOM แทน: ข้อความไทยที่เขียนไว้เดิมคือกุญแจ คำไหนไม่มีในพจนานุกรมก็คงเป็นไทยอยู่อย่างนั้น
+      //
+      // ทุกครั้งที่แอปวาดหน้าใหม่ (ซึ่งมีเยอะมากและกระจายอยู่ทั่วไฟล์) MutationObserver จะเห็นเอง
+      // ไม่ต้องไปไล่เรียก applyLang ตามหลังทุกจุดที่วาด
+      lang: 'th',
+      _langNodes: null,
+
+      initLang() {
+        const saved = localStorage.getItem('pos_lang');
+        this.lang = saved === 'my' ? 'my' : 'th';
+        this.watchLangDom();
+        this.applyLangChrome();
+        this.applyLang();
+      },
+
+      // ของที่ต้องตั้งให้ตรงกับภาษาปัจจุบันเสมอ ทั้งตอนเปิดแอปและตอนกดสลับ
+      // เปิดแอปมาเป็นพม่าแล้วไม่เรียกตัวนี้ จะได้ปุ่มไฮไลต์ผิดข้าง และฟอนต์พม่าไม่ถูกโหลด
+      // (เครื่องที่บังเอิญมีฟอนต์พม่าอยู่แล้วจะดูเหมือนปกติ เครื่องที่ไม่มีจะได้สี่เหลี่ยมเปล่า)
+      applyLangChrome() {
+        if (this.lang === 'my') this.ensureMyanmarFont();
+        if (document.body) document.body.classList.toggle('lang-my', this.lang === 'my');
+        if (document.documentElement) document.documentElement.lang = this.lang === 'my' ? 'my' : 'th';
+        this.renderLangSwitch();
+      },
+
+      // คำแปลของข้อความเดี่ยวๆ ที่โค้ดเอาไปต่อกับตัวเลขหรือชื่อสินค้าก่อนจะถึง DOM
+      // (ข้อความที่ลงไปเป็นก้อนเดียวใน DOM ไม่ต้องใช้ตัวนี้ ตัววาดข้างล่างจัดการให้แล้ว)
+      t(text) {
+        if (this.lang !== 'my') return text;
+        const dict = window.LANG_MY || {};
+        return dict[text] || text;
+      },
+
+      setLang(lang) {
+        const next = lang === 'my' ? 'my' : 'th';
+        if (next === this.lang) return;
+        this.lang = next;
+        try { localStorage.setItem('pos_lang', next); } catch (err) { /* จำไม่ได้ก็ยังใช้ได้ */ }
+        this.applyLangChrome();
+        this.applyLang();
+      },
+
+      // ฟอนต์พม่าหนักสองแสนไบต์ ไม่ต้องโหลดให้คนที่ใช้ไทย โหลดตอนสลับมาพม่าครั้งแรกพอ
+      // (service worker เก็บไว้ให้แล้ว เปลี่ยนภาษาตอนเน็ตหลุดก็ยังได้ฟอนต์)
+      ensureMyanmarFont() {
+        if (document.getElementById('myanmar-font')) return;
+        const link = document.createElement('link');
+        link.id = 'myanmar-font';
+        link.rel = 'stylesheet';
+        link.href = 'fonts-myanmar.css';
+        document.head.appendChild(link);
+      },
+
+      renderLangSwitch() {
+        document.querySelectorAll('[data-lang-btn]').forEach(btn => {
+          btn.classList.toggle('is-on', btn.dataset.langBtn === this.lang);
+        });
+      },
+
+      // แปลเฉพาะกิ่งที่เพิ่งเปลี่ยน ไม่ใช่ทั้งหน้าทุกครั้ง หน้าขายวาดตะกร้าใหม่ทุกครั้งที่กดบวกลบ
+      watchLangDom() {
+        if (this._langObserver || typeof MutationObserver !== 'function') return;
+        let pending = new Set();
+        let queued = false;
+        const flush = () => {
+          queued = false;
+          const roots = pending; pending = new Set();
+          if (this.lang === 'th' && !this._langTouched) return;
+          this._langObserver.disconnect(); // กันไม่ให้การแก้ของเราเองวนกลับเข้ามาอีกรอบ
+          roots.forEach(node => this.applyLang(node));
+          this.connectLangObserver();
+        };
+        this._langObserver = new MutationObserver(records => {
+          for (const r of records) {
+            if (r.type === 'characterData') pending.add(r.target);
+            else r.addedNodes.forEach(n => pending.add(n));
+          }
+          if (pending.size && !queued) {
+            queued = true;
+            (window.requestAnimationFrame || setTimeout)(flush, 0);
+          }
+        });
+        this.connectLangObserver();
+      },
+
+      connectLangObserver() {
+        if (!this._langObserver || !document.body) return;
+        this._langObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+      },
+
+      applyLang(root) {
+        const target = root || document.body;
+        if (!target || !document.createTreeWalker) return;
+        const dict = this.lang === 'my' ? (window.LANG_MY || {}) : null;
+        if (dict) this._langTouched = true; // สลับกลับเป็นไทยต้องวาดทับของที่แปลไปแล้ว
+
+        const nodes = [];
+        if (target.nodeType === 3) nodes.push(target);
+        else if (target.nodeType === 1) {
+          const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+          while (walker.nextNode()) nodes.push(walker.currentNode);
+        }
+
+        for (const node of nodes) {
+          if (node.__th === undefined) {
+            if (!/[\u0E00-\u0E7F]/.test(node.nodeValue)) continue; // ไม่มีตัวไทยก็ไม่มีอะไรให้แปล
+            node.__th = node.nodeValue;
+          }
+          const key = node.__th.trim();
+          const hit = dict && dict[key];
+          const next = hit ? node.__th.replace(key, hit) : node.__th;
+          if (node.nodeValue !== next) node.nodeValue = next;
+        }
+
+        // ข้อความที่อยู่ในแอตทริบิวต์ ตัววาดข้อความข้างบนมองไม่เห็น
+        if (target.nodeType === 1) {
+          const attrs = ['placeholder', 'title', 'aria-label'];
+          const els = target.querySelectorAll ? [target, ...target.querySelectorAll('[placeholder],[title],[aria-label]')] : [target];
+          for (const el of els) {
+            if (!el.getAttribute) continue;
+            for (const name of attrs) {
+              const now = el.getAttribute(name);
+              if (now === null) continue;
+              const store = '__th_' + name;
+              if (el[store] === undefined) {
+                if (!/[\u0E00-\u0E7F]/.test(now)) continue;
+                el[store] = now;
+              }
+              const hit = dict && dict[el[store].trim()];
+              const next = hit || el[store];
+              if (now !== next) el.setAttribute(name, next);
+            }
+          }
+        }
       },
 
       async promptAppInstall() {

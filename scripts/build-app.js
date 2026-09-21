@@ -16,7 +16,7 @@ const TAILWIND_URL = 'https://cdn.tailwindcss.com/3.4.17';
 
 const FILES = [
   'index.html', 'order.html', 'app.js', 'order.js', 'pure-helpers.js', 'qrcode-lib.js',
-  'style.css', 'fonts-sarabun.css', 'manifest.json', 'favicon.png',
+  'style.css', 'fonts-sarabun.css', 'fonts-myanmar.css', 'lang-my.js', 'manifest.json', 'favicon.png',
 ];
 
 const FONT_LINK = '<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;700&display=swap" rel="stylesheet">';

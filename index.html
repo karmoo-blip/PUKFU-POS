@@ -90,6 +90,8 @@
   <!--  หน้าจอล็อก PIN (แสดงทับทุกอย่างจนกว่าจะใส่ PIN ถูก) -->
   <!-- หน้าล็อก PIN: แก้วกาแฟใบใหญ่ทำหน้าที่แทนช่องหกช่อง กาแฟขึ้นหนึ่งขีดต่อหนึ่งหลัก -->
   <div id="pin-lock-screen" class="fixed inset-0 z-[100]">
+    <!-- สลับภาษาได้ก่อนใส่ PIN เพราะคนที่อ่านไทยไม่ออกยังเข้าแอปไม่ได้ด้วยซ้ำ -->
+    <div  class="langsw lock-langsw"><button type="button" data-lang-btn="th" onclick="Controller.setLang('th')" class="is-on">ไทย</button><button type="button" data-lang-btn="my" onclick="Controller.setLang('my')" lang="my">မြန်မာ</button></div>
     <div id="pin-stage">
       <p id="pin-shop">PUKFU COFFEE</p>
 
@@ -140,6 +142,8 @@
       <button onclick="Controller.switchView('pos')" class="flex items-center gap-2 hover:opacity-75 transition-opacity">
         <h1 class="text-xl font-bold text-secondary">PUKFU</h1>
       </button>
+      <!-- สลับภาษาอยู่ตรงนี้เพราะคนที่อ่านไทยไม่ออกหาเมนูตั้งค่าไม่เจอ ถ้าซ่อนไว้ในนั้นก็เท่ากับไม่มี -->
+      <div class="langsw"><button type="button" data-lang-btn="th" onclick="Controller.setLang('th')" class="is-on">ไทย</button><button type="button" data-lang-btn="my" onclick="Controller.setLang('my')" lang="my">မြန်မာ</button></div>
     </div>
 
     <div class="flex items-center gap-4">
@@ -1185,6 +1189,7 @@
        ============================================================ -->
   <script src="qrcode-lib.js"></script>
   <script src="pure-helpers.js"></script>
+  <script src="lang-my.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

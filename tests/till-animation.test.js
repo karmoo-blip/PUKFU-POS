@@ -110,6 +110,7 @@ function loadController(options) {
   sandbox.addEventListener = () => {};
 
   vm.createContext(sandbox);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'lang-my.js'), 'utf8'), sandbox, { filename: 'lang-my.js' });
   const code = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
   vm.runInContext(code + '\nglobalThis.__Controller = Controller; globalThis.__ReceiptPrinter = ReceiptPrinter;', sandbox, { filename: 'app.js' });
 
@@ -638,6 +639,76 @@ function settingsController(user) {
   d.__q['#user-menu-wrap button'] = new FakeEl('umb');
   return ctx;
 }
+
+// อ่านพจนานุกรมจากไฟล์จริง ไม่ใช่สำเนาในเทสต์ จะได้จับตอนไฟล์จริงเพี้ยน
+function langDict() {
+  const src = fs.readFileSync(path.join(__dirname, '..', 'lang-my.js'), 'utf8');
+  const sandbox = { window: {} };
+  vm.createContext(sandbox);
+  vm.runInContext(src, sandbox, { filename: 'lang-my.js' });
+  return sandbox.window.LANG_MY;
+}
+
+// ---- ภาษาพม่าสำหรับพนักงาน ----
+// แปลที่ชั้น DOM โดยใช้ข้อความไทยเดิมเป็นกุญแจ กฎที่ห้ามพังคือ "ไม่มีคำแปลต้องได้ไทย ไม่ใช่ช่องว่าง"
+function langController(opts) {
+  const ctx = loadController(opts || {});
+  ctx.C.lang = 'th';
+  return ctx;
+}
+
+test('a word with no translation stays Thai instead of going blank', () => {
+  const { C } = langController();
+  C.lang = 'my';
+  assert.equal(C.t('ล้าง'), 'ရှင်းရန်', 'คำที่แปลไว้ต้องได้พม่า');
+  assert.equal(C.t('ข้อความที่ยังไม่ได้แปล'), 'ข้อความที่ยังไม่ได้แปล',
+    'คำที่ยังไม่ได้แปลต้องคงเป็นไทย ไม่ใช่ช่องว่างหรือชื่อคีย์');
+});
+
+test('Thai is left alone when Thai is the chosen language', () => {
+  const { C } = langController();
+  assert.equal(C.t('ล้าง'), 'ล้าง');
+});
+
+// พจนานุกรมใช้ไฟล์เดียวกันทั้ง PUKFU-POS และ PeePukFu แต่สองรุ่นมีหน้าจอไม่เท่ากัน
+// คำพวกนี้มีอยู่จริงในอีกรุ่นหนึ่ง ไม่ใช่กุญแจที่พิมพ์ผิด
+const ONLY_IN_OTHER_BUILD = ['ยังไม่มีสินค้าในเมนู', 'ไม่มีสินค้าในหมวดนี้'];
+
+test('every key in the dictionary is a Thai string that exists in the app', () => {
+  const dict = langDict();
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8')
+    + fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const missing = Object.keys(dict).filter(k => !app.includes(k) && !ONLY_IN_OTHER_BUILD.includes(k));
+  assert.deepEqual(missing, [],
+    'กุญแจคือข้อความไทยที่อยู่ในโค้ดจริง ถ้าข้อความต้นทางถูกแก้ คำแปลจะเงียบหายไปเฉยๆ');
+
+  const stale = ONLY_IN_OTHER_BUILD.filter(k => !dict[k]);
+  assert.deepEqual(stale, [], 'คำที่ยกเว้นไว้ต้องยังอยู่ในพจนานุกรมจริง ไม่งั้นรายการยกเว้นค้างเปล่า');
+});
+
+test('the dictionary translates into Burmese, not back into Thai', () => {
+  const dict = langDict();
+  const bad = Object.entries(dict).filter(([, v]) => /[\u0E00-\u0E7F]/.test(v));
+  assert.deepEqual(bad, [], 'คำแปลต้องไม่มีตัวอักษรไทยหลงเหลือ');
+  const notMyanmar = Object.entries(dict).filter(([, v]) => !/[\u1000-\u109F]/.test(v));
+  assert.deepEqual(notMyanmar, [], 'ทุกคำแปลต้องมีตัวอักษรพม่า');
+});
+
+test('the Burmese font and dictionary are cached, or the app breaks offline', () => {
+  const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+  assert.ok(sw.includes('lang-my.js'), 'พจนานุกรมต้องอยู่ในเครื่อง');
+  assert.ok(sw.includes('fonts-myanmar.css'),
+    'ฟอนต์ต้องอยู่ในเครื่อง ไม่งั้นสลับเป็นพม่าตอนเน็ตหลุดแล้วได้สี่เหลี่ยมเปล่า');
+});
+
+test('the language switch sits on the lock screen, before anyone can log in', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const lock = html.slice(html.indexOf('id="pin-lock-screen"'), html.indexOf('id="pin-lock-screen"') + 900);
+  assert.ok(lock.includes('data-lang-btn'),
+    'คนที่อ่านไทยไม่ออกหาเมนูตั้งค่าไม่เจอ ปุ่มต้องอยู่ตรงที่เห็นก่อนใส่ PIN');
+  assert.equal((html.match(/data-lang-btn="my"/g) || []).length, 2,
+    'มีสองที่: หน้าล็อกกับแถบบนหน้าขาย');
+});
 
 // ---- การ์ดติดตั้งเป็นแอป ----
 // ทุกอย่างที่ต้องใช้ติดตั้งมีครบมานานแล้ว ที่ขาดคือทางเข้าที่คนหาเจอ
