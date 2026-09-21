@@ -761,6 +761,64 @@ test('the language switch sits on the lock screen, before anyone can log in', ()
     'มีสองที่: หน้าล็อกกับแถบบนหน้าขาย');
 });
 
+test('switching language re-measures the category underline, which changes width', () => {
+  const { C } = loadController({});
+  let moved = 0;
+  C.moveCategoryIndicator = () => { moved++; };
+  C.renderMenu = () => {};
+  C.renderCart = () => {};
+  C.menuData = [{ sku: 'A', name: 'ลาเต้' }];
+  C.cart = [];
+
+  C.lang = 'th';
+  C.setLang('my');
+  assert.ok(moved > 0,
+    'ปุ่ม All ถูกแปลแล้วกว้างไม่เท่าเดิม ตัวชี้สีเขียวใต้ปุ่มจะค้างอยู่ที่ความกว้างเก่า เหลือเป็นแถบสั้นๆ ใต้ปุ่มที่ยาวกว่า');
+});
+
+// ---- ชื่อสินค้าภาษาพม่า กับใบบาริสต้า ----
+test('a product with no Burmese name falls back to Thai, never to blank', () => {
+  const { C } = loadController({});
+  C.lang = 'my';
+  assert.equal(C.itemName({ name: 'ลาเต้', lang3: 'လက်တေး' }), 'လက်တေး');
+  assert.equal(C.itemName({ name: 'ลาเต้', lang3: '' }), 'ลาเต้', 'ยังไม่ได้กรอกชื่อพม่า ต้องได้ชื่อไทย');
+  assert.equal(C.itemName({ name: 'ลาเต้' }), 'ลาเต้');
+  C.lang = 'th';
+  assert.equal(C.itemName({ name: 'ลาเต้', lang3: 'လက်တေး' }), 'ลาเต้', 'ภาษาไทยอยู่ ต้องได้ชื่อไทยเสมอ');
+});
+
+test('the Burmese name is a new column, added to shops that already have data', () => {
+  const worker = fs.readFileSync(path.join(__dirname, '..', 'worker', 'worker.js'), 'utf8');
+  assert.ok(worker.includes('["menu", "lang3", "TEXT"]'),
+    'ร้านที่ใช้งานอยู่แล้วไม่ได้รันคำสั่งสร้างตาราง ต้องเพิ่มคอลัมน์ผ่านรายการย้ายข้อมูล');
+  assert.ok(worker.includes('lang2 TEXT, lang3 TEXT'), 'เครื่องที่เพิ่งติดตั้งต้องมีคอลัมน์นี้มาแต่แรก');
+  assert.ok(worker.includes('UPDATE menu SET name=?, price=?, image=?, lang2=?, lang3=?'), 'บันทึกทับต้องเก็บชื่อพม่าด้วย');
+  assert.ok(worker.includes('"lang2", "lang3"'), 'ประวัติการแก้ไขต้องเห็นว่าชื่อพม่าถูกเปลี่ยน');
+});
+
+test('the barista slip prints the name in the language the staff is using', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  const slip = app.slice(app.indexOf('async buildOrderSlip'), app.indexOf('async buildTestPage'));
+  assert.ok(slip.includes('Controller.itemName(item)'), 'ใบนี้คนชงอ่าน ต้องเป็นภาษาที่เขาอ่านออก');
+  assert.ok(!/\+ item\.name/.test(slip), 'ต้องไม่เหลือที่ที่ยังใช้ชื่อไทยตรงๆ');
+  assert.ok(slip.includes("Controller.t('บิล:')"), 'คำบนใบก็ต้องแปล');
+});
+
+test('the printer canvas can draw Burmese, or the slip prints empty boxes', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  assert.ok(app.includes('"Noto Sans Myanmar"'), 'ต้องมีฟอนต์พม่าอยู่ในรายการฟอนต์ของผ้าใบ');
+  assert.ok(app.includes("document.fonts.load('400 24px \"Noto Sans Myanmar\"')"),
+    'ต้องรอให้ฟอนต์พร้อมก่อนวาด ไม่งั้นใบแรกออกมาเป็นสี่เหลี่ยม');
+});
+
+test('shop data is never translated, even if it matches a dictionary word', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  assert.ok(app.includes("closest('[data-no-translate]')"),
+    'ร้านที่ตั้งชื่อเมนูตรงกับคำในพจนานุกรมพอดี ต้องไม่ถูกเปลี่ยนชื่อทิ้ง');
+  assert.ok(app.includes('class="pos-name" data-no-translate'), 'ชื่อสินค้าในหน้าขาย');
+  assert.ok(app.includes('class="pos-line-name" data-no-translate'), 'ชื่อสินค้าในตะกร้า');
+});
+
 // ---- การ์ดติดตั้งเป็นแอป ----
 // ทุกอย่างที่ต้องใช้ติดตั้งมีครบมานานแล้ว ที่ขาดคือทางเข้าที่คนหาเจอ
 // การ์ดนี้จึงต้องรู้เองว่าเครื่องที่เปิดอยู่ติดตั้งได้แบบไหน และห้ามบอกวิธีทั้งที่กดปุ่มแทนได้

@@ -144,7 +144,9 @@
     //    (แก้ปัญหาภาษาไทยเพี้ยน เพราะไม่พึ่ง code page ของเครื่องพิมพ์)
     // ==========================================================
     const ReceiptImage = {
-        FONT: '"Sarabun","Noto Sans Thai","Leelawadee UI","Thonburi","Tahoma",sans-serif',
+        // ใบบาริสต้าวาดเป็นรูปแล้วส่งเข้าเครื่องพิมพ์ ถ้าไม่มีฟอนต์พม่าอยู่ในรายการ
+        // ชื่อเมนูภาษาพม่าจะออกมาเป็นสี่เหลี่ยมเปล่าบนกระดาษ
+        FONT: '"Sarabun","Noto Sans Thai","Noto Sans Myanmar","Leelawadee UI","Thonburi","Tahoma",sans-serif',
       PAD: 4,
       _fontReady: null,
 
@@ -163,7 +165,10 @@
             await Promise.race([
               Promise.all([
                 document.fonts.load('400 24px "Noto Sans Thai"'),
-                document.fonts.load('700 24px "Noto Sans Thai"')
+                document.fonts.load('700 24px "Noto Sans Thai"'),
+                // ฝังมาในไฟล์ (fonts-myanmar.css) ไม่ได้โหลดจากเน็ต พิมพ์ตอนออฟไลน์จึงยังได้ตัวอักษรครบ
+                document.fonts.load('400 24px "Noto Sans Myanmar"'),
+                document.fonts.load('700 24px "Noto Sans Myanmar"')
               ]),
               new Promise(r => setTimeout(r, 3000))
             ]);
@@ -709,6 +714,7 @@
       // ─── สร้างใบสั่งทำ (Order Slip) ───
       async buildOrderSlip(order, queueStr, settings) {
         const R = ReceiptImage;
+        if (Controller.lang === 'my') Controller.ensureMyanmarFont(); // กันกรณียังไม่เคยสลับภาษาในเครื่องนี้
         const doc = R.newDoc(settings && settings.paperSize);
         const S = doc.base;
 
@@ -719,13 +725,13 @@
 
         order.items.forEach(item => {
           // ใช้ขนาดตัวอักษรเดียวกับรายการสินค้าในใบเสร็จ (S * 0.86) ให้สม่ำเสมอกัน
-          R.text(doc, '- ' + item.qty + 'x ' + item.name, { size: Math.round(S * 0.86), bold: true });
+          R.text(doc, '- ' + item.qty + 'x ' + Controller.itemName(item), { size: Math.round(S * 0.86), bold: true });
           if (item.note) R.text(doc, '    ' + item.note, { size: Math.round(S * 0.8) });
         });
 
         R.rule(doc);
         R.text(doc, new Date(order.timestamp).toLocaleString('th-TH'), { size: Math.round(S * 0.75), align: 'center' });
-        R.text(doc, 'บิล: ' + order.invoice, { size: Math.round(S * 0.75), align: 'center' });
+        R.text(doc, Controller.t('บิล:') + ' ' + order.invoice, { size: Math.round(S * 0.75), align: 'center' });
         return await this.docToBytes(doc);
       },
 
@@ -1041,6 +1047,13 @@
         if (banner) banner.classList.add('hidden');
       },
 
+      // ชื่อสินค้าตามภาษาที่เลือก ไม่ได้กรอกชื่อพม่าไว้ก็ใช้ชื่อไทย ไม่ปล่อยให้ว่าง
+      itemName(item) {
+        if (!item) return '';
+        if (this.lang === 'my' && item.lang3) return item.lang3;
+        return item.name || '';
+      },
+
       // ---- ติดตั้งเป็นแอป ----
       // ทุกอย่างที่ต้องใช้ติดตั้ง (manifest ไอคอน service worker) มีครบมานานแล้ว
       // ที่ขาดคือทางเข้า: เบราว์เซอร์ซ่อนปุ่มไว้ในไอคอนเล็กๆ ในแถบที่อยู่ หรือในเมนู File ที่ไม่มีใครเปิด
@@ -1113,6 +1126,12 @@
         try { localStorage.setItem('pos_lang', next); } catch (err) { /* จำไม่ได้ก็ยังใช้ได้ */ }
         this.applyLangChrome();
         this.applyLang();
+        // ชื่อสินค้าถูกกันไม่ให้ตัวแปล DOM แตะ จึงต้องวาดใหม่เองถึงจะเปลี่ยนภาษาตาม
+        try { if (this.menuData && this.menuData.length) this.renderMenu({ noStagger: true }); } catch (err) { /* ยังไม่ได้โหลดเมนูก็ข้าม */ }
+        try { if (this.cart) this.renderCart(); } catch (err) { /* ตะกร้ายังไม่พร้อมก็ข้าม */ }
+        // ปุ่มหมวด "All" ถูกแปลแล้วกว้างไม่เท่าเดิม ตัวชี้สีเขียวใต้ปุ่มจึงค้างอยู่ที่ความกว้างเก่า
+        // เหลือเป็นแถบสั้นๆ ใต้ปุ่มที่ยาวกว่า ต้องวัดใหม่หลังข้อความเปลี่ยนเสร็จแล้ว
+        try { this.moveCategoryIndicator(); } catch (err) { /* ยังไม่มีแถบหมวดก็ข้าม */ }
       },
 
       // ฟอนต์พม่าหนักสองแสนไบต์ ไม่ต้องโหลดให้คนที่ใช้ไทย โหลดตอนสลับมาพม่าครั้งแรกพอ
@@ -1204,6 +1223,9 @@
         }
 
         for (const node of nodes) {
+          // ข้อมูลของร้าน (ชื่อสินค้า ชื่อหมวด ชื่อคน) ห้ามแตะ ถ้าร้านตั้งชื่อเมนูไปตรงกับคำในพจนานุกรมพอดี
+          // เช่นเมนูชื่อ "ส่วนลด" ตัวแปลจะเปลี่ยนชื่อเมนูของเขาทิ้งโดยที่ไม่มีใครสั่ง
+          if (node.parentElement && node.parentElement.closest('[data-no-translate]')) continue;
           if (node.__th === undefined) {
             // ปกติดูแค่ข้อความที่มีตัวไทย แต่บางปุ่มในแอปเป็นภาษาอังกฤษมาแต่เดิม (Checkout, All)
             // ซึ่งคนอ่านพม่าก็อ่านไม่ออกเหมือนกัน จึงเปิดทางให้คำที่อยู่ในพจนานุกรมด้วย
@@ -1707,7 +1729,7 @@
             ? 'is-active-cat text-white border border-transparent'
             : 'bg-white text-secondary border border-sand hover:bg-accent';
 
-          return `<button onclick="Controller.selectCategory('${cat}')" style="--j:${j}" class="whitespace-nowrap px-5 min-h-[2.75rem] inline-flex items-center justify-center rounded-full font-bold text-sm transition-all active:scale-95 ${btnStyle}">${cat}</button>`;
+          return `<button onclick="Controller.selectCategory('${cat}')" style="--j:${j}" class="whitespace-nowrap px-5 min-h-[2.75rem] inline-flex items-center justify-center rounded-full font-bold text-sm transition-all active:scale-95 ${btnStyle}"><span${cat === 'All' ? '' : ' data-no-translate'}>${cat}</span></button>`;
         }).join('');
         // ไล่ปุ่มขึ้นมาครั้งเดียวตอนวาดครั้งแรก ฟังก์ชันนี้ถูกเรียกใหม่ทุกครั้งที่กดเปลี่ยนหมวด
         // ถ้าไม่กั้น ปุ่มจะไล่ใหม่ทุกครั้งที่กด และไปแย่งจังหวะกับตัวชี้ที่กำลังเลื่อน
@@ -4614,7 +4636,7 @@
         showProductForm(item) {
           const old = document.getElementById('modal-product-item');
           if (old) old.remove();
-          const it = item || { sku: '', name: '', lang2: '', price: 0, cost: 0, category: '', image: '' };
+          const it = item || { sku: '', name: '', lang2: '', lang3: '', price: 0, cost: 0, category: '', image: '' };
           const q = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
           const wrap = document.createElement('div');
           wrap.id = 'modal-product-item';
@@ -4627,6 +4649,8 @@
             + '<input id="prod-name" class="w-full border border-sand rounded-xl p-2.5 mb-3" value="' + q(it.name) + '">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อภาษาอังกฤษ (ถ้ามี)</label>'
             + '<input id="prod-lang2" class="w-full border border-sand rounded-xl p-2.5 mb-3" value="' + q(it.lang2) + '">'
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อภาษาพม่า (ถ้ามี)</label>'
+            + '<input id="prod-lang3" lang="my" class="w-full border border-sand rounded-xl p-2.5 mb-3" value="' + q(it.lang3) + '">'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">หมวดหมู่</label>'
             + (() => {
                 const known = (this.categories || []).filter(c => c !== 'All');
@@ -4684,6 +4708,7 @@
           const sku = document.getElementById('prod-sku').value.trim();
           const name = document.getElementById('prod-name').value.trim();
           const lang2 = document.getElementById('prod-lang2').value.trim();
+          const lang3 = document.getElementById('prod-lang3').value.trim();
           const categorySel = document.getElementById('prod-category').value;
           const category = categorySel === '__new__' ? document.getElementById('prod-category-new').value.trim() : categorySel;
           const price = Number(document.getElementById('prod-price').value) || 0;
@@ -4706,7 +4731,7 @@
               }
             })
             .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
-            .saveMenuItem({ sku, name, lang2, category, price, cost, image, isNew, actorId: this.currentSettingsUser ? this.currentSettingsUser.id : '', actorName: this.currentSettingsUser ? this.currentSettingsUser.name : '' });
+            .saveMenuItem({ sku, name, lang2, lang3, category, price, cost, image, isNew, actorId: this.currentSettingsUser ? this.currentSettingsUser.id : '', actorName: this.currentSettingsUser ? this.currentSettingsUser.name : '' });
         },
 
         async deleteProductConfirm(sku) {
@@ -5635,7 +5660,7 @@ renderReport(r) {
             <div onclick="Controller.selectProduct(${originalIdx})" class="${cls}" style="--i:${staggerIdx}" data-menu-idx="${originalIdx}">
               ${thumb}
               <div class="pos-body">
-                <p class="pos-name">${escHtml(item.name)}</p>
+                <p class="pos-name" data-no-translate>${escHtml(this.itemName(item))}</p>
                 <p class="pos-sub">${escHtml(item.lang2 || '')}&nbsp;</p>
               </div>
               <span class="pos-price${isSoldOut ? ' is-out' : ''}">฿${item.price}</span>
@@ -5986,7 +6011,7 @@ renderReport(r) {
             return `
               <div data-cart-idx="${idx}" class="pos-line${enterCls}">
                 <div class="pos-line-top">
-                  <span class="pos-line-name">${escHtml(item.name)}</span>
+                  <span class="pos-line-name" data-no-translate>${escHtml(this.itemName(item))}</span>
                   <span class="pos-line-sum">฿${(item.price * item.qty).toFixed(2)}</span>
                 </div>
                 <div class="pos-line-bot">
