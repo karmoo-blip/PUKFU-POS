@@ -6093,7 +6093,7 @@ renderReport(r) {
         }
         if(btnShowHeld) {
            if (this.heldOrders && this.heldOrders.length > 0) {
-             btnShowHeld.classList.remove('hidden'); btnShowHeld.innerText = `พักไว้ (${this.heldOrders.length})`;
+             btnShowHeld.classList.remove('hidden'); btnShowHeld.innerText = `บิลค้างชำระ (${this.heldOrders.length})`;
            } else { btnShowHeld.classList.add('hidden'); }
         }
       },
