@@ -755,9 +755,10 @@ test('text with a number in it still translates, because most of the till screen
   const { C } = langController();
   C.lang = 'my';
   const dict = langDict();
-  assert.equal(C.lookup(dict, 'พักไว้ (3)'), 'ခဏထား (3)', 'ตัวเลขต้องอยู่ที่เดิม ไม่ใช่หายไปกับคำแปล');
+  assert.equal(C.lookup(dict, 'บิลค้างชำระ (3)'), 'ပေးရန်ကျန် ဘေလ် (3)',
+    'ตัวเลขต้องอยู่ที่เดิม ไม่ใช่หายไปกับคำแปล');
   assert.equal(C.lookup(dict, '12 แก้ว'), '12 ခွက်');
-  assert.equal(C.lookup(dict, 'พักไว้ (0)'), 'ခဏထား (0)');
+  assert.equal(C.lookup(dict, 'บิลค้างชำระ (0)'), 'ပေးရန်ကျန် ဘေလ် (0)');
   assert.equal(C.lookup(dict, 'ข้อความที่ไม่มีในพจนานุกรม (9)'), null,
     'คำที่ไม่รู้จักต้องคืน null แล้วปล่อยให้เป็นไทยตามเดิม');
 });
