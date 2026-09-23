@@ -973,6 +973,7 @@
         this.checkIosInstallBanner();
         this.watchInstallPrompt();
         this.initLang();
+        this.initAutoRefresh();
         // ปิดรับออเดอร์ออนไลน์: ซ่อนทางเข้าในเมนูใต้ชื่อพนักงานด้วย ไม่งั้นกดแล้วเงียบ
         if (!this.onlineOrderEnabled()) {
           const mo = document.getElementById('menu-online-order');
@@ -1091,6 +1092,51 @@
       // สวิตช์สั่งอาหารออนไลน์ อยู่ใน pure-helpers.js ที่หน้าลูกค้าโหลดไฟล์เดียวกัน
       onlineOrderEnabled() {
         return typeof ONLINE_ORDER_ENABLED === 'undefined' ? true : ONLINE_ORDER_ENABLED;
+      },
+
+      // ---- รีเฟรชแอปเองวันละครั้ง หลังตีสองเวลาไทย ----
+      // ไม่ตั้งนาฬิกาให้ยิงตอนตีสองตรงๆ เพราะมือถือกับ PWA หน่วง timer ตอนพักหน้าจอ
+      // ถ้าเครื่องหลับอยู่ตอนตีสอง นาฬิกานั้นจะไม่ทำงานเลย เครื่องก็ค้างโค้ดเก่าต่อไปทั้งวัน
+      // จึงเช็คทุกนาทีแทนว่า "เลยตีสองของวันนี้หรือยัง และวันนี้ยังไม่ได้รีเฟรช"
+      // เครื่องที่ปิดข้ามคืนจึงรีเฟรชตอนเปิดใช้ครั้งแรกของวัน ซึ่งเป็นสิ่งที่ต้องการอยู่แล้ว
+      AUTO_REFRESH_HOUR: 2,
+      AUTO_REFRESH_IDLE_MS: 2 * 60 * 1000,
+
+      // วันและชั่วโมงตามเวลาไทย คิดจาก UTC+7 ตรงๆ ไม่พึ่งว่านาฬิกาเครื่องตั้งโซนถูกหรือเปล่า
+      bkkParts(now) {
+        const t = new Date((now === undefined ? Date.now() : now) + 7 * 3600 * 1000);
+        return { day: t.toISOString().slice(0, 10), hour: t.getUTCHours() };
+      },
+
+      // เปิดแอปครั้งแรกในเครื่องนี้ ยังไม่เคยจดว่ารีเฟรชวันไหน
+      // ถ้าไม่จดไว้ก่อน เครื่องจะรีเฟรชทันทีที่เปิดใช้ครั้งแรก ทั้งที่เพิ่งโหลดโค้ดใหม่มาหมาดๆ
+      initAutoRefresh() {
+        if (!localStorage.getItem('pos_autoRefreshedOn')) {
+          localStorage.setItem('pos_autoRefreshedOn', this.bkkParts().day);
+        }
+      },
+
+      // เงื่อนไขความปลอดภัย: ตะกร้ายังไม่ได้เก็บลงเครื่อง (ดู saveLocalState ที่เก็บแค่
+      // คิวซิงก์ ประวัติ และบิลค้างชำระ) รีเฟรชกลางบิลแล้วของที่กดไว้หายทั้งใบ
+      autoRefreshBlockedBy() {
+        if (this.cart && this.cart.length) return 'มีของอยู่ในออเดอร์';
+        const openModal = Array.prototype.slice.call(document.querySelectorAll('[id^="modal-"]'))
+          .some(m => !m.classList.contains('hidden'));
+        if (openModal) return 'มีหน้าต่างเปิดอยู่';
+        const lastActive = Number(localStorage.getItem('pos_lastActivityAt')) || 0;
+        if (Date.now() - lastActive < this.AUTO_REFRESH_IDLE_MS) return 'เพิ่งมีคนกดอยู่';
+        return null;
+      },
+
+      maybeAutoRefresh() {
+        if (this.isNativeApp()) return false; // แอป Android มีระบบอัปเดตของตัวเองอยู่แล้ว
+        const { day, hour } = this.bkkParts();
+        if (hour < this.AUTO_REFRESH_HOUR) return false;
+        if (localStorage.getItem('pos_autoRefreshedOn') === day) return false;
+        if (this.autoRefreshBlockedBy()) return false; // ยังไม่ว่าง เดี๋ยวรอบหน้าค่อยลองใหม่
+        localStorage.setItem('pos_autoRefreshedOn', day);
+        location.reload();
+        return true;
       },
 
       // ---- ภาษาของหน้าจอ ----
@@ -7487,7 +7533,10 @@ renderReport(r) {
         // มือถือ (Android/iOS) มักหยุด/หน่วง setTimeout ตอนสลับแอปไปพักหน้าจอ โดยไม่ปิดหน้าเว็บทิ้ง
         // พอกลับมาเปิดแอปอีกครั้ง (visibilitychange) เลยต้องเช็คเวลาที่หายไปเองอีกที ไม่ต้องรอ event อื่น
         document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'visible') this.checkAutoLockOnResume();
+          if (document.visibilityState === 'visible') {
+            this.checkAutoLockOnResume();
+            this.maybeAutoRefresh(); // เครื่องที่หลับข้ามคืน ตื่นมาถึงจะรู้ว่าเลยตีสองแล้ว
+          }
         });
         this.resetAutoLockTimer();
       },
@@ -8663,6 +8712,9 @@ renderReport(r) {
 
                     // เช็คแจ้งเตือนหมดอายุเป็นระยะ (ไม่ต้องรอเน็ต เทียบเวลาจากข้อมูลที่โหลดไว้ในเครื่องอยู่แล้ว)
                     setInterval(() => this.checkNotifications(), 60000);
+
+                    // รีเฟรชเองหลังตีสอง เช็คทุกนาทีว่าถึงเวลาและว่างพอหรือยัง
+                    setInterval(() => this.maybeAutoRefresh(), 60000);
 
                     // เช็คออเดอร์ออนไลน์ใหม่เป็นระยะ (ต้องยิงไปเซิร์ฟเวอร์จริงเพราะลูกค้าสั่งจากเครื่องอื่น)
                     // ปิดรับออเดอร์ออนไลน์อยู่ จึงไม่ต้องถามเซิร์ฟเวอร์ทุกแปดวินาทีให้เปลืองเน็ต

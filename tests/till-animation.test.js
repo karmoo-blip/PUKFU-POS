@@ -118,7 +118,7 @@ function loadController(options) {
   C.showAlert = () => Promise.resolve(true);
   C.showConfirm = () => Promise.resolve(false);
   C.showLoading = () => {}; C.hideLoading = () => {};
-  return { C, document, calls, timers, frames, el: (id) => document.getElementById(id), views, localStorage: sandbox.localStorage, ReceiptPrinter: sandbox.__ReceiptPrinter, FakeEl };
+  return { C, document, calls, timers, frames, el: (id) => document.getElementById(id), views, localStorage: sandbox.localStorage, location: sandbox.location, ReceiptPrinter: sandbox.__ReceiptPrinter, FakeEl };
 }
 
 // เดินอนิเมชันตัวนับให้จบในทีเดียว
@@ -862,6 +862,75 @@ test('retired words are gone from everything a user can see, template literals i
     });
   }
   assert.deepEqual(bad, [], 'คำที่เลิกใช้แล้วยังโผล่ในข้อความที่คนใช้เห็น');
+});
+
+// ---- รีเฟรชเองหลังตีสองเวลาไทย ----
+// ตะกร้าไม่ได้ถูกเก็บลงเครื่อง รีเฟรชผิดจังหวะแล้วบิลที่กดค้างไว้หายทั้งใบ
+// เทสต์ชุดนี้จึงคุมว่า "ไม่รีเฟรช" ในทุกกรณีที่ยังไม่ปลอดภัย
+function refreshCtl(opts) {
+  const o = opts || {};
+  const ctx = loadController({});
+  const { C, localStorage: ls } = ctx;
+  let reloaded = false;
+  ctx.C.isNativeApp = () => !!o.native;
+  ctx.C.bkkParts = () => ({ day: o.day || '2026-09-23', hour: o.hour === undefined ? 3 : o.hour });
+  ctx.document.querySelectorAll = (sel) => (sel === '[id^="modal-"]' ? (o.modals || []) : []);
+  ctx.C.cart = o.cart || [];
+  ls.setItem('pos_lastActivityAt', String(Date.now() - (o.idleMs === undefined ? 10 * 60 * 1000 : o.idleMs)));
+  if (o.refreshedOn) ls.setItem('pos_autoRefreshedOn', o.refreshedOn);
+  ctx.location.reload = () => { reloaded = true; };
+  return { C, ls, didReload: () => reloaded, ctx };
+}
+
+test('after 2am Thai time, an idle till with an empty cart refreshes once', () => {
+  const { C, ls, didReload } = refreshCtl({ hour: 3, refreshedOn: '2026-09-22' });
+  assert.equal(C.autoRefreshBlockedBy(), null, 'ว่างพอที่จะรีเฟรชได้');
+  assert.equal(C.maybeAutoRefresh(), true, 'ถึงเวลาและว่าง ต้องรีเฟรช');
+  assert.ok(didReload(), 'ต้องสั่งโหลดหน้าใหม่จริง');
+  assert.equal(ls.getItem('pos_autoRefreshedOn'), '2026-09-23', 'จดวันไว้ กันรีเฟรชซ้ำวันเดียวกัน');
+
+  // เรียกอีกครั้งในวันเดียวกันต้องไม่ทำอะไร
+  assert.equal(C.maybeAutoRefresh(), false, 'วันนี้รีเฟรชไปแล้ว');
+});
+
+test('it never refreshes with items in the order, because the cart is not saved anywhere', () => {
+  const { C } = refreshCtl({ hour: 3, cart: [{ sku: 'A', qty: 1 }] });
+  assert.equal(C.autoRefreshBlockedBy(), 'มีของอยู่ในออเดอร์');
+  assert.equal(C.maybeAutoRefresh(), false);
+});
+
+test('it waits while a window is open or someone just tapped', () => {
+  const openModal = { classList: { contains: () => false } };
+  assert.equal(refreshCtl({ hour: 3, modals: [openModal] }).C.autoRefreshBlockedBy(), 'มีหน้าต่างเปิดอยู่');
+  assert.equal(refreshCtl({ hour: 3, idleMs: 30 * 1000 }).C.autoRefreshBlockedBy(), 'เพิ่งมีคนกดอยู่');
+});
+
+test('before 2am, and twice in one day, it stays put', () => {
+  assert.equal(refreshCtl({ hour: 1, refreshedOn: '2026-09-22' }).C.maybeAutoRefresh(), false, 'ยังไม่ถึงตีสอง');
+  assert.equal(refreshCtl({ hour: 5, refreshedOn: '2026-09-23' }).C.maybeAutoRefresh(), false, 'วันนี้รีเฟรชไปแล้ว');
+});
+
+test('the Android app is left alone, it has its own updater', () => {
+  assert.equal(refreshCtl({ hour: 3, native: true, refreshedOn: '2026-09-22' }).C.maybeAutoRefresh(), false);
+});
+
+test('a brand new till does not refresh the moment it is first opened', () => {
+  const { C, ls } = refreshCtl({ hour: 9 });
+  ls.removeItem('pos_autoRefreshedOn');
+  C.initAutoRefresh();
+  assert.equal(ls.getItem('pos_autoRefreshedOn'), '2026-09-23',
+    'เพิ่งโหลดโค้ดใหม่มาหมาดๆ ไม่ต้องรีเฟรชซ้ำทันที รอตีสองวันถัดไป');
+  assert.equal(C.maybeAutoRefresh(), false);
+});
+
+test('Thai time is computed from UTC+7, not from the till clock timezone', () => {
+  const { C } = loadController({});
+  // 2026-09-22T19:30:00Z = 2026-09-23 02:30 ตามเวลาไทย
+  const p = C.bkkParts(Date.parse('2026-09-22T19:30:00Z'));
+  assert.equal(p.day, '2026-09-23');
+  assert.equal(p.hour, 2);
+  // 2026-09-22T18:30:00Z = 2026-09-23 01:30 ยังไม่ถึงตีสอง
+  assert.equal(C.bkkParts(Date.parse('2026-09-22T18:30:00Z')).hour, 1);
 });
 
 // ---- ปิดสั่งอาหารออนไลน์ ----
