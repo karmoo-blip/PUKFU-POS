@@ -1129,11 +1129,20 @@
       },
 
       maybeAutoRefresh() {
-        if (this.isNativeApp()) return false; // แอป Android มีระบบอัปเดตของตัวเองอยู่แล้ว
         const { day, hour } = this.bkkParts();
         if (hour < this.AUTO_REFRESH_HOUR) return false;
         if (localStorage.getItem('pos_autoRefreshedOn') === day) return false;
         if (this.autoRefreshBlockedBy()) return false; // ยังไม่ว่าง เดี๋ยวรอบหน้าค่อยลองใหม่
+
+        // แอป Android ไม่ได้โหลดหน้าใหม่เฉยๆ แบบเว็บ แต่สลับไปใช้ชุดไฟล์ที่ดาวน์โหลดไว้แล้ว
+        // ถ้ายังไม่มีชุดใหม่รออยู่ ก็ไม่ต้องทำอะไร โหลดหน้าใหม่ก็ได้โค้ดเดิม ไม่มีประโยชน์
+        if (this.isNativeApp()) {
+          if (this.appUpdate.state !== 'ready' || !this.appUpdate.bundle) return false;
+          localStorage.setItem('pos_autoRefreshedOn', day);
+          this.applyNativeUpdate();
+          return true;
+        }
+
         localStorage.setItem('pos_autoRefreshedOn', day);
         location.reload();
         return true;

@@ -910,8 +910,33 @@ test('before 2am, and twice in one day, it stays put', () => {
   assert.equal(refreshCtl({ hour: 5, refreshedOn: '2026-09-23' }).C.maybeAutoRefresh(), false, 'วันนี้รีเฟรชไปแล้ว');
 });
 
-test('the Android app is left alone, it has its own updater', () => {
-  assert.equal(refreshCtl({ hour: 3, native: true, refreshedOn: '2026-09-22' }).C.maybeAutoRefresh(), false);
+test('on Android, with a downloaded update waiting, it swaps bundles instead of reloading', () => {
+  const { C, ls } = refreshCtl({ hour: 3, native: true, refreshedOn: '2026-09-22' });
+  let applied = false;
+  C.applyNativeUpdate = () => { applied = true; };
+  C.appUpdate = { state: 'ready', bundle: { id: 'b1' } };
+  assert.equal(C.maybeAutoRefresh(), true);
+  assert.ok(applied, 'ต้องสลับไปชุดไฟล์ใหม่ที่โหลดไว้แล้ว');
+  assert.equal(ls.getItem('pos_autoRefreshedOn'), '2026-09-23');
+});
+
+test('on Android with nothing downloaded, it does nothing at all', () => {
+  const { C, didReload } = refreshCtl({ hour: 3, native: true, refreshedOn: '2026-09-22' });
+  let applied = false;
+  C.applyNativeUpdate = () => { applied = true; };
+  C.appUpdate = { state: 'idle', bundle: null };
+  assert.equal(C.maybeAutoRefresh(), false, 'ไม่มีชุดใหม่รออยู่ โหลดใหม่ก็ได้โค้ดเดิม ไม่ต้องทำอะไร');
+  assert.ok(!applied);
+  assert.ok(!didReload(), 'และต้องไม่โหลดหน้าใหม่แบบเว็บ');
+});
+
+test('on Android it still refuses while an order is open', () => {
+  const { C } = refreshCtl({ hour: 3, native: true, cart: [{ sku: 'A', qty: 1 }] });
+  let applied = false;
+  C.applyNativeUpdate = () => { applied = true; };
+  C.appUpdate = { state: 'ready', bundle: { id: 'b1' } };
+  assert.equal(C.maybeAutoRefresh(), false);
+  assert.ok(!applied, 'บิลที่กดค้างไว้ต้องไม่หายเพราะการอัปเดตกลางดึก');
 });
 
 test('a brand new till does not refresh the moment it is first opened', () => {
