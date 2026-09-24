@@ -639,23 +639,6 @@ handlers.saveShopInfo = async (env, args) => {
   return { success: true };
 };
 
-// หักสต๊อกวัตถุดิบตามสูตร (ถ้าสินค้า sku นี้มีการตั้งสูตรไว้) ปล่อยให้ติดลบได้ ไม่บล็อกการขาย
-// แค่เป็นสัญญาณเตือนให้ไปเติมสต๊อก บันทึกลง inventory_log ด้วย recorded_by = "auto:<invoice>" เพื่อแยกจากการเบิกมือ
-async function deductRecipeStock(env, sku, saleQty, invoice) {
-  if (!sku || saleQty <= 0) return;
-  const recipeR = await env.DB.prepare("SELECT * FROM recipes WHERE menu_sku = ?").bind(sku).all();
-  for (const rcp of recipeR.results) {
-    const item = await env.DB.prepare("SELECT name, current_stock FROM inventory WHERE id = ?").bind(rcp.inventory_item_id).first();
-    if (!item) continue;
-    const deduct = Number(rcp.qty || 0) * saleQty;
-    const newStock = Number(item.current_stock || 0) - deduct;
-    await env.DB.prepare("UPDATE inventory SET current_stock = ? WHERE id = ?").bind(newStock, rcp.inventory_item_id).run();
-    await env.DB.prepare(
-      "INSERT INTO inventory_log (timestamp, item_name, change, new_stock, recorded_by) VALUES (?, ?, ?, ?, ?)"
-    ).bind(nowIso(), item.name, -deduct, newStock, "auto:" + invoice).run();
-  }
-}
-
 async function syncOfflineOrders(env, args) {
   const orders = Array.isArray(args[0]) ? args[0] : [args[0]];
   let count = 0;
@@ -694,11 +677,8 @@ async function syncOfflineOrders(env, args) {
           .bind(timestamp, invoice, it.sku || '', it.name || '', Number(it.qty || 0), Number(it.price || 0), it.note || '', paymentType)
       );
     }
+    // ไม่หักสต๊อกตอนขาย ร้านตัดสต๊อกเองด้วยมือ สูตรใช้แค่คิดต้นทุนต่อแก้ว
     await env.DB.batch(statements);
-    // หักสต๊อกหลังบิลลงเรียบร้อย เพราะต้องอ่านยอดคงเหลือปัจจุบันมาคำนวณ ใส่ใน batch ไม่ได้
-    for (const it of items) {
-      await deductRecipeStock(env, it.sku || '', Number(it.qty || 0), invoice);
-    }
     count++;
   }
   return { success: true, synced: count, skipped, rejected };
