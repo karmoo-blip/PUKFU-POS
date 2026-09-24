@@ -4908,7 +4908,7 @@
           wrap.className = 'modal-opening fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
           wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-xl max-h-[90vh] overflow-y-auto">'
             + '<h3 class="font-bold text-lg text-secondary mb-1">สูตร: ' + escHtml(item.name) + '</h3>'
-            + '<p class="text-xs text-slate-400 mb-4">เลือกวัตถุดิบและจำนวนที่ใช้ต่อสินค้า 1 ชิ้น ระบบจะหักสต๊อกอัตโนมัติเมื่อขาย</p>'
+            + '<p class="text-xs text-slate-400 mb-4">เลือกวัตถุดิบและจำนวนที่ใช้ต่อสินค้า 1 ชิ้น ใช้คำนวณต้นทุนต่อแก้ว</p>'
             + '<div id="recipe-rows">' + (rows.length ? rows.map(r => this._recipeRowHtml(r.inventory_item_id, r.qty)).join('') : '') + '</div>'
             + (rows.length === 0 ? '<p id="recipe-empty-note" class="text-xs text-slate-400 mb-2">ยังไม่ได้ตั้งสูตรสำหรับสินค้านี้</p>' : '')
             + '<button onclick="Controller.addRecipeRow()" class="text-sm font-bold text-primary hover:underline mb-3 block">+ เพิ่มวัตถุดิบ</button>'
