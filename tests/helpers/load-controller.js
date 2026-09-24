@@ -139,6 +139,8 @@ function loadController(options) {
     calcVatBreakdown: () => ({ exVat: 0, vatAmount: 0, rate: 0 }),
     unitCost: () => null,
     recipeCost: () => ({ total: null, lines: [], missingPrice: [] }),
+    parseCostExtras: () => [],
+    COST_EXTRA_PREFIX: 'extra:',
     hashPinWithSalt: async () => '',
     sha256Hex: async () => '',
     bufToHex: () => '',

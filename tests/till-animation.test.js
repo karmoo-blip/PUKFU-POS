@@ -85,6 +85,7 @@ function loadController(options) {
     escAttr: (v) => String(v), escHtml: (v) => String(v),
     calcVatBreakdown: () => ({ exVat: 0, vatAmount: 0, rate: 0 }),
     unitCost: () => null, recipeCost: () => ({ total: null, lines: [], missingPrice: [] }),
+    parseCostExtras: () => [], COST_EXTRA_PREFIX: 'extra:',
     hashPinWithSalt: async () => '', sha256Hex: async () => '', bufToHex: () => '',
     qrcode: () => ({ addData(){}, make(){}, createDataURL: () => '' }),
   };
@@ -111,6 +112,8 @@ function loadController(options) {
 
   vm.createContext(sandbox);
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'lang-my.js'), 'utf8'), sandbox, { filename: 'lang-my.js' });
+  // เทสต์ที่ต้องคิดต้นทุนจริงขอใช้ตัวจริงแทนตัวปลอมข้างบน
+  if (o.realHelpers) vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'pure-helpers.js'), 'utf8'), sandbox, { filename: 'pure-helpers.js' });
   const code = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
   vm.runInContext(code + '\nglobalThis.__Controller = Controller; globalThis.__ReceiptPrinter = ReceiptPrinter;', sandbox, { filename: 'app.js' });
 
@@ -1202,6 +1205,53 @@ test('the cost page puts menus with no recipe first, with a way to fix them', ()
   assert.ok(html.indexOf('ชานม') < html.indexOf('ลาเต้'), 'เมนูที่ยังไม่มีสูตรต้องอยู่บนสุด');
   assert.ok(html.includes('ใส่สูตร'), 'และต้องมีปุ่มลัดไปใส่สูตร');
   assert.ok(el('cost-summary').innerText.includes('จากทั้งหมด 2 เมนู'));
+});
+
+// น้ำแข็ง หลอด แก้ว ตั้งราคาไว้ที่เดียว แล้วแตะเลือกในสูตรของแต่ละเมนู
+test('the cost page adds per-cup extras to the recipe cost and lists them in their own card', () => {
+  const { C, el } = loadController({ realHelpers: true });
+  C.menuData = [{ sku: 'A', name: 'ลาเต้', price: 55, cost: 23 }];
+  C.inventoryData = [{ id: 'i1', name: 'นมสด', purchase_price: 12, purchase_factor: 12, stock: 4 }];
+  C.shopInfo = { costExtras: JSON.stringify([{ id: 'x1', name: 'น้ำแข็ง', price: 1 }, { id: 'x2', name: 'หลอด', price: 0.3 }]) };
+  C.recipes = [
+    { menu_sku: 'A', inventory_item_id: 'i1', qty: 10 },
+    { menu_sku: 'A', inventory_item_id: 'extra:x1', qty: 1 },
+    { menu_sku: 'A', inventory_item_id: 'extra:x2', qty: 1 },
+  ];
+
+  C.renderCostTable();
+  assert.ok(el('cost-list').innerHTML.includes('฿11.30'), 'นมสด ฿10 + น้ำแข็ง ฿1 + หลอด ฿0.30 = ฿11.30');
+  const card = el('cost-extras-card').innerHTML;
+  assert.ok(card.includes('น้ำแข็ง') && card.includes('฿1.00') && card.includes('ใช้ใน 1 เมนู'));
+  assert.ok(card.includes('+ เพิ่มค่าอื่น'));
+});
+
+test('the recipe form shows each extra as a tap button, pressed when the menu already uses it', () => {
+  const { C } = loadController({ realHelpers: true });
+  C.shopInfo = { costExtras: JSON.stringify([{ id: 'x1', name: 'น้ำแข็ง', price: 1 }, { id: 'x2', name: 'หลอด', price: 0.3 }]) };
+  const html = C._recipeExtrasHtml(new Set(['x1']));
+  assert.match(html, /data-extra-id="x1" aria-pressed="true"/);
+  assert.match(html, /data-extra-id="x2" aria-pressed="false"/);
+
+  C.shopInfo = {};
+  assert.ok(C._recipeExtrasHtml(new Set()).includes('เพิ่มได้ที่หน้าต้นทุนเมนู'), 'ยังไม่มีรายการ ต้องบอกว่าไปเพิ่มที่ไหน');
+});
+
+test('adding an extra saves the whole list to shop info', async () => {
+  const { C, el, calls } = loadController({ realHelpers: true });
+  C.shopInfo = { costExtras: JSON.stringify([{ id: 'x1', name: 'น้ำแข็ง', price: 1 }]) };
+  C.editingCostExtraId = null;
+  el('cost-extra-name').value = ' หลอด ';
+  el('cost-extra-price').value = '0.3';
+  const done = C.saveCostExtraForm();
+  const call = calls.find(c => c.fn === 'saveShopInfo');
+  assert.ok(call, 'ต้องบันทึกขึ้นเซิร์ฟเวอร์');
+  const saved = JSON.parse(call.args[0].costExtras);
+  assert.equal(saved.map(x => x.name).join(','), 'น้ำแข็ง,หลอด');
+  assert.equal(saved[1].price, 0.3);
+  call.ok({ success: true });
+  await done;
+  assert.equal(JSON.parse(C.shopInfo.costExtras).length, 2, 'บันทึกสำเร็จแล้วต้องจำไว้ในเครื่องด้วย');
 });
 
 test('the calendar marks the days that beat the month average', () => {

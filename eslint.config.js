@@ -35,6 +35,8 @@ module.exports = [
         calcVatBreakdown: 'readonly',
         unitCost: 'readonly',
         recipeCost: 'readonly',
+        parseCostExtras: 'readonly',
+        COST_EXTRA_PREFIX: 'readonly',
       },
     },
   },

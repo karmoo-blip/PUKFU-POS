@@ -10,6 +10,7 @@ const {
   calcVatBreakdown,
   unitCost,
   recipeCost,
+  parseCostExtras,
   queueEtaRange,
 } = require('../pure-helpers.js');
 
@@ -146,4 +147,32 @@ test('queueEtaRange returns null when the shop set no prep time', () => {
 
 test('queueEtaRange handles fractional drink counts', () => {
   assert.deepEqual(queueEtaRange(1.5, 3), { low: 5, high: 8 });
+});
+
+test('recipeCost adds per-cup extras such as ice and straws', () => {
+  const extras = JSON.stringify([{ id: 'x1', name: 'น้ำแข็ง', price: 1 }, { id: 'x2', name: 'หลอด', price: 0.3 }]);
+  const r = recipeCost(
+    [{ inventory_item_id: 'INV13', qty: 1 }, { inventory_item_id: 'extra:x1', qty: 1 }, { inventoryItemId: 'extra:x2', qty: 1 }],
+    { INV13: CUP }, extras
+  );
+  assertClose(r.total, 3 + 1 + 0.3);
+  assert.equal(r.lines[1].name, 'น้ำแข็ง');
+  assert.equal(r.lines[1].extra, true);
+  assert.deepEqual(r.missingPrice, []);
+});
+
+test('recipeCost skips an extra that was deleted from the list', () => {
+  const r = recipeCost([{ inventory_item_id: 'INV13', qty: 1 }, { inventory_item_id: 'extra:gone', qty: 1 }], { INV13: CUP }, '[]');
+  assertClose(r.total, 3);
+  assert.equal(r.lines.length, 1);
+});
+
+test('parseCostExtras survives bad data from shop info', () => {
+  assert.deepEqual(parseCostExtras(undefined), []);
+  assert.deepEqual(parseCostExtras('not json'), []);
+  assert.deepEqual(parseCostExtras('{"a":1}'), []);
+  const list = parseCostExtras('[{"id":"x1","name":" น้ำแข็ง ","price":"1.5"},{"id":"x2","name":""},{"name":"no id"},{"id":"x3","name":"ฟรี","price":-2}]');
+  assert.equal(list.map(x => x.name).join(','), 'น้ำแข็ง,ฟรี');
+  assert.equal(list[0].price, 1.5);
+  assert.equal(list[1].price, 0, 'ราคาติดลบต้องไม่ไปลดต้นทุน');
 });
