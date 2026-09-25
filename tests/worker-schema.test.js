@@ -89,10 +89,26 @@ test('the one-time migration still covers every column and index the handlers re
     'ต้องบันทึกเลขเวอร์ชันไว้ ไม่งั้น isolate หน้าจะรันรายการเต็มซ้ำอีก');
 });
 
+async function writtenSchemaVersion(tag) {
+  const mod = await import('../worker/worker.js?ver=' + Date.now() + tag);
+  let version = null;
+  const db = fakeDb({});
+  const prepare = db.prepare.bind(db);
+  db.prepare = (text) => {
+    const stmt = prepare(text);
+    if (/INSERT OR REPLACE INTO shop_info \(key, value\) VALUES \('schema_version'/.test(text)) {
+      stmt.bind = (v) => { version = v; return stmt; };
+    }
+    return stmt;
+  };
+  await mod.default.fetch(post('getSweetnessLevels'), { DB: db, API_TOKEN: 'staff-token' });
+  return version;
+}
+
 test('an isolate whose database already matches the version skips the whole list', async () => {
-  const src = fs.readFileSync(WORKER_PATH, 'utf8');
-  const version = (src.match(/const SCHEMA_VERSION = "([^"]+)"/) || [])[1];
-  assert.ok(version, 'ต้องมี SCHEMA_VERSION ไว้เทียบ');
+  // เลขเวอร์ชันคิดจากเนื้อหารายการ จึงอ่านจากค่าที่ worker เขียนลงฐานจริงตอนรันครั้งแรก
+  const version = await writtenSchemaVersion('a');
+  assert.ok(/^auto-[0-9a-f]{8}$/.test(version), 'ต้องเขียนเลขเวอร์ชันลงฐาน ได้ ' + version);
 
   const mod = await import('../worker/worker.js?fresh=' + Date.now() + 'b');
   const db = fakeDb({ storedVersion: version });

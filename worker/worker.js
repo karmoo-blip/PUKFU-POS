@@ -30,8 +30,83 @@ const PUBLIC_HANDLERS = new Set([
 // ยิงจริงทุก request และล้มทุกครั้งเพราะคอลัมน์มีอยู่แล้ว — ย้ายมารวมไว้ในรายการเดียวกันนี้
 //
 // เลขเวอร์ชันไว้ข้ามงานทั้งชุดตอน isolate ใหม่ตื่นมา: ถ้าเลขในฐานตรงกับที่นี่ = โครงตารางตรงแล้ว
-// เหลือคำสั่งเดียว (SELECT) แทนที่จะยิง 39 คำสั่ง เพิ่มตาราง/คอลัมน์เมื่อไรให้บวกเลขนี้ขึ้นหนึ่ง
-const SCHEMA_VERSION = "2026-08-29.1";
+// เหลือคำสั่งเดียว (SELECT) แทนที่จะยิง 39 คำสั่ง
+//
+// เดิมเลขนี้ต้องบวกเองทุกครั้งที่เพิ่มคอลัมน์ พอลืม (menu.lang3 เมื่อ 2026-09-21) ฐานจริงไม่เคยได้คอลัมน์
+// แล้วบันทึกสินค้าล้มทุกครั้งเป็นสัปดาห์ ตอนนี้คิดเลขจากเนื้อหารายการข้างล่างเอง แก้รายการเมื่อไร ฐานอัปเดตเองรอบถัดไป
+
+// ---- โครงตาราง ----
+const SCHEMA_TABLES = [
+  // ตารางหลัก 11 ตัว เดิมสร้างนอก repo ตรงๆ ไม่มี schema เก็บไว้เลย — กู้คืนโครงสร้างจาก repo อย่างเดียวไม่ได้ถ้า D1 หายทั้งฐาน
+  // ก็อปมาจาก schema จริงบน production (sqlite_master) เป๊ะๆ ใส่ IF NOT EXISTS ไม่กระทบข้อมูลเดิม
+  "CREATE TABLE IF NOT EXISTS menu (sku TEXT PRIMARY KEY, name TEXT, price REAL, image TEXT, lang2 TEXT, lang3 TEXT, category TEXT, cost REAL, is_sold_out INTEGER DEFAULT 0)",
+  "CREATE TABLE IF NOT EXISTS employees (id TEXT PRIMARY KEY, name TEXT, pin TEXT, role TEXT, active INTEGER, permission TEXT, created_by TEXT, photo TEXT)",
+  "CREATE TABLE IF NOT EXISTS addons (id TEXT PRIMARY KEY, name TEXT, price REAL, active INTEGER, created_by TEXT)",
+  "CREATE TABLE IF NOT EXISTS payment_methods (id TEXT PRIMARY KEY, name TEXT, is_cash INTEGER, enabled INTEGER, sort_order INTEGER, created_by TEXT)",
+  "CREATE TABLE IF NOT EXISTS shop_info (key TEXT PRIMARY KEY, value TEXT)",
+  "CREATE TABLE IF NOT EXISTS inventory (id TEXT PRIMARY KEY, name TEXT, current_stock REAL, unit TEXT, opened_at TEXT, expires_at TEXT, photo TEXT, purchase_unit TEXT, purchase_factor REAL, purchase_price REAL)",
+  "CREATE TABLE IF NOT EXISTS sales (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, invoice TEXT, sku TEXT, name TEXT, qty REAL, price REAL, note TEXT, payment_type TEXT, cancelled INTEGER DEFAULT 0, cancel_reason TEXT, cancelled_by TEXT)",
+  "CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, invoice TEXT, total REAL, payment_type TEXT, order_note TEXT, status TEXT, cancel_reason TEXT, cancelled_by TEXT, cancelled_at TEXT, created_by TEXT, edited_by TEXT, edited_at TEXT)",
+  "CREATE TABLE IF NOT EXISTS access_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, context TEXT, result TEXT, name TEXT)",
+  "CREATE TABLE IF NOT EXISTS float_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, user TEXT, action TEXT, total_amount REAL, note TEXT, b1000 REAL, b500 REAL, b100 REAL, b50 REAL, b20 REAL, c10 REAL, c5 REAL, c2 REAL, c1 REAL)",
+  "CREATE TABLE IF NOT EXISTS inventory_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, item_name TEXT, change REAL, new_stock REAL, recorded_by TEXT)",
+  // นับจำนวนครั้งที่ใส่ PIN ผิดต่อพนักงาน กันคนสวมรอยลองสุ่ม PIN ยิงถล่ม authorizeEmployee ทางเน็ตซ้ำๆ
+  "CREATE TABLE IF NOT EXISTS pin_attempts (employee_id TEXT PRIMARY KEY, failed_count INTEGER DEFAULT 0, first_failed_at TEXT, locked_until TEXT)",
+  "CREATE TABLE IF NOT EXISTS backups (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, label TEXT, data TEXT)",
+  "CREATE TABLE IF NOT EXISTS archives (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, range_start TEXT, range_end TEXT, note TEXT)",
+  "CREATE TABLE IF NOT EXISTS archive_sales (id INTEGER PRIMARY KEY AUTOINCREMENT, archive_id INTEGER, timestamp TEXT, invoice TEXT, sku TEXT, name TEXT, qty REAL, price REAL, note TEXT, payment_type TEXT, cancelled INTEGER, cancel_reason TEXT)",
+  "CREATE TABLE IF NOT EXISTS archive_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, archive_id INTEGER, timestamp TEXT, invoice TEXT, total REAL, payment_type TEXT, order_note TEXT, status TEXT, cancel_reason TEXT, cancelled_by TEXT, cancelled_at TEXT)",
+  "CREATE TABLE IF NOT EXISTS sweetness_levels (id TEXT PRIMARY KEY, name TEXT, lang2 TEXT, sort_order INTEGER)",
+  "CREATE TABLE IF NOT EXISTS notifications (id TEXT PRIMARY KEY, inventory_item_id TEXT, item_name TEXT, opened_at TEXT, expires_at TEXT, created_at TEXT)",
+  "CREATE TABLE IF NOT EXISTS recipes (id TEXT PRIMARY KEY, menu_sku TEXT, inventory_item_id TEXT, qty REAL)",
+  "CREATE TABLE IF NOT EXISTS refunds (id TEXT PRIMARY KEY, invoice TEXT, amount REAL, reason TEXT, refunded_by TEXT, created_at TEXT)",
+  "CREATE TABLE IF NOT EXISTS pending_orders (id TEXT PRIMARY KEY, created_at TEXT, location TEXT, customer_name TEXT, items_json TEXT, subtotal REAL, total REAL, status TEXT, payment_slip_image TEXT, slip_uploaded_at TEXT, confirmed_by TEXT, confirmed_at TEXT, reject_reason TEXT)",
+  "CREATE TABLE IF NOT EXISTS error_log (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, fn TEXT, message TEXT)",
+  "CREATE TABLE IF NOT EXISTS change_log (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, actor TEXT, area TEXT, action TEXT, target TEXT, details TEXT)",
+];
+
+// คอลัมน์ที่เพิ่มทีหลัง: CREATE TABLE ข้างบนเป็น IF NOT EXISTS จึงไม่แตะตารางที่มีอยู่แล้ว
+// ฐานที่สร้างไว้ก่อนหน้านี้ต้อง ALTER เพิ่มเอง ล้มได้ถ้ามีคอลัมน์แล้ว จึงห่อ try ทีละอัน
+const SCHEMA_COLUMNS = [
+  ["employees", "photo", "TEXT"],
+  ["inventory", "photo", "TEXT"],
+  ["inventory", "purchase_unit", "TEXT"],
+  ["inventory", "purchase_factor", "REAL"],
+  ["inventory", "purchase_price", "REAL"],
+  ["payments", "created_by", "TEXT"],
+  ["payments", "edited_by", "TEXT"],
+  ["payments", "edited_at", "TEXT"],
+  ["sales", "cancelled_by", "TEXT"],
+  ["pending_orders", "ready_at", "TEXT"],
+  ["pending_orders", "ready_by", "TEXT"],
+  ["sweetness_levels", "lang2", "TEXT"],
+  // lang3 = ชื่อภาษาพม่า ใช้กับหน้าจอพนักงานและใบบาริสต้า ปล่อยว่างได้ จะ fallback ไปชื่อไทย
+  ["menu", "lang3", "TEXT"],
+  ["sweetness_levels", "lang3", "TEXT"],
+];
+
+// idx_payments_invoice เป็น UNIQUE กันบิลซ้ำตอนซิงก์ออฟไลน์ อันอื่นเป็น index ธรรมดาไว้ค้นให้ไว
+// sales(invoice) ใช้ตอนยกเลิก/คืนเงินรายบรรทัด, timestamp สองตัวไว้รองรับรายงานรายวัน
+// pending_orders(status, created_at) คือคิวที่หน้าร้านถามทุก 8 วินาที
+const SCHEMA_INDEXES = [
+  "CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_invoice ON payments(invoice)",
+  "CREATE INDEX IF NOT EXISTS idx_sales_invoice ON sales(invoice)",
+  "CREATE INDEX IF NOT EXISTS idx_sales_timestamp ON sales(timestamp)",
+  "CREATE INDEX IF NOT EXISTS idx_payments_timestamp ON payments(timestamp)",
+  "CREATE INDEX IF NOT EXISTS idx_pending_orders_status ON pending_orders(status, created_at)",
+];
+
+// แฮช FNV-1a ของรายการทั้งหมด แก้ตาราง คอลัมน์ หรือ index ตรงไหน เลขเปลี่ยนเอง ไม่ต้องจำไปบวก
+function schemaHash(text) {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, "0");
+}
+const SCHEMA_VERSION = "auto-" + schemaHash(JSON.stringify([SCHEMA_TABLES, SCHEMA_COLUMNS, SCHEMA_INDEXES]));
+
 let schemaReady = false;
 
 async function ensureSchema(env) {
@@ -45,77 +120,17 @@ async function ensureSchema(env) {
   } catch (e) {
     // ยังไม่มีตาราง shop_info (ฐานใหม่เอี่ยม) — ตกลงไปรันรายการเต็มข้างล่าง
   }
-  const stmts = [
-    // ตารางหลัก 11 ตัว เดิมสร้างนอก repo ตรงๆ ไม่มี schema เก็บไว้เลย — กู้คืนโครงสร้างจาก repo อย่างเดียวไม่ได้ถ้า D1 หายทั้งฐาน
-    // ก็อปมาจาก schema จริงบน production (sqlite_master) เป๊ะๆ ใส่ IF NOT EXISTS ไม่กระทบข้อมูลเดิม
-    "CREATE TABLE IF NOT EXISTS menu (sku TEXT PRIMARY KEY, name TEXT, price REAL, image TEXT, lang2 TEXT, lang3 TEXT, category TEXT, cost REAL, is_sold_out INTEGER DEFAULT 0)",
-    "CREATE TABLE IF NOT EXISTS employees (id TEXT PRIMARY KEY, name TEXT, pin TEXT, role TEXT, active INTEGER, permission TEXT, created_by TEXT, photo TEXT)",
-    "CREATE TABLE IF NOT EXISTS addons (id TEXT PRIMARY KEY, name TEXT, price REAL, active INTEGER, created_by TEXT)",
-    "CREATE TABLE IF NOT EXISTS payment_methods (id TEXT PRIMARY KEY, name TEXT, is_cash INTEGER, enabled INTEGER, sort_order INTEGER, created_by TEXT)",
-    "CREATE TABLE IF NOT EXISTS shop_info (key TEXT PRIMARY KEY, value TEXT)",
-    "CREATE TABLE IF NOT EXISTS inventory (id TEXT PRIMARY KEY, name TEXT, current_stock REAL, unit TEXT, opened_at TEXT, expires_at TEXT, photo TEXT, purchase_unit TEXT, purchase_factor REAL, purchase_price REAL)",
-    "CREATE TABLE IF NOT EXISTS sales (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, invoice TEXT, sku TEXT, name TEXT, qty REAL, price REAL, note TEXT, payment_type TEXT, cancelled INTEGER DEFAULT 0, cancel_reason TEXT, cancelled_by TEXT)",
-    "CREATE TABLE IF NOT EXISTS payments (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, invoice TEXT, total REAL, payment_type TEXT, order_note TEXT, status TEXT, cancel_reason TEXT, cancelled_by TEXT, cancelled_at TEXT, created_by TEXT, edited_by TEXT, edited_at TEXT)",
-    "CREATE TABLE IF NOT EXISTS access_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, context TEXT, result TEXT, name TEXT)",
-    "CREATE TABLE IF NOT EXISTS float_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, user TEXT, action TEXT, total_amount REAL, note TEXT, b1000 REAL, b500 REAL, b100 REAL, b50 REAL, b20 REAL, c10 REAL, c5 REAL, c2 REAL, c1 REAL)",
-    "CREATE TABLE IF NOT EXISTS inventory_log (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, item_name TEXT, change REAL, new_stock REAL, recorded_by TEXT)",
-    // นับจำนวนครั้งที่ใส่ PIN ผิดต่อพนักงาน กันคนสวมรอยลองสุ่ม PIN ยิงถล่ม authorizeEmployee ทางเน็ตซ้ำๆ
-    "CREATE TABLE IF NOT EXISTS pin_attempts (employee_id TEXT PRIMARY KEY, failed_count INTEGER DEFAULT 0, first_failed_at TEXT, locked_until TEXT)",
-    "CREATE TABLE IF NOT EXISTS backups (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, label TEXT, data TEXT)",
-    "CREATE TABLE IF NOT EXISTS archives (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, range_start TEXT, range_end TEXT, note TEXT)",
-    "CREATE TABLE IF NOT EXISTS archive_sales (id INTEGER PRIMARY KEY AUTOINCREMENT, archive_id INTEGER, timestamp TEXT, invoice TEXT, sku TEXT, name TEXT, qty REAL, price REAL, note TEXT, payment_type TEXT, cancelled INTEGER, cancel_reason TEXT)",
-    "CREATE TABLE IF NOT EXISTS archive_payments (id INTEGER PRIMARY KEY AUTOINCREMENT, archive_id INTEGER, timestamp TEXT, invoice TEXT, total REAL, payment_type TEXT, order_note TEXT, status TEXT, cancel_reason TEXT, cancelled_by TEXT, cancelled_at TEXT)",
-    "CREATE TABLE IF NOT EXISTS sweetness_levels (id TEXT PRIMARY KEY, name TEXT, lang2 TEXT, sort_order INTEGER)",
-    "CREATE TABLE IF NOT EXISTS notifications (id TEXT PRIMARY KEY, inventory_item_id TEXT, item_name TEXT, opened_at TEXT, expires_at TEXT, created_at TEXT)",
-    "CREATE TABLE IF NOT EXISTS recipes (id TEXT PRIMARY KEY, menu_sku TEXT, inventory_item_id TEXT, qty REAL)",
-    "CREATE TABLE IF NOT EXISTS refunds (id TEXT PRIMARY KEY, invoice TEXT, amount REAL, reason TEXT, refunded_by TEXT, created_at TEXT)",
-    "CREATE TABLE IF NOT EXISTS pending_orders (id TEXT PRIMARY KEY, created_at TEXT, location TEXT, customer_name TEXT, items_json TEXT, subtotal REAL, total REAL, status TEXT, payment_slip_image TEXT, slip_uploaded_at TEXT, confirmed_by TEXT, confirmed_at TEXT, reject_reason TEXT)",
-    "CREATE TABLE IF NOT EXISTS error_log (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, fn TEXT, message TEXT)",
-    "CREATE TABLE IF NOT EXISTS change_log (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at TEXT, actor TEXT, area TEXT, action TEXT, target TEXT, details TEXT)",
-  ];
-
-  // คอลัมน์ที่เพิ่มทีหลัง: CREATE TABLE ข้างบนเป็น IF NOT EXISTS จึงไม่แตะตารางที่มีอยู่แล้ว
-  // ฐานที่สร้างไว้ก่อนหน้านี้ต้อง ALTER เพิ่มเอง ล้มได้ถ้ามีคอลัมน์แล้ว จึงห่อ try ทีละอัน
-  const addColumns = [
-    ["employees", "photo", "TEXT"],
-    ["inventory", "photo", "TEXT"],
-    ["inventory", "purchase_unit", "TEXT"],
-    ["inventory", "purchase_factor", "REAL"],
-    ["inventory", "purchase_price", "REAL"],
-    ["payments", "created_by", "TEXT"],
-    ["payments", "edited_by", "TEXT"],
-    ["payments", "edited_at", "TEXT"],
-    ["sales", "cancelled_by", "TEXT"],
-    ["pending_orders", "ready_at", "TEXT"],
-    ["pending_orders", "ready_by", "TEXT"],
-    ["sweetness_levels", "lang2", "TEXT"],
-    // lang3 = ชื่อภาษาพม่า ใช้กับหน้าจอพนักงานและใบบาริสต้า ปล่อยว่างได้ จะ fallback ไปชื่อไทย
-    ["menu", "lang3", "TEXT"],
-    ["sweetness_levels", "lang3", "TEXT"],
-  ];
-
-  // idx_payments_invoice เป็น UNIQUE กันบิลซ้ำตอนซิงก์ออฟไลน์ อันอื่นเป็น index ธรรมดาไว้ค้นให้ไว
-  // sales(invoice) ใช้ตอนยกเลิก/คืนเงินรายบรรทัด, timestamp สองตัวไว้รองรับรายงานรายวัน
-  // pending_orders(status, created_at) คือคิวที่หน้าร้านถามทุก 8 วินาที
-  const indexes = [
-    "CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_invoice ON payments(invoice)",
-    "CREATE INDEX IF NOT EXISTS idx_sales_invoice ON sales(invoice)",
-    "CREATE INDEX IF NOT EXISTS idx_sales_timestamp ON sales(timestamp)",
-    "CREATE INDEX IF NOT EXISTS idx_payments_timestamp ON payments(timestamp)",
-    "CREATE INDEX IF NOT EXISTS idx_pending_orders_status ON pending_orders(status, created_at)",
-  ];
-
-  for (const s of stmts) {
+  for (const s of SCHEMA_TABLES) {
     await env.DB.prepare(s).run();
   }
-  for (const [table, column, type] of addColumns) {
+  for (const [table, column, type] of SCHEMA_COLUMNS) {
     try {
       await env.DB.prepare(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`).run();
     } catch (e) {
       // คอลัมน์มีอยู่แล้ว
     }
   }
-  for (const s of indexes) {
+  for (const s of SCHEMA_INDEXES) {
     try {
       await env.DB.prepare(s).run();
     } catch (e) {
