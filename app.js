@@ -3155,7 +3155,7 @@
               <div class="cost-cell" style="color:${computed === null ? '#f97316' : 'var(--color-secondary)'};font-weight:900">${computed === null ? 'ยังไม่ครบ' : money(computed) + usedTag}</div>
               <div class="cost-cell" style="color:#94a3b8">${typed === 0 ? '—' : money(typed)}${computed === null && typed > 0 ? usedTag : ''}</div>
               <div class="cost-cell" style="font-weight:900;color:${margin === null ? '#cbd5e1' : (margin >= 50 ? '#059669' : '#f97316')}">${margin === null ? '—' : margin.toFixed(0) + '%'}</div>
-              <div class="cost-act"><button onclick="Controller.openRecipeForm('${escAttr(m.sku)}')" class="set-btn set-btn-sm set-btn-soft">แก้สูตร</button></div>
+              <div class="cost-act"><button onclick="Controller.openRecipeForm('${escAttr(m.sku)}')" class="set-btn set-btn-sm set-btn-soft">แก้ต้นทุน</button></div>
             </div>`);
         }
 
@@ -3184,7 +3184,7 @@
               <div class="cost-cell" style="color:#94a3b8">—</div>
               <div class="cost-cell" style="color:#94a3b8">${Number(item.cost) > 0 ? money(item.cost) + usedTag : '—'}</div>
               ${noRecipeMargin(item)}
-              <div class="cost-act"><button onclick="Controller.openRecipeForm('${escAttr(item.sku || '')}')" class="set-btn set-btn-sm set-btn-go">ใส่สูตร</button></div>
+              <div class="cost-act"><button onclick="Controller.openRecipeForm('${escAttr(item.sku || '')}')" class="set-btn set-btn-sm set-btn-go">ใส่ต้นทุน</button></div>
             </div>`;
         });
 
@@ -4851,10 +4851,8 @@
             return;
           }
           const sorted = [...filtered].sort((a, b) => (a.category || '').localeCompare(b.category || '') || String(a.name || '').localeCompare(String(b.name || '')));
-          const costInfo = this.menuCostInfo();
           list.innerHTML = sorted.map(item => {
             const soldOut = this.soldOutItems.includes(item.name);
-            const noCost = (costInfo[item.sku] || {}).source === 'none';
             // ป้ายบอกสถานะตอนนี้ (In stock / Sold out) กับปุ่มบอกสถานะหลังกด (Available / Not available)
             // จงใจใช้คำคนละชุด ถ้าใช้คำเดียวกันสองที่จะอ่านสลับกันว่าอันไหนคือของตอนนี้
             return `
@@ -4862,11 +4860,10 @@
               ${item.image ? `<img src="${escAttr(item.image)}" class="set-thumb" alt="">` : ''}
               <div class="set-row-body">
                 <p class="set-row-t">${escHtml(item.name)} ${soldOut ? '<span class="set-tag set-tag-off">Sold out</span>' : '<span class="set-tag set-tag-ok">In stock</span>'}</p>
-                <p class="set-row-s">${escHtml(item.sku)} · ${escHtml(item.category || 'ไม่มีหมวดหมู่')} · ฿${Number(item.price) || 0}${noCost ? ' · <span style="color:#f97316">ยังไม่ระบุต้นทุน</span>' : ''}</p>
+                <p class="set-row-s">${escHtml(item.sku)} · ${escHtml(item.category || 'ไม่มีหมวดหมู่')} · ฿${Number(item.price) || 0}</p>
               </div>
               <div class="set-row-acts">
                 <button onclick="Controller.toggleProductSoldOut('${escAttr(item.sku)}')" class="set-btn set-btn-sm ${soldOut ? 'set-btn-soft' : 'set-btn-warn'}">${soldOut ? 'Available' : 'Not available'}</button>
-                <button onclick="Controller.openRecipeForm('${escAttr(item.sku)}')" class="set-btn set-btn-sm set-btn-soft">สูตร</button>
                 <button onclick='Controller.showProductForm(${JSON.stringify(item).replace(/'/g, "&apos;")})' class="set-btn set-btn-sm set-btn-soft">แก้ไข</button>
                 <button onclick="Controller.deleteProductConfirm('${escAttr(item.sku)}')" class="set-btn set-btn-sm set-btn-danger">ลบ</button>
               </div>
@@ -4931,18 +4928,10 @@
                 return '<select id="prod-category" onchange="Controller.toggleNewCategoryInput()" class="w-full border border-sand rounded-xl p-2.5 mb-2 bg-white">' + opts.join('') + '</select>'
                   + '<input id="prod-category-new" placeholder="ชื่อหมวดหมู่ใหม่" class="w-full border border-sand rounded-xl p-2.5 mb-3 hidden">';
               })()
-            + '<div class="flex gap-3 mb-3">'
-            + '<div class="flex-1"><label class="text-sm font-bold text-slate-500 mb-1 block">ราคาขาย</label>'
-            + '<input id="prod-price" type="number" step="0.01" class="w-full border border-sand rounded-xl p-2.5" value="' + (Number(it.price) || 0) + '"></div>'
-            + '<div class="flex-1"><label class="text-sm font-bold text-slate-500 mb-1 block">ต้นทุน (ถ้ามี)</label>'
-            + '<input id="prod-cost" type="number" step="0.01" class="w-full border border-sand rounded-xl p-2.5" value="' + (Number(it.cost) || 0) + '"></div>'
-            + '</div>'
-            + (() => {
-                const c = it.sku ? this.menuCostInfo()[it.sku] : null;
-                return c && c.source === 'recipe'
-                  ? '<p class="text-xs font-bold text-slate-400 -mt-1 mb-3">รายงานใช้ต้นทุนจากสูตร ฿' + c.cost.toFixed(2) + ' — ช่องนี้ใช้เมื่อยังไม่มีสูตร</p>'
-                  : '';
-              })()
+            + '<label class="text-sm font-bold text-slate-500 mb-1 block">ราคาขาย</label>'
+            + '<input id="prod-price" type="number" step="0.01" class="w-full border border-sand rounded-xl p-2.5 mb-2" value="' + (Number(it.price) || 0) + '">'
+            // ต้นทุนกับสูตรจัดการที่หน้าต้นทุนเมนูที่เดียว หน้านี้ไว้เพิ่ม/แก้เมนูอย่างเดียว
+            + '<p class="text-xs font-bold text-slate-400 mb-3">ต้นทุนกับสูตร ตั้งที่ ตั้งค่า → ต้นทุนเมนู</p>'
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">รูปสินค้า (ถ้ามี)</label>'
             + '<img id="prod-image-preview" src="' + q(it.image) + '" class="' + (it.image ? '' : 'hidden ') + 'w-20 h-20 object-cover border border-sand rounded-xl bg-white mb-2">'
             + '<input type="file" accept="image/*" onchange="Controller.handleProductImageUpload(event)" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-bold mb-1">'
@@ -4988,7 +4977,6 @@
           const categorySel = document.getElementById('prod-category').value;
           const category = categorySel === '__new__' ? document.getElementById('prod-category-new').value.trim() : categorySel;
           const price = Number(document.getElementById('prod-price').value) || 0;
-          const cost = Number(document.getElementById('prod-cost').value) || 0;
           const image = this.editingProductImage || '';
           if (!sku) return this.showAlert('กรุณากรอกรหัสสินค้า (SKU)', '');
           if (!name) return this.showAlert('กรุณากรอกชื่อสินค้า', '');
@@ -5007,7 +4995,7 @@
               }
             })
             .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
-            .saveMenuItem({ sku, name, lang2, lang3, category, price, cost, image, isNew, actorId: this.currentSettingsUser ? this.currentSettingsUser.id : '', actorName: this.currentSettingsUser ? this.currentSettingsUser.name : '' });
+            .saveMenuItem({ sku, name, lang2, lang3, category, price, image, isNew, actorId: this.currentSettingsUser ? this.currentSettingsUser.id : '', actorName: this.currentSettingsUser ? this.currentSettingsUser.name : '' });
         },
 
         async deleteProductConfirm(sku) {
@@ -5098,14 +5086,24 @@
 
           const totalEl = document.getElementById('recipe-cost-total');
           const noteEl = document.getElementById('recipe-cost-note');
+          // ยังไม่มีสูตรเลย ไม่ใช่ต้นทุน 0 บาท แสดงขีดไว้ ไม่ให้อ่านผิดว่าของฟรี
+          const hasRecipe = rows.some(r => r.inventory_item_id && r.qty > 0) || this._pickedRecipeExtras().length > 0;
           if (totalEl) {
-            totalEl.innerText = result.total === null ? 'ยังไม่ครบ' : '฿' + result.total.toFixed(2);
+            totalEl.innerText = !hasRecipe ? '—' : result.total === null ? 'ยังไม่ครบ' : '฿' + result.total.toFixed(2);
             totalEl.className = 'font-black ' + (result.total === null ? 'text-amber-500' : 'text-secondary');
           }
           if (noteEl) {
             noteEl.innerText = result.missingPrice.length
               ? 'ยังไม่ได้ใส่ราคาซื้อของ: ' + result.missingPrice.map(m => m.name).join(', ')
               : '';
+          }
+          const typedNote = document.getElementById('recipe-typed-note');
+          if (typedNote) {
+            const typed = Number((document.getElementById('recipe-typed-cost') || {}).value) || 0;
+            typedNote.innerText = hasRecipe && result.total !== null
+              ? 'สูตรครบแล้ว รายงานใช้ต้นทุนจากสูตร'
+              : typed > 0 ? (hasRecipe ? 'สูตรยังไม่ครบ รายงานใช้ตัวเลขนี้แทน' : 'ยังไม่มีสูตร รายงานใช้ตัวเลขนี้')
+                : 'ใส่สูตรข้างบน หรือกรอกต้นทุนต่อแก้วตรงนี้';
           }
         },
 
@@ -5123,7 +5121,7 @@
           wrap.id = 'modal-recipe-form';
           wrap.className = 'modal-opening fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
           wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-xl max-h-[90vh] overflow-y-auto">'
-            + '<h3 class="font-bold text-lg text-secondary mb-1">สูตร: ' + escHtml(item.name) + '</h3>'
+            + '<h3 class="font-bold text-lg text-secondary mb-1">ต้นทุน: ' + escHtml(item.name) + '</h3>'
             + '<p class="text-xs text-slate-400 mb-4">เลือกวัตถุดิบและจำนวนที่ใช้ต่อสินค้า 1 ชิ้น ใช้คำนวณต้นทุนต่อแก้ว</p>'
             + '<div id="recipe-rows">' + (rows.length ? rows.map(r => this._recipeRowHtml(r.inventory_item_id, r.qty)).join('') : '') + '</div>'
             + (rows.length === 0 ? '<p id="recipe-empty-note" class="text-xs text-slate-400 mb-2">ยังไม่ได้ตั้งสูตรสำหรับสินค้านี้</p>' : '')
@@ -5133,10 +5131,17 @@
             + '<span class="text-sm font-bold text-slate-500">ต้นทุนต่อแก้ว</span>'
             + '<span id="recipe-cost-total" class="font-black text-secondary"></span>'
             + '</div>'
-            + '<p id="recipe-cost-note" class="text-xs text-amber-500 font-bold mb-4"></p>'
+            + '<p id="recipe-cost-note" class="text-xs text-amber-500 font-bold mb-3"></p>'
+            // ต้นทุนที่กรอกเอง (menu.cost) ย้ายมาจากฟอร์มสินค้า รายงานใช้ตัวนี้เมื่อสูตรยังไม่ครบหรือยังไม่มีสูตร
+            + '<div class="rounded-2xl bg-accent px-3 py-3 mb-4">'
+            + '<label for="recipe-typed-cost" class="text-sm font-bold text-secondary block mb-1">หรือกรอกต้นทุนเอง</label>'
+            + '<div class="flex items-center border border-sand rounded-xl bg-white"><span class="pl-3 text-slate-400">฿</span>'
+            + '<input id="recipe-typed-cost" type="number" min="0" step="0.01" inputmode="decimal" oninput="Controller.updateRecipeCostPreview()" class="w-full min-w-0 p-2.5 bg-transparent" placeholder="0.00" value="' + (Number(item.cost) > 0 ? Number(item.cost) : '') + '"></div>'
+            + '<p id="recipe-typed-note" class="text-xs text-slate-500 mt-1"></p>'
+            + '</div>'
             + '<div class="flex gap-2">'
             + '<button onclick="Controller.closeRecipeForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
-            + '<button onclick="Controller.saveRecipeForm()" class="flex-1 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl py-2.5 font-bold hover:brightness-110 transition">บันทึกสูตร</button>'
+            + '<button onclick="Controller.saveRecipeForm()" class="flex-1 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl py-2.5 font-bold hover:brightness-110 transition">บันทึก</button>'
             + '</div></div>';
           document.body.appendChild(wrap);
           this.updateRecipeCostPreview();
@@ -5154,30 +5159,46 @@
           if (m) m.remove();
         },
 
-        saveRecipeForm() {
+        // บันทึกหน้าต่างต้นทุนของเมนูเดียว: สูตร + ค่าอื่นๆ ต่อแก้ว + ต้นทุนที่กรอกเอง
+        async saveRecipeForm() {
           const menuSku = this.editingRecipeSku;
           const ingredients = Array.from(document.querySelectorAll('#modal-recipe-form .recipe-row')).map(row => ({
             inventoryItemId: row.querySelector('.recipe-ing-select').value,
             qty: Number(row.querySelector('.recipe-ing-qty').value) || 0
           })).filter(ing => ing.inventoryItemId && ing.qty > 0)
             .concat(this._pickedRecipeExtras().map(x => ({ inventoryItemId: x.inventory_item_id, qty: 1 })));
+          const typedEl = document.getElementById('recipe-typed-cost');
+          const typedRaw = typedEl ? String(typedEl.value).trim() : '';
+          const typed = typedRaw === '' ? 0 : Number(typedRaw);
+          if (!Number.isFinite(typed) || typed < 0) return this.showAlert('ต้นทุนต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป', '');
+          const item = (this.menuData || []).find(m => String(m.sku) === String(menuSku));
+          const costChanged = !!item && (Number(item.cost) || 0) !== typed;
+
+          const run = (fn, arg) => new Promise((resolve, reject) => {
+            google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[fn](arg);
+          });
           this.closeRecipeForm();
           this.showLoading();
-          google.script.run
-            .withSuccessHandler(res => {
-              this.hideLoading();
-              if (res && res.success) {
-                google.script.run
-                  .withSuccessHandler(data => { this.recipes = data; localStorage.setItem('pos_recipes', JSON.stringify(data)); })
-                  .withFailureHandler(() => {})
-                  .getRecipes();
-                this.showAlert('บันทึกสูตรแล้ว', '');
-              } else {
-                this.showAlert((res && res.error) || 'บันทึกไม่สำเร็จ', '');
-              }
-            })
-            .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
-            .saveRecipesForMenuItem({ menuSku, ingredients });
+          try {
+            const res = await run('saveRecipesForMenuItem', { menuSku, ingredients });
+            if (!res || !res.success) throw { userMessage: (res && res.error) || 'บันทึกไม่สำเร็จ' };
+            if (costChanged) {
+              const c = await run('saveMenuCost', { sku: menuSku, cost: typed, actorName: this.currentSettingsUser ? this.currentSettingsUser.name : '' });
+              if (!c || !c.success) throw { userMessage: (c && c.error) || 'บันทึกต้นทุนไม่สำเร็จ' };
+              item.cost = typed;
+              try { localStorage.setItem('pos_menuData', JSON.stringify(this.menuData)); } catch (e) { /* แคชไม่ได้ก็ไม่เป็นไร */ }
+            }
+            this.hideLoading();
+            this.showAlert('บันทึกสูตรแล้ว', '');
+            try {
+              this.recipes = await run('getRecipes');
+              localStorage.setItem('pos_recipes', JSON.stringify(this.recipes));
+            } catch (e) { /* รอบ refresh หน้าค่อยดึงใหม่ */ }
+            this.renderCostTable();
+          } catch (e) {
+            this.hideLoading();
+            this.showAlert((e && e.userMessage) || 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', '');
+          }
         },
 
         fetchNotifications() {
