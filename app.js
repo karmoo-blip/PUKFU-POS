@@ -44,12 +44,19 @@
         body: JSON.stringify({ token: c.key, fn: fn, args: args }),
         signal: controller.signal
       })
-        .then(function (r) { return r.json(); })
-        .then(function (d) {
-          if (!d.ok) throw new Error(d.error || "API error");
-          ok(d.result);
+        .then(function (r) {
+          return r.json().catch(function () { throw new Error("HTTP " + r.status); });
         })
-        .catch(fail)
+        .then(function (d) {
+          // เซิร์ฟเวอร์ตอบมาแล้วแต่ทำไม่สำเร็จ ติดธงไว้ ให้หน้าจอบอกเหตุผลจริงแทน "เชื่อมต่อไม่สำเร็จ"
+          if (!d.ok) { var e = new Error(d.error || "API error"); e.fromServer = true; throw e; }
+          return d.result;
+        })
+        // ok อยู่นอกตัวจับ error: เดิมบั๊กในโค้ดหลังบันทึกสำเร็จถูกส่งไป fail กลายเป็น "เชื่อมต่อไม่สำเร็จ"
+        // ทั้งที่ข้อมูลบันทึกไปแล้ว โยนออกไปนอก promise ให้เห็นใน console ตามจริงแทน
+        .then(function (result) {
+          try { ok(result); } catch (e) { setTimeout(function () { throw e; }); }
+        }, fail)
         .finally(function () { clearTimeout(timer); });
     }
 
@@ -2190,9 +2197,9 @@
             this.setIndicator('synced');
             if (typeof onDone === 'function') onDone();
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
              this.setBtnLoading(btn, false);
-             this.showAlert('ไม่สามารถโหลดข้อมูลสต๊อกได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+             this.showAlert(this.failText(err, 'ไม่สามารถโหลดข้อมูลสต๊อกได้ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
              this.setIndicator('error');
           })
           .getInventoryData();
@@ -2575,7 +2582,7 @@
               this.checkPendingOrders();
             }
           })
-          .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+          .withFailureHandler((err) => { this.hideLoading(); this.showAlert(this.failText(err), ''); })
           .markPendingOrderReady({ id: o.id, user: this.loggedInEmployee ? this.loggedInEmployee.name : '' });
       },
 
@@ -2605,7 +2612,7 @@
             this.refreshFromServer();
             this.showAlert('ยืนยันออเดอร์เรียบร้อยแล้ว บันทึกเข้าระบบขายแล้ว', '');
           })
-          .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่', ''); })
+          .withFailureHandler((err) => { this.hideLoading(); this.showAlert(this.failText(err, 'เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่'), ''); })
           .confirmPendingOrder({ id: o.id, user: userName });
       },
 
@@ -2625,7 +2632,7 @@
             this.checkPendingOrders();
             this.showAlert('ปฏิเสธออเดอร์แล้ว', '');
           })
-          .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่', ''); })
+          .withFailureHandler((err) => { this.hideLoading(); this.showAlert(this.failText(err, 'เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่'), ''); })
           .rejectPendingOrder({ id: o.id, reason: reason.trim() });
       },
 
@@ -2750,11 +2757,11 @@
               this.setIndicator('synced');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             if (settled) return;
             settled = true;
             clearTimeout(timeoutId);
-            this.showAlert('เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่', '');
+            this.showAlert(this.failText(err, 'เกิดข้อผิดพลาดในการเชื่อมต่อ กรุณาลองใหม่'), '');
             unlock();
             this.setIndicator('error');
           })
@@ -3093,7 +3100,7 @@
           this.renderCostTable();
         } catch (e) {
           this.hideLoading();
-          this.showAlert('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', '');
+          this.showAlert(this.failText(e, 'บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง'), '');
         }
       },
 
@@ -3225,7 +3232,7 @@
             this.setBtnLoading(btn, false);
             this.showAlert('บันทึกการตั้งค่าคิวแล้ว', '');
           })
-          .withFailureHandler(() => { this.setBtnLoading(btn, false); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+          .withFailureHandler((err) => { this.setBtnLoading(btn, false); this.showAlert(this.failText(err), ''); })
           .saveShopInfo({ queueMinutesPerDrink: perDrink, queueWindowMinutes: windowMin });
       },
 
@@ -3243,6 +3250,13 @@
           } catch (e2) { /* เต็มจริงๆ ปล่อยไป รอบหน้าโหลดจากเซิร์ฟเวอร์ได้ */ }
           return false;
         }
+      },
+
+      // ข้อความตอนเรียกเซิร์ฟเวอร์ไม่สำเร็จ: เน็ตหลุดบอกว่าเชื่อมต่อไม่ได้ แต่ถ้าเซิร์ฟเวอร์ตอบมาว่าทำไม่สำเร็จ บอกเหตุผลนั้น
+      // เดิมทุกกรณีขึ้น "เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ" ทำให้ฐานข้อมูลขาดคอลัมน์ (menu.lang3) ดูเหมือนเน็ตเสียอยู่หลายวัน
+      failText(err, fallback) {
+        if (err && err.fromServer) return this.tf('บันทึกไม่สำเร็จ เซิร์ฟเวอร์แจ้งว่า: {x}', String(err.message || ''));
+        return fallback || 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ';
       },
 
       // หุ้ม google.script.run ให้ await ได้ จะได้รู้ผลจริงก่อนบอกผู้ใช้ว่าสำเร็จ
@@ -3488,8 +3502,8 @@
             this.renderEmployeeList();
             this.hideLoading();
           })
-          .withFailureHandler(() => {
-            this.showAlert('โหลดรายชื่อพนักงานไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+          .withFailureHandler((err) => {
+            this.showAlert(this.failText(err, 'โหลดรายชื่อพนักงานไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
             this.hideLoading();
           })
           .getEmployees();
@@ -3709,9 +3723,9 @@
               })
               .getEmployeesForCache();
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.hideLoading();
-            this.showAlert('บันทึกไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+            this.showAlert(this.failText(err, 'บันทึกไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
           })
           .saveEmployee(emp);
       },
@@ -3739,9 +3753,9 @@
               this.showAlert((res && res.error) || 'ลบไม่สำเร็จ', '');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.hideLoading();
-            this.showAlert('ลบไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+            this.showAlert(this.failText(err, 'ลบไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
           })
           .deleteEmployee({ id: emp ? emp.id : id, name: emp ? emp.name : name, employeeId: auth.employeeId, pin: auth.pin });
       },
@@ -3753,9 +3767,9 @@
             this.setBtnLoading(btn, false);
             this.renderAccessLog(data);
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setBtnLoading(btn, false);
-            this.showAlert('โหลดประวัติไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+            this.showAlert(this.failText(err, 'โหลดประวัติไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
           })
           .getAccessLogs();
       },
@@ -3790,9 +3804,9 @@
             this.setBtnLoading(btn, false);
             this.renderErrorLogs(data);
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setBtnLoading(btn, false);
-            this.showAlert('โหลดข้อผิดพลาดไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+            this.showAlert(this.failText(err, 'โหลดข้อผิดพลาดไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
           })
           .getErrorLogs();
       },
@@ -3820,9 +3834,9 @@
             this.setBtnLoading(btn, false);
             this.renderChangeLog(data);
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setBtnLoading(btn, false);
-            this.showAlert('โหลดประวัติการเปลี่ยนแปลงไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+            this.showAlert(this.failText(err, 'โหลดประวัติการเปลี่ยนแปลงไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
           })
           .getChangeLogs();
       },
@@ -3855,7 +3869,7 @@
             if (res && res.success) this.fetchAccessLog();
             else this.showAlert((res && res.error) || 'ล้างประวัติไม่สำเร็จ', '');
           })
-          .withFailureHandler(() => this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''))
+          .withFailureHandler((err) => this.showAlert(this.failText(err), ''))
           .clearAccessLogs({ employeeId: auth.employeeId, pin: auth.pin });
       },
 
@@ -3869,7 +3883,7 @@
             if (res && res.success) this.fetchErrorLogs();
             else this.showAlert((res && res.error) || 'ล้างประวัติไม่สำเร็จ', '');
           })
-          .withFailureHandler(() => this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''))
+          .withFailureHandler((err) => this.showAlert(this.failText(err), ''))
           .clearErrorLogs({ employeeId: auth.employeeId, pin: auth.pin });
       },
 
@@ -3883,7 +3897,7 @@
             if (res && res.success) this.fetchChangeLog();
             else this.showAlert((res && res.error) || 'ล้างประวัติไม่สำเร็จ', '');
           })
-          .withFailureHandler(() => this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''))
+          .withFailureHandler((err) => this.showAlert(this.failText(err), ''))
           .clearChangeLogs({ employeeId: auth.employeeId, pin: auth.pin });
       },
 
@@ -3906,8 +3920,8 @@
             this.renderBestSellers(data);
             this.hideLoading();
           })
-          .withFailureHandler(() => {
-            this.showAlert('โหลดข้อมูลยอดขายไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+          .withFailureHandler((err) => {
+            this.showAlert(this.failText(err, 'โหลดข้อมูลยอดขายไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
             this.hideLoading();
           })
           .getBestSellers(period);
@@ -3953,9 +3967,9 @@
             this.renderAddonList();
             this.setIndicator('synced');
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setIndicator('error');
-            this.showAlert('ดึงข้อมูล Add-ons ล้มเหลว', '');
+            this.showAlert(this.failText(err, 'ดึงข้อมูล Add-ons ล้มเหลว'), '');
           })
           .getAddons();
       },
@@ -4032,9 +4046,9 @@
               this.showAlert('บันทึกข้อมูลไม่สำเร็จ', '');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setIndicator('error');
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
+            this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'), '');
           })
           .saveAddon(addon);
       },
@@ -4055,9 +4069,9 @@
               this.showAlert('ลบข้อมูลไม่สำเร็จ', '');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setIndicator('error');
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
+            this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'), '');
           })
           .deleteAddon(id);
       },
@@ -4072,9 +4086,9 @@
             this.updateSweetnessButtons();
             this.setIndicator('synced');
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setIndicator('error');
-            this.showAlert('ดึงข้อมูลระดับความหวานล้มเหลว', '');
+            this.showAlert(this.failText(err, 'ดึงข้อมูลระดับความหวานล้มเหลว'), '');
           })
           .getSweetnessLevels();
       },
@@ -4147,9 +4161,9 @@
               this.showAlert('บันทึกข้อมูลไม่สำเร็จ', '');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setIndicator('error');
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
+            this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'), '');
           })
           .saveSweetnessLevel(sw);
       },
@@ -4170,9 +4184,9 @@
               this.showAlert('ลบข้อมูลไม่สำเร็จ', '');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setIndicator('error');
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
+            this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'), '');
           })
           .deleteSweetnessLevel(id);
       },
@@ -4458,10 +4472,10 @@
               this.showAlert(res.message || 'โหลดรายงานไม่สำเร็จ', '');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setBtnLoading(btn, false);
             this.setIndicator('error');
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ (รายงานต้องใช้อินเทอร์เน็ต)', '');
+            this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ (รายงานต้องใช้อินเทอร์เน็ต)'), '');
           })
           .getSummaryByRange(start, end);
       },
@@ -4498,7 +4512,7 @@
 
         google.script.run
           .withSuccessHandler(res => { if (res && res.success) this.renderCalendar(res, start, end); })
-          .withFailureHandler(() => this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', ''))
+          .withFailureHandler((err) => this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'), ''))
           .getSummaryByRange(start, end);
       },
 
@@ -4782,7 +4796,7 @@
                 this.showAlert((res && res.error) || 'บันทึกไม่สำเร็จ', '');
               }
             })
-            .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+            .withFailureHandler((err) => { this.hideLoading(); this.showAlert(this.failText(err), ''); })
             .saveInventoryItem({ id: id, name: name, unit: unit, stock: stock, photo: photo, purchaseUnit: purchaseUnit, purchaseFactor: purchaseFactor, purchasePrice: purchasePrice });
         },
 
@@ -4802,7 +4816,7 @@
                 this.showAlert('ลบไม่สำเร็จ (ไม่พบรายการนี้)', '');
               }
             })
-            .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+            .withFailureHandler((err) => { this.hideLoading(); this.showAlert(this.failText(err), ''); })
             .deleteInventoryItem(id);
         },
 
@@ -4820,9 +4834,9 @@
               this.renderProductList();
               this.setIndicator('synced');
             })
-            .withFailureHandler(() => {
+            .withFailureHandler((err) => {
               this.setBtnLoading(btn, false);
-              this.showAlert('ไม่สามารถโหลดข้อมูลสินค้าได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+              this.showAlert(this.failText(err, 'ไม่สามารถโหลดข้อมูลสินค้าได้ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
               this.setIndicator('error');
             })
             .getMenuData();
@@ -4893,9 +4907,9 @@
                 this.showAlert('อัปเดตสถานะสินค้าหมดล้มเหลว กรุณาลองใหม่', '');
               }
             })
-            .withFailureHandler(() => {
+            .withFailureHandler((err) => {
               this.setIndicator('error');
-              this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ สถานะสินค้าหมดยังไม่ถูกบันทึก กรุณาลองใหม่', '');
+              this.showAlert(this.failText(err, 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ สถานะสินค้าหมดยังไม่ถูกบันทึก กรุณาลองใหม่'), '');
             })
             .toggleSoldOut({ sku: item.sku, isSoldOut: newStatus });
         },
@@ -4994,7 +5008,7 @@
                 this.showAlert((res && res.error) || 'บันทึกไม่สำเร็จ', '');
               }
             })
-            .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+            .withFailureHandler((err) => { this.hideLoading(); this.showAlert(this.failText(err), ''); })
             .saveMenuItem({ sku, name, lang2, lang3, category, price, image, isNew, actorId: this.currentSettingsUser ? this.currentSettingsUser.id : '', actorName: this.currentSettingsUser ? this.currentSettingsUser.name : '' });
         },
 
@@ -5016,7 +5030,7 @@
                 this.showAlert((res && res.error) || 'ลบไม่สำเร็จ', '');
               }
             })
-            .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+            .withFailureHandler((err) => { this.hideLoading(); this.showAlert(this.failText(err), ''); })
             .deleteMenuItem({ sku, employeeId: auth.employeeId, pin: auth.pin });
         },
 
@@ -5197,7 +5211,7 @@
             this.renderCostTable();
           } catch (e) {
             this.hideLoading();
-            this.showAlert((e && e.userMessage) || 'เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', '');
+            this.showAlert((e && e.userMessage) || this.failText(e), '');
           }
         },
 
@@ -5211,9 +5225,9 @@
               this.checkNotifications();
               this.setIndicator('synced');
             })
-            .withFailureHandler(() => {
+            .withFailureHandler((err) => {
               this.setIndicator('error');
-              this.showAlert('ดึงข้อมูลแจ้งเตือนล้มเหลว', '');
+              this.showAlert(this.failText(err, 'ดึงข้อมูลแจ้งเตือนล้มเหลว'), '');
             })
             .getNotifications();
         },
@@ -5313,7 +5327,7 @@
                 this.showAlert((res && res.error) || 'บันทึกไม่สำเร็จ', '');
               }
             })
-            .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+            .withFailureHandler((err) => { this.hideLoading(); this.showAlert(this.failText(err), ''); })
             .saveNotification({ inventoryItemId: item.id, itemName: item.name, openedAt: openedAt, expiresAt: expiresAt });
         },
 
@@ -5332,9 +5346,9 @@
                 this.showAlert('ลบไม่สำเร็จ', '');
               }
             })
-            .withFailureHandler(() => {
+            .withFailureHandler((err) => {
               this.setIndicator('error');
-              this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
+              this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'), '');
             })
             .deleteNotification(id);
         },
@@ -5412,7 +5426,7 @@
                 else this.fetchServerData();
               }
             })
-            .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+            .withFailureHandler((err) => { this.hideLoading(); this.showAlert(this.failText(err), ''); })
             .updateOrderDetails({ invoice: data.invoice, items: items, paymentType: paymentType, note: note, expectedTotal: data.expectedTotal, editedBy: this.currentSettingsUser ? this.currentSettingsUser.name : '' });
         },
 
@@ -5488,9 +5502,9 @@ renderReport(r) {
             localStorage.setItem('pos_paymentMethods', JSON.stringify(data));
             this.renderPaymentMethodList();
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setBtnLoading(btn, false);
-            this.showAlert('โหลดวิธีชำระเงินไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+            this.showAlert(this.failText(err, 'โหลดวิธีชำระเงินไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
           })
           .getPaymentMethods();
       },
@@ -5565,9 +5579,9 @@ renderReport(r) {
               this.showAlert(res.message || 'บันทึกไม่สำเร็จ', '');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setIndicator('error');
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
+            this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'), '');
           })
           .savePaymentMethod(method);
       },
@@ -5586,9 +5600,9 @@ renderReport(r) {
               this.showAlert(res.message || 'อัปเดตไม่สำเร็จ', '');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setIndicator('error');
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
+            this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'), '');
           })
           .savePaymentMethod(updated);
       },
@@ -5610,9 +5624,9 @@ renderReport(r) {
               this.showAlert(res.message || 'ลบไม่สำเร็จ', '');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setIndicator('error');
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
+            this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'), '');
           })
           .deletePaymentMethod({ id, employeeId: auth.employeeId, pin: auth.pin });
       },
@@ -5624,9 +5638,9 @@ renderReport(r) {
             this.setBtnLoading(btn, false);
             this.renderBackupList(data);
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setBtnLoading(btn, false);
-            this.showAlert('โหลดรายการ backup ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+            this.showAlert(this.failText(err, 'โหลดรายการ backup ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
           })
           .getBackupList();
       },
@@ -5692,9 +5706,9 @@ renderReport(r) {
               this.showAlert((res && res.error) || 'ลบไม่สำเร็จ', '');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setIndicator('error');
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้', '');
+            this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้'), '');
           })
           .deleteBackup({ id, employeeId: auth.employeeId, pin: auth.pin });
       },
@@ -5725,9 +5739,9 @@ renderReport(r) {
               this.showAlert((res && res.error) || 'กู้คืนไม่สำเร็จ', '');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.hideLoading();
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กู้คืนไม่สำเร็จ', '');
+            this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กู้คืนไม่สำเร็จ'), '');
           })
           .restoreBackup({ id, employeeId: auth.employeeId, pin: auth.pin });
       },
@@ -5780,8 +5794,8 @@ renderReport(r) {
             }
             this._downloadTextFile(`pukfu-backup-${id}.csv`, this._buildBackupCsv(res.data));
           })
-          .withFailureHandler(() => {
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+          .withFailureHandler((err) => {
+            this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
           })
           .getBackupData({ id: id, employeeId: auth.employeeId, pin: auth.pin });
       },
@@ -5805,9 +5819,9 @@ renderReport(r) {
               this.showAlert(res.error || res.message || 'สำรองข้อมูลไม่สำเร็จ', '');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setBtnLoading(btn, false);
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+            this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
           })
           .createBackup({ employeeId: auth.employeeId, pin: auth.pin });
       },
@@ -5819,9 +5833,9 @@ renderReport(r) {
             this.setBtnLoading(btn, false);
             this.renderArchiveList(data);
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setBtnLoading(btn, false);
-            this.showAlert('โหลดรายการ archive ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+            this.showAlert(this.failText(err, 'โหลดรายการ archive ไม่สำเร็จ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
           })
           .getArchiveList();
       },
@@ -5876,9 +5890,9 @@ renderReport(r) {
               this.showAlert(res.message || res.error || 'เก็บข้อมูลไม่สำเร็จ', '');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setBtnLoading(btn, false);
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+            this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
           })
           .archiveOldData({ employeeId: auth.employeeId, pin: auth.pin });
       },
@@ -7071,7 +7085,7 @@ renderReport(r) {
         const { logoRaster, ...receiptSettingsForSync } = this.receiptSettings;
         google.script.run
           .withSuccessHandler(() => {})
-          .withFailureHandler(() => this.showAlert('บันทึกข้อมูลร้านลง Google Sheet ไม่สำเร็จ (จะเก็บไว้ในเครื่องก่อน)', ''))
+          .withFailureHandler((err) => this.showAlert(this.failText(err, 'บันทึกข้อมูลร้านลง Google Sheet ไม่สำเร็จ (จะเก็บไว้ในเครื่องก่อน)'), ''))
           .saveShopInfo({ ...this.shopInfo, ...receiptSettingsForSync });
 
         this.markPrinterDirty(false);
@@ -7090,7 +7104,7 @@ renderReport(r) {
           this.renderLogoPreview();
           google.script.run
             .withSuccessHandler(() => {})
-            .withFailureHandler(() => this.showAlert('ซิงก์โลโก้ไปเครื่องอื่นไม่สำเร็จ (จะเก็บไว้ในเครื่องนี้ก่อน)', ''))
+            .withFailureHandler((err) => this.showAlert(this.failText(err, 'ซิงก์โลโก้ไปเครื่องอื่นไม่สำเร็จ (จะเก็บไว้ในเครื่องนี้ก่อน)'), ''))
             .saveShopInfo({ logoBase64: resizedBase64 });
           this.hideLoading();
           this.showAlert('อัปโหลดโลโก้เรียบร้อยแล้ว', '');
@@ -8212,7 +8226,7 @@ renderReport(r) {
               this.showAlert((res && res.error) || 'คืนเงินไม่สำเร็จ', '');
             }
           })
-          .withFailureHandler(() => { this.hideLoading(); this.showAlert('เชื่อมต่อเซิร์ฟเวอร์ไม่สำเร็จ', ''); })
+          .withFailureHandler((err) => { this.hideLoading(); this.showAlert(this.failText(err), ''); })
           .refundOrder({ invoice: order.invoice, amount: amount, reason: reason.trim(), employeeId: auth.employeeId, pin: auth.pin });
       },
 
@@ -8273,9 +8287,9 @@ renderReport(r) {
               this.setIndicator('synced');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             // ถ้าเน็ตหลุด ไม่เปลี่ยนสถานะ เพื่อป้องกันหน้าจอกับเซิร์ฟเวอร์ข้อมูลไม่ตรงกัน
-            this.showAlert(`เชื่อมต่อไม่สำเร็จ (ไม่มีอินเทอร์เน็ต) บิลยังไม่ถูก${actionText} กรุณาลองใหม่เมื่อมีอินเทอร์เน็ต`, '');
+            this.showAlert(this.failText(err, `เชื่อมต่อไม่สำเร็จ (ไม่มีอินเทอร์เน็ต) บิลยังไม่ถูก${actionText} กรุณาลองใหม่เมื่อมีอินเทอร์เน็ต`), '');
             this.setIndicator('error');
           })
           .updateOrderStatus({ invoice: order.invoice, status: status, reason: reason.trim(), employeeId: auth.employeeId, pin: auth.pin });
@@ -8351,8 +8365,8 @@ renderReport(r) {
               this.setIndicator('synced');
             }
           })
-          .withFailureHandler(() => {
-            this.showAlert('เชื่อมต่อไม่สำเร็จ (ไม่มีอินเทอร์เน็ต) รายการยังไม่ถูกยกเลิก กรุณาลองใหม่เมื่อมีอินเทอร์เน็ต', '');
+          .withFailureHandler((err) => {
+            this.showAlert(this.failText(err, 'เชื่อมต่อไม่สำเร็จ (ไม่มีอินเทอร์เน็ต) รายการยังไม่ถูกยกเลิก กรุณาลองใหม่เมื่อมีอินเทอร์เน็ต'), '');
             this.setIndicator('error');
           })
           .cancelSalesItems({ invoice: invoice, items: [{ sku: sku, note: note }], reason: reason.trim(), employeeId: auth.employeeId, pin: auth.pin });
@@ -8504,9 +8518,9 @@ renderReport(r) {
               this.showAlert(res.message || 'ปิดยอดไม่สำเร็จ', '');
             }
           })
-          .withFailureHandler(() => {
+          .withFailureHandler((err) => {
             this.setBtnLoading(btn, false);
-            this.showAlert('ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต', '');
+            this.showAlert(this.failText(err, 'ไม่สามารถติดต่อเซิร์ฟเวอร์ได้ กรุณาตรวจสอบอินเทอร์เน็ต'), '');
           })
           .closeDayCash();
       },
