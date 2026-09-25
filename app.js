@@ -1391,6 +1391,8 @@
       // ไม่ auto-reload เอง เพราะตะกร้าปัจจุบันยังไม่ได้ persist ไว้ที่ไหน เผลอ reload กลางคันจะเสียรายการที่พิมพ์ค้างอยู่
       async checkForAppUpdate() {
         if (this.isNativeApp()) return this.checkNativeUpdate(false); // แอป Android มีระบบอัปเดตของตัวเอง ดูด้านล่าง
+        if (this.currentAppVersion()) return this.checkWebUpdate(false);
+        // ด้านล่างนี้เหลือไว้สำหรับหน้าที่ไม่มี app-version.js (เปิดจากไฟล์ในเครื่องตอนพัฒนา)
         if (this._updateAvailable) return; // แจ้งไปแล้วรอบหนึ่งพอ ไม่ต้องเช็คซ้ำ
         try {
           const res = await fetch('app.js?_=' + Date.now(), { cache: 'no-store' });
@@ -1411,8 +1413,59 @@
         }
       },
 
+      // เว็บ (คอม/เบราว์เซอร์มือถือ): เทียบเลข build ที่รันอยู่ (app-version.js ที่ deploy-pages เขียนให้)
+      // กับ latest.json ตัวเดียวกับที่แอป Android ใช้ ของเดิมเทียบ ETag กับครั้งแรกที่เช็คหลังเปิดแอป
+      // ถ้าเปิดมาเจอ app.js เก่าจาก cache ค่าแรกที่เช็คได้จะเป็นของใหม่ไปแล้ว แถบอัปเดตจึงไม่เคยขึ้นเลย
+      // manual = กดปุ่มเอง (แสดงทุกสถานะ) / ไม่ใช่ = รอบอัตโนมัติ (เงียบ ขึ้นแถบเขียวเมื่อมีของใหม่)
+      async checkWebUpdate(manual) {
+        const u = this.appUpdate;
+        if (u.state === 'checking') return;
+        if (manual) { u.state = 'checking'; u.message = ''; this.renderUpdateCard(); }
+
+        let latest;
+        try {
+          const res = await fetch(this.APP_UPDATE_URL + '?_=' + Date.now(), { cache: 'no-store' });
+          if (!res.ok) throw new Error('HTTP ' + res.status);
+          latest = await res.json();
+        } catch (e) {
+          if (manual) {
+            const offline = navigator.onLine === false || (e && e.name === 'TypeError');
+            u.state = offline ? 'offline' : 'error';
+            u.message = offline ? '' : 'เปิดข้อมูลอัปเดตไม่ได้ (' + e.message + ')';
+            this.renderUpdateCard();
+          }
+          return;
+        }
+        if (!latest || !Number.isInteger(latest.build) || typeof latest.version !== 'string') {
+          if (manual) { u.state = 'error'; u.message = 'ข้อมูลอัปเดตไม่ถูกต้อง'; this.renderUpdateCard(); }
+          return;
+        }
+        u.checkedAt = Date.now();
+        u.latest = latest;
+        const current = this.currentAppVersion();
+        if (current && latest.build > current.build) {
+          u.state = 'ready';
+          this._updateAvailable = true;
+          const banner = document.getElementById('app-update-banner');
+          if (banner) banner.classList.remove('hidden');
+          this.updateBellBadge();
+        } else {
+          u.state = 'idle';
+        }
+        this.renderUpdateCard();
+      },
+
+      // ปุ่มตรวจหาอัปเดตบนการ์ด ใช้ได้ทั้งแอป Android และเว็บ
+      checkAppUpdateNow() {
+        return this.isNativeApp() ? this.checkNativeUpdate(true) : this.checkWebUpdate(true);
+      },
+
       async applyAppUpdate() {
         if (this.isNativeApp()) return this.applyNativeUpdate();
+        if (this.cart && this.cart.length > 0) {
+          const ok = await this.showConfirm('ออเดอร์มีรายการค้างอยู่ ถ้าอัปเดตตอนนี้รายการจะหาย ต้องการอัปเดตเลยหรือไม่?', '');
+          if (!ok) return;
+        }
         try {
           const keys = await caches.keys();
           await Promise.all(keys.map(k => caches.delete(k)));
@@ -1589,7 +1642,8 @@
         window.location.href = url; // Capacitor เปิดลิงก์นอกแอปในเบราว์เซอร์ของเครื่อง
       },
 
-      // การ์ดท้ายรายการตั้งค่า (แบบ B ในม็อกอัป) แสดงเฉพาะในแอป Android
+      // การ์ดท้ายรายการตั้งค่า (แบบ B ในม็อกอัป) แสดงทั้งในแอป Android และบนเว็บ
+      // สถานะ downloading/native มีแต่ในแอป Android บนเว็บแค่ตรวจแล้วโหลดหน้าใหม่
       renderUpdateCard() {
         const el = document.getElementById('app-update-card');
         if (!el) return;
@@ -1608,7 +1662,7 @@
         const download = icon('<path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/>');
         const btn = (cls, label, ic, onclick, disabled) => '<button type="button" class="set-btn ' + cls + '" style="width:100%' + (disabled ? ';opacity:.5' : '') + '"'
           + (disabled ? ' disabled' : '') + ' onclick="' + onclick + '">' + ic + label + '</button>';
-        const checkBtn = (label, disabled) => btn('set-btn-soft', label, refresh, 'Controller.checkNativeUpdate(true)', disabled);
+        const checkBtn = (label, disabled) => btn('set-btn-soft', label, refresh, 'Controller.checkAppUpdateNow()', disabled);
 
         let body;
         if (u.state === 'checking') {
@@ -1620,7 +1674,7 @@
             + hint('ขายต่อได้ระหว่างรอ');
         } else if (u.state === 'ready') {
           body = row('<span class="set-tag set-tag-info">พร้อมอัปเดต</span>', 'เวอร์ชัน ' + latestVersion)
-            + btn('set-btn-go', 'อัปเดตตอนนี้', download, 'Controller.applyNativeUpdate()')
+            + btn('set-btn-go', 'อัปเดตตอนนี้', download, 'Controller.applyAppUpdate()')
             + hint('แอปจะโหลดใหม่และให้ใส่ PIN อีกครั้ง · ปิดบิลที่ค้างก่อนกด');
         } else if (u.state === 'native') {
           body = row('<span class="set-tag set-tag-warn">ต้องติดตั้งแอปใหม่</span>', 'เวอร์ชัน ' + latestVersion + ' มีการแก้ส่วนของแอป Android')
@@ -2835,9 +2889,9 @@
           }
           html += '</div>';
         }
-        // แอป Android ติดตั้งอยู่แล้ว การ์ดติดตั้งจึงไม่มีความหมาย มีแต่การ์ดอัปเดต
-        if (this.isNativeApp()) html += '<div id="app-update-card" style="margin-top:18px"></div>';
-        else html += '<div id="app-install-card" style="margin-top:18px"></div>';
+        // การ์ดอัปเดตมีทุกที่ แอป Android ติดตั้งอยู่แล้ว การ์ดติดตั้งจึงมีแต่บนเว็บ
+        html += '<div id="app-update-card" style="margin-top:18px"></div>';
+        if (!this.isNativeApp()) html += '<div id="app-install-card" style="margin-top:14px"></div>';
         nav.innerHTML = html;
         this.renderUpdateCard();
         this.renderInstallCard();

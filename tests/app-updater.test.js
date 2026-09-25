@@ -39,12 +39,88 @@ function load(opts) {
 }
 const called = (calls, method) => calls.filter((c) => c.fn === 'CapacitorUpdater.' + method);
 
-test('the website never shows the update card or calls the updater', async () => {
-  const { C, calls, el } = loadController({});
+test('the website shows the update card too, but never calls the Android updater', async () => {
+  const { C, calls, el } = loadController({ app: APP, fetch: () => Promise.resolve({ ok: true, json: () => Promise.resolve(manifest()) }) });
   C.renderSettingsNav();
-  assert.ok(!el('settings-nav').innerHTML.includes('app-update-card'));
+  assert.ok(el('settings-nav').innerHTML.includes('app-update-card'), 'บนคอมต้องมีการ์ดอัปเดตด้วย');
+  assert.ok(el('settings-nav').innerHTML.includes('app-install-card'), 'และยังมีการ์ดติดตั้งแอปเหมือนเดิม');
+  await C.checkAppUpdateNow();
   await C.checkNativeUpdate(true);
   assert.equal(calls.filter((c) => c.fn.startsWith('CapacitorUpdater')).length, 0);
+});
+
+// ---- เว็บ (คอม/เบราว์เซอร์มือถือ) ----
+function loadWeb(opts) {
+  const o = opts || {};
+  return loadController({
+    app: o.app === undefined ? APP : o.app,
+    fetch: o.fetch || (() => Promise.resolve({ ok: true, json: () => Promise.resolve(o.manifest || manifest()) })),
+  });
+}
+
+test('web: a newer build online turns the card into an update button and shows the green bar', async () => {
+  const { C, el } = loadWeb();
+  C.renderSettingsNav();
+  await C.checkAppUpdateNow();
+  assert.equal(C.appUpdate.state, 'ready');
+  assert.ok(el('app-update-card').innerHTML.includes('อัปเดตตอนนี้'));
+  assert.ok(el('app-update-card').innerHTML.includes('Controller.applyAppUpdate()'));
+  assert.ok(el('app-update-card').innerHTML.includes('เวอร์ชัน 1.1.240'), 'บอกเวอร์ชันที่รันอยู่');
+  assert.ok(!el('app-update-banner').classList.contains('hidden'));
+});
+
+test('web: on the latest build the card says so with the time it checked', async () => {
+  const { C, el } = loadWeb({ manifest: manifest({ build: 240, version: '1.1.240' }) });
+  C.renderSettingsNav();
+  await C.checkAppUpdateNow();
+  assert.equal(C.appUpdate.state, 'idle');
+  assert.ok(el('app-update-card').innerHTML.includes('ล่าสุดแล้ว'));
+  assert.ok(el('app-update-card').innerHTML.includes('Controller.checkAppUpdateNow()'));
+});
+
+// ของเดิมเทียบ ETag กับค่าแรกที่เช็คได้หลังเปิดแอป ถ้าเปิดมาเจอโค้ดเก่าจาก cache ก็ไม่มีวันขึ้นแถบ
+test('web: code opened from the cache still sees the newer build on the very first check', async () => {
+  const { C, el } = loadWeb();
+  await C.checkForAppUpdate();
+  assert.equal(C.appUpdate.state, 'ready');
+  assert.ok(!el('app-update-banner').classList.contains('hidden'));
+});
+
+test('web: offline while checking by hand says so and offers to try again', async () => {
+  const { C, el } = loadWeb({ fetch: () => Promise.reject(new TypeError('Failed to fetch')) });
+  C.renderSettingsNav();
+  await C.checkAppUpdateNow();
+  assert.equal(C.appUpdate.state, 'offline');
+  assert.ok(el('app-update-card').innerHTML.includes('ลองอีกครั้ง'));
+});
+
+test('web: updating with items in the cart asks first, and cancelling keeps the cart', async () => {
+  const { C, store } = loadWeb();
+  await C.checkAppUpdateNow();
+  C.cart = [{ name: 'ลาเต้', qty: 1 }];
+  store.set('pos_loggedInUserId', 'e1');
+  C.showConfirm = () => Promise.resolve(false);
+  await C.applyAppUpdate();
+  assert.equal(store.get('pos_loggedInUserId'), 'e1');
+});
+
+test('deploy stamps the web page with the same version as the Android update', () => {
+  const fs = require('node:fs');
+  const os = require('node:os');
+  const path = require('node:path');
+  const { stampWebVersion } = require('../scripts/stamp-web-version');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'stamp-'));
+  fs.mkdirSync(path.join(dir, 'app-update'));
+  fs.writeFileSync(path.join(dir, 'app-update', 'latest.json'), JSON.stringify(manifest()));
+  fs.copyFileSync(path.join(__dirname, '..', 'index.html'), path.join(dir, 'index.html'));
+
+  stampWebVersion(dir);
+  const html = fs.readFileSync(path.join(dir, 'index.html'), 'utf8');
+  assert.ok(html.includes('<script src="app-version.js"></script>\n  <script src="app.js"></script>'), 'app-version.js ต้องโหลดก่อน app.js');
+  const sandbox = {};
+  new Function('window', fs.readFileSync(path.join(dir, 'app-version.js'), 'utf8'))(sandbox);
+  assert.equal(sandbox.PUKFU_APP.build, 241);
+  assert.equal(sandbox.PUKFU_APP.version, '1.1.241');
 });
 
 test('the app tells the updater it started, so a broken update rolls back', () => {
