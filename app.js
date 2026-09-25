@@ -2971,9 +2971,30 @@
         if (tab === 'onlineorder') { this.renderPaymentQrPreview(); this.renderQueueSettings(); this.loadOnlineOrderHistory(); this.restoreTableQr(); }
       },
 
+      // ต้นทุนต่อแก้วที่รายงานใช้ ต่อ sku: สูตรที่ใส่ราคาครบ (รวมค่าอื่นๆ ต่อแก้ว) มาก่อน ไม่งั้นใช้ต้นทุนที่กรอกเอง
+      // กฎเดียวกับ menuCostMap ใน worker/worker.js ที่รายงานยอดขายฝั่งเซิร์ฟเวอร์ใช้
+      // source: 'recipe' | 'typed' | 'none'
+      menuCostInfo() {
+        const byId = {};
+        for (const inv of (this.inventoryData || [])) byId[inv.id] = inv;
+        const recipesBySku = {};
+        for (const r of (this.recipes || [])) (recipesBySku[r.menu_sku] ||= []).push(r);
+        const extras = this.shopInfo && this.shopInfo.costExtras;
+        const info = {};
+        for (const m of (this.menuData || [])) {
+          const rows = recipesBySku[m.sku];
+          const recipe = rows && rows.length ? recipeCost(rows, byId, extras).total : null;
+          const typed = Number(m.cost) || 0;
+          info[m.sku] = recipe !== null
+            ? { cost: recipe, source: 'recipe', recipe, typed }
+            : { cost: typed, source: typed > 0 ? 'typed' : 'none', recipe, typed };
+        }
+        return info;
+      },
+
       // ---- แท็บต้นทุน ----
       // คิดต้นทุนต่อแก้วจากสูตร + ราคาวัตถุดิบ แล้ววางเทียบกับต้นทุนที่กรอกมือไว้ใน menu.cost
-      // ตัวที่กรอกมือยังเป็นตัวที่ใช้คิดกำไรในรายงานอยู่ ตรงนี้ไว้ดูว่าตรงกันไหมเท่านั้น
+      // รายงานใช้ตัวจากสูตรก่อนถ้าราคาครบ (ดู menuCostInfo) ป้าย "ใช้ในรายงาน" บอกว่าเมนูนั้นใช้ตัวไหน
       initCostTab() {
         // ราคาวัตถุดิบมาจาก inventory ซึ่งบางทีผู้ใช้ยังไม่ได้เปิดแท็บวัตถุดิบเลยในรอบนี้
         if (!this.inventoryData || this.inventoryData.length === 0) {
@@ -3098,6 +3119,7 @@
         }
 
         const money = n => '฿' + Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const usedTag = ' <span class="set-tag set-tag-ok">ใช้ในรายงาน</span>';
         const rowsHtml = [];
         const noRecipe = [];
         let pricedCount = 0;
@@ -3112,24 +3134,26 @@
           const computed = result.total;
           if (computed !== null) pricedCount++;
 
-          const diff = computed === null || typed === 0 ? null : computed - typed;
-          const margin = computed === null || price === 0 ? null : ((price - computed) / price) * 100;
+          // กำไรคิดจากต้นทุนตัวเดียวกับที่รายงานใช้ สูตรไม่ครบก็ใช้ที่กรอกไว้
+          const used = computed !== null ? computed : (typed > 0 ? typed : null);
+          const margin = used === null || price === 0 ? null : ((price - used) / price) * 100;
           const twin = skusByKey[recipeKey(recipeRows)] || [];
 
           const warn = [];
-          if (result.missingPrice.length) warn.push(this.tf('ยังไม่ใส่ราคา: {x}', result.missingPrice.map(x => escHtml(x.name)).join(', ')));
+          if (result.missingPrice.length) warn.push(this.tf('ยังไม่ใส่ราคา: {x}', result.missingPrice.map(x => escHtml(x.name)).join(', '))
+            + (typed > 0 ? ' — รายงานใช้ต้นทุนที่กรอกไว้แทน' : ' — รายงานยังไม่มีต้นทุนของเมนูนี้'));
           if (twin.length > 1) warn.push('สูตรซ้ำกับ ' + twin.filter(n => n !== m.name).map(escHtml).join(', ') + ' — น่าจะยังไม่ได้ใส่วัตถุดิบที่ทำให้ต่างกัน');
 
           rowsHtml.push(`
             <div class="cost-row">
               <div class="min-w-0">
                 <p class="set-row-t">${escHtml(m.name)}</p>
-                <p class="set-row-s cost-mobile-line">ขาย ${money(price)} · คำนวณ ${computed === null ? 'ยังไม่ครบ' : money(computed)} · กรอกไว้ ${typed === 0 ? 'ยังไม่ระบุ' : money(typed)}${margin === null ? '' : ' · กำไร ' + margin.toFixed(0) + '%'}</p>
+                <p class="set-row-s cost-mobile-line">ขาย ${money(price)} · จากสูตร ${computed === null ? 'ยังไม่ครบ' : money(computed)}${computed !== null ? usedTag : ''} · กรอกไว้ ${typed === 0 ? 'ยังไม่ระบุ' : money(typed)}${computed === null && typed > 0 ? usedTag : ''}${margin === null ? '' : ' · กำไร ' + margin.toFixed(0) + '%'}</p>
                 ${warn.length ? `<p class="set-row-s" style="color:#f97316;margin-top:4px">${warn.join(' / ')}</p>` : ''}
               </div>
               <div class="cost-cell">${money(price)}</div>
-              <div class="cost-cell" style="color:${computed === null ? '#f97316' : 'var(--color-secondary)'};font-weight:900">${computed === null ? 'ยังไม่ครบ' : money(computed)}</div>
-              <div class="cost-cell" style="color:${diff !== null && Math.abs(diff) >= 1 ? '#ef4444' : '#94a3b8'}">${typed === 0 ? '—' : money(typed)}${diff !== null && Math.abs(diff) >= 1 ? ` (${diff > 0 ? '+' : ''}${diff.toFixed(2)})` : ''}</div>
+              <div class="cost-cell" style="color:${computed === null ? '#f97316' : 'var(--color-secondary)'};font-weight:900">${computed === null ? 'ยังไม่ครบ' : money(computed) + usedTag}</div>
+              <div class="cost-cell" style="color:#94a3b8">${typed === 0 ? '—' : money(typed)}${computed === null && typed > 0 ? usedTag : ''}</div>
               <div class="cost-cell" style="font-weight:900;color:${margin === null ? '#cbd5e1' : (margin >= 50 ? '#059669' : '#f97316')}">${margin === null ? '—' : margin.toFixed(0) + '%'}</div>
               <div class="cost-act"><button onclick="Controller.openRecipeForm('${escAttr(m.sku)}')" class="set-btn set-btn-sm set-btn-soft">แก้สูตร</button></div>
             </div>`);
@@ -3141,18 +3165,25 @@
         const unpriced = (this.inventoryData || []).filter(inv => !(Number(inv.purchase_price) > 0)).length;
 
         // เมนูที่ยังไม่มีสูตรอยู่บนสุดพร้อมปุ่มลัดไปใส่ ไม่ใช่ซ่อนเป็นบรรทัดเดียวท้ายตาราง
+        const noRecipeMargin = (item) => {
+          const price = Number(item.price) || 0, typed = Number(item.cost) || 0;
+          if (!price || !typed) return '<div class="cost-cell" style="color:#cbd5e1">—</div>';
+          const m = ((price - typed) / price) * 100;
+          return `<div class="cost-cell" style="font-weight:900;color:${m >= 50 ? '#059669' : '#f97316'}">${m.toFixed(0)}%</div>`;
+        };
         const noRecipeRows = noRecipe.map(name => {
           const item = (this.menuData || []).find(m => m.name === name) || {};
           return `
             <div class="cost-row">
               <div class="min-w-0">
                 <p class="set-row-t">${escHtml(name)}</p>
-                <p class="set-row-s" style="color:#f97316">ยังไม่ได้ตั้งสูตร คิดต้นทุนไม่ได้</p>
+                <p class="set-row-s" style="color:#f97316">ยังไม่ได้ตั้งสูตร${Number(item.cost) > 0 ? ' — รายงานใช้ต้นทุนที่กรอกไว้' : ' คิดต้นทุนไม่ได้'}</p>
+                ${Number(item.cost) > 0 ? `<p class="set-row-s cost-mobile-line">ขาย ${money(item.price)} · กรอกไว้ ${money(item.cost)}${usedTag}${Number(item.price) > 0 ? ' · กำไร ' + (((item.price - item.cost) / item.price) * 100).toFixed(0) + '%' : ''}</p>` : ''}
               </div>
               <div class="cost-cell">${money(item.price)}</div>
               <div class="cost-cell" style="color:#94a3b8">—</div>
-              <div class="cost-cell" style="color:#94a3b8">—</div>
-              <div class="cost-cell" style="color:#cbd5e1">—</div>
+              <div class="cost-cell" style="color:#94a3b8">${Number(item.cost) > 0 ? money(item.cost) + usedTag : '—'}</div>
+              ${noRecipeMargin(item)}
               <div class="cost-act"><button onclick="Controller.openRecipeForm('${escAttr(item.sku || '')}')" class="set-btn set-btn-sm set-btn-go">ใส่สูตร</button></div>
             </div>`;
         });
@@ -3163,7 +3194,7 @@
 
         host.innerHTML = `
           <div class="cost-head hidden lg:grid">
-            <span>เมนู</span><span class="text-right">ราคาขาย</span><span class="text-right">ต้นทุนคำนวณ</span><span class="text-right">ต้นทุนที่กรอก</span><span class="text-right">กำไร</span><span></span>
+            <span>เมนู</span><span class="text-right">ราคาขาย</span><span class="text-right">ต้นทุนจากสูตร</span><span class="text-right">ต้นทุนที่กรอก</span><span class="text-right">กำไร</span><span></span>
           </div>
           ${noRecipeRows.join('')}
           ${rowsHtml.join('') || (noRecipeRows.length ? '' : '<div class="set-empty">ยังไม่มีเมนูที่ตั้งสูตรไว้</div>')}
@@ -4340,6 +4371,7 @@
         const byItem = new Map();
         let bills = 0;
         let noCost = false;
+        const costInfo = this.menuCostInfo();
 
         combined.forEach(order => {
           if (new Date(order.timestamp).toLocaleDateString() !== todayStr) return;
@@ -4348,8 +4380,8 @@
           hours[new Date(order.timestamp).getHours()]++;
           (order.items || []).forEach(item => {
             if (item.cancelled) return;
-            const menuProduct = this.menuData.find(m => m.sku === item.sku);
-            if (!menuProduct || !menuProduct.cost) noCost = true;
+            const c = costInfo[item.sku];
+            if (!c || c.source === 'none') noCost = true;
             const prev = byItem.get(item.name) || { name: item.name, qty: 0, amount: 0 };
             prev.qty += item.qty;
             prev.amount += item.price * item.qty;
@@ -4819,9 +4851,10 @@
             return;
           }
           const sorted = [...filtered].sort((a, b) => (a.category || '').localeCompare(b.category || '') || String(a.name || '').localeCompare(String(b.name || '')));
+          const costInfo = this.menuCostInfo();
           list.innerHTML = sorted.map(item => {
             const soldOut = this.soldOutItems.includes(item.name);
-            const noCost = !item.cost;
+            const noCost = (costInfo[item.sku] || {}).source === 'none';
             // ป้ายบอกสถานะตอนนี้ (In stock / Sold out) กับปุ่มบอกสถานะหลังกด (Available / Not available)
             // จงใจใช้คำคนละชุด ถ้าใช้คำเดียวกันสองที่จะอ่านสลับกันว่าอันไหนคือของตอนนี้
             return `
@@ -4904,6 +4937,12 @@
             + '<div class="flex-1"><label class="text-sm font-bold text-slate-500 mb-1 block">ต้นทุน (ถ้ามี)</label>'
             + '<input id="prod-cost" type="number" step="0.01" class="w-full border border-sand rounded-xl p-2.5" value="' + (Number(it.cost) || 0) + '"></div>'
             + '</div>'
+            + (() => {
+                const c = it.sku ? this.menuCostInfo()[it.sku] : null;
+                return c && c.source === 'recipe'
+                  ? '<p class="text-xs font-bold text-slate-400 -mt-1 mb-3">รายงานใช้ต้นทุนจากสูตร ฿' + c.cost.toFixed(2) + ' — ช่องนี้ใช้เมื่อยังไม่มีสูตร</p>'
+                  : '';
+              })()
             + '<label class="text-sm font-bold text-slate-500 mb-1 block">รูปสินค้า (ถ้ามี)</label>'
             + '<img id="prod-image-preview" src="' + q(it.image) + '" class="' + (it.image ? '' : 'hidden ') + 'w-20 h-20 object-cover border border-sand rounded-xl bg-white mb-2">'
             + '<input type="file" accept="image/*" onchange="Controller.handleProductImageUpload(event)" class="w-full text-xs text-slate-500 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-bold mb-1">'
@@ -8345,6 +8384,7 @@ renderReport(r) {
             let totalCost = 0;
             let totalProfit = 0;
             let wasteCost = 0;
+            const costInfo = this.menuCostInfo();
 
             combined.forEach(order => {
               const orderDateStr = new Date(order.timestamp).toLocaleDateString();
@@ -8353,8 +8393,8 @@ renderReport(r) {
               order.items.forEach(item => {
                  if (item.cancelled) return; // ข้ามรายการที่ถูกยกเลิกไปแล้ว
                  //  หาต้นทุนจาก menuData โดยใช้ SKU (เพราะประวัติที่ดึงจากเซิร์ฟเวอร์ไม่ได้เก็บต้นทุนไว้)
-                 const menuProduct = this.menuData.find(m => m.sku === item.sku);
-                 const itemCost = menuProduct ? (menuProduct.cost || 0) : (item.cost || 0);
+                 const c = costInfo[item.sku];
+                 const itemCost = c ? c.cost : (item.cost || 0);
 
                  if (isWaste) {
                    wasteCost += itemCost * item.qty;
