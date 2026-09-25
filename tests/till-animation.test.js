@@ -1226,6 +1226,64 @@ test('the cost page adds per-cup extras to the recipe cost and lists them in the
   assert.ok(card.includes('+ เพิ่มค่าอื่น'));
 });
 
+// รายงานใช้ต้นทุนจากสูตรก่อน ถ้าราคาวัตถุดิบครบ ไม่งั้นใช้ที่กรอกเอง ป้าย "ใช้ในรายงาน" ต้องบอกตรงกับที่ใช้จริง
+function costFixture(C) {
+  C.menuData = [
+    { sku: 'A', name: 'ลาเต้', price: 60, cost: 12 },
+    { sku: 'B', name: 'ชาไทย', price: 55, cost: 9 },
+    { sku: 'C', name: 'โกโก้', price: 55, cost: 15 },
+    { sku: 'D', name: 'น้ำเปล่า', price: 10, cost: 0 },
+  ];
+  C.inventoryData = [
+    { id: 'milk', name: 'นมสด', purchase_price: 60, purchase_factor: 1000 },
+    { id: 'tea', name: 'ผงชา', purchase_price: 0, purchase_factor: 500 },
+  ];
+  C.shopInfo = { costExtras: JSON.stringify([{ id: 'ice', name: 'น้ำแข็ง', price: 1 }]) };
+  C.recipes = [
+    { menu_sku: 'A', inventory_item_id: 'milk', qty: 150 },
+    { menu_sku: 'A', inventory_item_id: 'extra:ice', qty: 1 },
+    { menu_sku: 'B', inventory_item_id: 'tea', qty: 15 },
+  ];
+}
+
+test('menus with a fully priced recipe report the recipe cost, the rest fall back to the typed cost', () => {
+  const { C } = loadController({ realHelpers: true });
+  costFixture(C);
+  const info = C.menuCostInfo();
+  assert.equal(info.A.source, 'recipe');
+  assert.ok(Math.abs(info.A.cost - 10) < 1e-9, 'นม 150ml ฿9 + น้ำแข็ง ฿1');
+  assert.equal(info.B.source, 'typed', 'ผงชายังไม่ใส่ราคา ใช้ที่กรอกไว้');
+  assert.equal(info.B.cost, 9);
+  assert.equal(info.C.source, 'typed');
+  assert.equal(info.D.source, 'none');
+});
+
+test('the cost page tags whichever cost the reports use', () => {
+  const { C, el } = loadController({ realHelpers: true });
+  costFixture(C);
+  C.renderCostTable();
+  const html = el('cost-list').innerHTML;
+  assert.ok(html.includes('ต้นทุนจากสูตร'), 'หัวคอลัมน์ต้องบอกว่าตัวไหนมาจากสูตร');
+  assert.ok(/฿10\.00 <span class="set-tag set-tag-ok">ใช้ในรายงาน/.test(html), 'ลาเต้: ป้ายอยู่ที่ต้นทุนจากสูตร');
+  assert.ok(/฿9\.00 <span class="set-tag set-tag-ok">ใช้ในรายงาน/.test(html), 'ชาไทย: ป้ายอยู่ที่ต้นทุนที่กรอก');
+  assert.ok(html.includes('รายงานใช้ต้นทุนที่กรอกไว้แทน'), 'และบอกว่าทำไม');
+  assert.ok(/฿15\.00 <span class="set-tag set-tag-ok">ใช้ในรายงาน/.test(html), 'โกโก้ไม่มีสูตร: ป้ายอยู่ที่ต้นทุนที่กรอก');
+  assert.ok(html.includes('84%'), 'กำไรชาไทยคิดจากต้นทุนที่กรอก 9 จากราคา 55');
+  assert.ok(html.includes('73%'), 'กำไรโกโก้คิดจากต้นทุนที่กรอก 15 จากราคา 55');
+});
+
+test('the menu list warns about a missing cost only when there is neither a recipe nor a typed cost', () => {
+  const { C, el } = loadController({ realHelpers: true });
+  costFixture(C);
+  C.menuData[0].cost = 0; // ลาเต้ไม่ได้กรอก แต่มีสูตรครบ
+  C.soldOutItems = [];
+  C.renderProductList();
+  const html = el('product-list').innerHTML;
+  const warnings = html.split('ยังไม่ระบุต้นทุน').length - 1;
+  assert.equal(warnings, 1, 'มีแค่น้ำเปล่าที่ไม่มีทั้งสูตรและต้นทุน');
+  assert.ok(html.indexOf('ยังไม่ระบุต้นทุน') > html.indexOf('น้ำเปล่า'));
+});
+
 test('the recipe form shows each extra as a tap button, pressed when the menu already uses it', () => {
   const { C } = loadController({ realHelpers: true });
   C.shopInfo = { costExtras: JSON.stringify([{ id: 'x1', name: 'น้ำแข็ง', price: 1 }, { id: 'x2', name: 'หลอด', price: 0.3 }]) };

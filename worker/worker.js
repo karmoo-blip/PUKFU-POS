@@ -1134,6 +1134,74 @@ handlers.getPOSDataByDate = async (env, args) => {
   return posDataForDay(env, day || bkkToday());
 };
 
+// ต้นทุนต่อแก้วที่รายงานใช้ ต่อ sku: สูตรที่ใส่ราคาวัตถุดิบครบ (รวมค่าอื่นๆ ต่อแก้ว เช่น น้ำแข็ง หลอด) มาก่อน
+// ไม่มีสูตร หรือวัตถุดิบบางตัวยังไม่ใส่ราคา ใช้ต้นทุนที่กรอกเองในหน้าสินค้าแทน
+// ต้องคิดแบบเดียวกับ recipeCost + unitCost ใน pure-helpers.js ทุกขั้น (tests/report-cost.test.js เทียบสองฝั่งไว้)
+// worker ของ PeePukFu รันในเบราว์เซอร์แบบไม่ผ่าน bundler จึง import ไฟล์นั้นตรงๆ ไม่ได้
+const COST_EXTRA_PREFIX = "extra:";
+
+function inventoryUnitCost(item) {
+  if (!item) return null;
+  const price = Number(item.purchase_price);
+  if (!Number.isFinite(price) || price <= 0) return null;
+  const factor = Number(item.purchase_factor);
+  return price / (Number.isFinite(factor) && factor > 0 ? factor : 1);
+}
+
+function parseCostExtrasRaw(raw) {
+  let list;
+  try { list = JSON.parse(raw || "[]"); } catch (e) { return {}; }
+  const byId = {};
+  if (!Array.isArray(list)) return byId;
+  for (const x of list) {
+    if (!x || !x.id || !String(x.name || "").trim()) continue;
+    byId[String(x.id)] = Math.max(0, Number(x.price) || 0);
+  }
+  return byId;
+}
+
+// คืนต้นทุนรวมของสูตร หรือ null ถ้ามีวัตถุดิบที่ยังไม่รู้ราคา
+function recipeTotal(rows, inventoryById, extraPriceById) {
+  let sum = 0;
+  for (const row of rows) {
+    const id = String(row.inventory_item_id || "");
+    const qty = Number(row.qty) || 0;
+    if (id.startsWith(COST_EXTRA_PREFIX)) {
+      const price = extraPriceById[id.slice(COST_EXTRA_PREFIX.length)];
+      if (price !== undefined) sum += price * qty;
+      continue;
+    }
+    const cost = inventoryUnitCost(inventoryById[id]);
+    if (cost === null) return null;
+    sum += cost * qty;
+  }
+  return sum;
+}
+
+async function menuCostMap(env) {
+  const [menuR, recipeR, invR, extrasRow] = await Promise.all([
+    env.DB.prepare("SELECT sku, cost FROM menu").all(),
+    env.DB.prepare("SELECT menu_sku, inventory_item_id, qty FROM recipes").all(),
+    env.DB.prepare("SELECT id, purchase_price, purchase_factor FROM inventory").all(),
+    env.DB.prepare("SELECT value FROM shop_info WHERE key = 'costExtras'").first(),
+  ]);
+  const inventoryById = {};
+  for (const it of invR.results || []) inventoryById[it.id] = it;
+  const extraPriceById = parseCostExtrasRaw(extrasRow && extrasRow.value);
+  const recipesBySku = {};
+  for (const r of recipeR.results || []) (recipesBySku[r.menu_sku] = recipesBySku[r.menu_sku] || []).push(r);
+
+  const costMap = {};
+  for (const m of menuR.results || []) {
+    const rows = recipesBySku[m.sku];
+    const fromRecipe = rows && rows.length ? recipeTotal(rows, inventoryById, extraPriceById) : null;
+    costMap[m.sku] = fromRecipe !== null ? fromRecipe : Number(m.cost) || 0;
+  }
+  return costMap;
+}
+
+handlers.getMenuCostMap = async (env) => menuCostMap(env);
+
 async function summaryByRange(env, start, end) {
   const startDay = dayStr(start);
   const endDay = dayStr(end, startDay);
@@ -1197,9 +1265,7 @@ async function summaryByRange(env, start, end) {
     closedInRange = false;
   }
 
-  const menuR = await env.DB.prepare("SELECT sku, cost FROM menu").all();
-  const costMap = {};
-  for (const m of menuR.results) costMap[m.sku] = m.cost || 0;
+  const costMap = await menuCostMap(env);
 
   const topMap = {};
   for (const s of sales.results) {

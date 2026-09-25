@@ -70,6 +70,9 @@ jobs:
         env:
           APP_UPDATE_PRIVATE_KEY: ${{ secrets.APP_UPDATE_PRIVATE_KEY }}
         run: node scripts/build-update.js dist/app-update
+      # หน้าเว็บใช้เลขเวอร์ชันเดียวกับไฟล์อัปเดตข้างบน ปุ่ม "ตรวจหาอัปเดต" บนคอมจะได้รู้ว่ามีของใหม่
+      - name: Stamp web version
+        run: node scripts/stamp-web-version.js dist
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:
