@@ -1138,7 +1138,9 @@ test('the product list shows stock state and the buttons to change it', () => {
 
   assert.ok(html.includes('In stock') && html.includes('Sold out'), 'ต้องบอกสถานะทั้งสองแบบ');
   assert.ok(html.includes('Not available') && html.includes('Available'), 'ต้องกดสลับได้จากแถวเลย ไม่ต้องเข้าโหมดก่อน');
-  assert.ok(html.includes('ยังไม่ระบุต้นทุน'), 'สินค้าที่ไม่มีต้นทุนต้องถูกทำเครื่องหมายไว้');
+  // หน้าสินค้าในเมนูไว้เพิ่ม/แก้เมนูอย่างเดียว ต้นทุนกับสูตรอยู่หน้าต้นทุนเมนูที่เดียว
+  assert.ok(!html.includes('ยังไม่ระบุต้นทุน'), 'คำเตือนต้นทุนย้ายไปหน้าต้นทุนเมนูแล้ว');
+  assert.ok(!html.includes('openRecipeForm'), 'ไม่มีปุ่มสูตรในหน้าสินค้าแล้ว');
 });
 
 test('an empty sweetness list warns that ordering will be blocked', () => {
@@ -1203,7 +1205,7 @@ test('the cost page puts menus with no recipe first, with a way to fix them', ()
   const html = el('cost-list').innerHTML;
 
   assert.ok(html.indexOf('ชานม') < html.indexOf('ลาเต้'), 'เมนูที่ยังไม่มีสูตรต้องอยู่บนสุด');
-  assert.ok(html.includes('ใส่สูตร'), 'และต้องมีปุ่มลัดไปใส่สูตร');
+  assert.ok(html.includes('ใส่ต้นทุน'), 'และต้องมีปุ่มลัดไปใส่ต้นทุน');
   assert.ok(el('cost-summary').innerText.includes('จากทั้งหมด 2 เมนู'));
 });
 
@@ -1272,16 +1274,18 @@ test('the cost page tags whichever cost the reports use', () => {
   assert.ok(html.includes('73%'), 'กำไรโกโก้คิดจากต้นทุนที่กรอก 15 จากราคา 55');
 });
 
-test('the menu list warns about a missing cost only when there is neither a recipe nor a typed cost', () => {
-  const { C, el } = loadController({ realHelpers: true });
-  costFixture(C);
-  C.menuData[0].cost = 0; // ลาเต้ไม่ได้กรอก แต่มีสูตรครบ
-  C.soldOutItems = [];
-  C.renderProductList();
-  const html = el('product-list').innerHTML;
-  const warnings = html.split('ยังไม่ระบุต้นทุน').length - 1;
-  assert.equal(warnings, 1, 'มีแค่น้ำเปล่าที่ไม่มีทั้งสูตรและต้นทุน');
-  assert.ok(html.indexOf('ยังไม่ระบุต้นทุน') > html.indexOf('น้ำเปล่า'));
+// ฟอร์มสินค้าไม่มีช่องต้นทุนแล้ว บันทึกสินค้าต้องไม่ส่ง cost ไป ไม่งั้นต้นทุนที่กรอกไว้หน้าต้นทุนเมนูจะถูกล้าง
+test('saving a product from the menu page never sends a cost', () => {
+  const { C, el, calls } = loadController({});
+  C.showProductForm({ sku: 'A', name: 'ลาเต้', price: 60, cost: 12, category: '' });
+  el('prod-sku').value = 'A'; el('prod-name').value = 'ลาเต้'; el('prod-lang2').value = ''; el('prod-lang3').value = '';
+  el('prod-category').value = ''; el('prod-price').value = '65';
+  C.editingProductImage = '';
+  C.saveProductForm();
+  const call = calls.find(c => c.fn === 'saveMenuItem');
+  assert.ok(call, 'ต้องบันทึกสินค้า');
+  assert.equal(call.args[0].price, 65);
+  assert.ok(!('cost' in call.args[0]), 'ห้ามส่ง cost ไปทับค่าเดิม');
 });
 
 test('the recipe form shows each extra as a tap button, pressed when the menu already uses it', () => {

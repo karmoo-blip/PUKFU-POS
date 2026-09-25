@@ -214,13 +214,15 @@ handlers.saveMenuItem = async (env, args) => {
   if (!sku) return { success: false, error: "กรุณาระบุรหัสสินค้า (SKU)" };
   if (!name) return { success: false, error: "กรุณาระบุชื่อสินค้า" };
   const price = Number(m.price) || 0;
-  const cost = Number(m.cost) || 0;
   const category = String(m.category || "").trim();
   const lang2 = String(m.lang2 || "").trim();
   const lang3 = String(m.lang3 || "").trim();
   const image = String(m.image || "").trim();
   const existing = await env.DB.prepare("SELECT * FROM menu WHERE sku = ?").bind(sku).first();
   if (m.isNew && existing) return { success: false, error: "มีรหัสสินค้านี้อยู่แล้ว" };
+  // ฟอร์มสินค้าไม่มีช่องต้นทุนแล้ว (ย้ายไปหน้าต้นทุนเมนู ดู saveMenuCost) ไม่ส่งมา = คงค่าเดิม ไม่ใช่ล้างเป็น 0
+  const costGiven = m.cost !== undefined && m.cost !== null && m.cost !== "";
+  const cost = costGiven ? Number(m.cost) || 0 : Number(existing && existing.cost) || 0;
   if (existing) {
     await env.DB.prepare("UPDATE menu SET name=?, price=?, image=?, lang2=?, lang3=?, category=?, cost=? WHERE sku=?")
       .bind(name, price, image, lang2, lang3, category, cost, sku).run();
@@ -234,6 +236,21 @@ handlers.saveMenuItem = async (env, args) => {
     : `เพิ่มสินค้าใหม่ ราคา ${price} ต้นทุน ${cost}`;
   await logChange(env, actor, "menu", existing ? "update" : "create", name || sku, details);
   return { success: true, sku };
+};
+
+// ต้นทุนที่กรอกเองของเมนูหนึ่ง แก้จากหน้าต้นทุนเมนู รายงานใช้ตัวนี้เมื่อสูตรยังไม่ครบ
+handlers.saveMenuCost = async (env, args) => {
+  const a = args[0] || {};
+  const sku = String(a.sku || "").trim();
+  const cost = Number(a.cost);
+  if (!sku) return { success: false, error: "missing sku" };
+  if (!Number.isFinite(cost) || cost < 0) return { success: false, error: "ต้นทุนต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป" };
+  const existing = await env.DB.prepare("SELECT name, cost FROM menu WHERE sku = ?").bind(sku).first();
+  if (!existing) return { success: false, error: "ไม่พบสินค้านี้" };
+  if ((Number(existing.cost) || 0) === cost) return { success: true, unchanged: true };
+  await env.DB.prepare("UPDATE menu SET cost = ? WHERE sku = ?").bind(cost, sku).run();
+  await logChange(env, a.actorName || "", "menu", "update", existing.name || sku, diffFields(existing, { cost }, ["cost"]));
+  return { success: true };
 };
 
 handlers.deleteMenuItem = async (env, args) => {
