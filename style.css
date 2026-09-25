@@ -1340,6 +1340,20 @@
     .recipe-extra[aria-pressed="true"] { background: var(--color-primary); border-color: var(--color-primary); color: #ffffff; }
     .recipe-extra[aria-pressed="true"]::before { content: '✓ '; }
     .recipe-extra:active { transform: scale(.97); }
+    /* หน้าต่างแก้ต้นทุนบนคอม: แบบ ก ในม็อกอัป คอลัมน์เดียวเหมือนมือถือ แค่กว้างและตัวใหญ่ขึ้น
+       เดิมกว้าง 384px เท่ามือถือ บนจอคอมตัวหนังสือกับช่องกรอกเล็กเกินอ่านจากหน้าเคาน์เตอร์ */
+    @media (min-width: 1024px) {
+      #modal-recipe-form > div { max-width: 640px; padding: 32px; }
+      #modal-recipe-form h3 { font-size: 24px; }
+      #modal-recipe-form p { font-size: 14px; }
+      #modal-recipe-form .recipe-row { gap: 12px; margin-bottom: 10px; }
+      #modal-recipe-form select, #modal-recipe-form input { min-height: 48px; padding: 12px; font-size: 16px; }
+      #modal-recipe-form .recipe-ing-qty { width: 110px; }
+      #modal-recipe-form .recipe-ing-cost { width: 90px; font-size: 15px; }
+      #modal-recipe-form .recipe-extra { min-height: 48px; padding: 0 18px; font-size: 15px; }
+      #modal-recipe-form button.flex-1 { padding: 14px 0; font-size: 17px; }
+      #recipe-cost-total { font-size: 22px; }
+    }
     .cost-note { margin-top: 12px; padding: 12px 14px; border-radius: 14px; background: #fff7ed; }
     .cost-note p { margin: 0; font-size: 11px; font-weight: 700; color: #c2410c; }
     .cost-note p + p { margin-top: 6px; }

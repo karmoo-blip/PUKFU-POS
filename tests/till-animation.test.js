@@ -1288,6 +1288,16 @@ test('saving a product from the menu page never sends a cost', () => {
   assert.ok(!('cost' in call.args[0]), 'ห้ามส่ง cost ไปทับค่าเดิม');
 });
 
+// node ไม่มี layout engine ตรวจได้แค่ว่ากฎยังอยู่: หน้าต่างแก้ต้นทุนบนคอมต้องกว้างกว่ามือถือ
+test('the cost window is wider and larger on a computer screen', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
+  const block = css.slice(css.indexOf('#modal-recipe-form > div { max-width: 640px'));
+  assert.ok(block.length > 0, 'ต้องมีกฎขยายหน้าต่างแก้ต้นทุน');
+  const media = css.lastIndexOf('@media (min-width: 1024px)', css.indexOf('#modal-recipe-form > div { max-width: 640px'));
+  assert.ok(media > 0 && css.indexOf('#modal-recipe-form > div { max-width: 640px') - media < 400, 'ต้องอยู่ในกฎของจอคอมเท่านั้น มือถือคงเดิม');
+  assert.ok(/#modal-recipe-form select, #modal-recipe-form input \{ min-height: 48px/.test(css), 'ช่องกรอกสูง 48px');
+});
+
 test('the recipe form shows each extra as a tap button, pressed when the menu already uses it', () => {
   const { C } = loadController({ realHelpers: true });
   C.shopInfo = { costExtras: JSON.stringify([{ id: 'x1', name: 'น้ำแข็ง', price: 1 }, { id: 'x2', name: 'หลอด', price: 0.3 }]) };
