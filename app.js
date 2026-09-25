@@ -2929,12 +2929,107 @@
         this.renderCostTable();
       },
 
+      // การ์ด "ค่าอื่นๆ ต่อแก้ว" บนหน้าต้นทุนเมนู เก็บทั้งรายการเป็น JSON ก้อนเดียวใน shop_info.costExtras
+      renderCostExtras(extras) {
+        const host = document.getElementById('cost-extras-card');
+        if (!host) return;
+        const usedIn = id => new Set((this.recipes || [])
+          .filter(r => r.inventory_item_id === COST_EXTRA_PREFIX + id).map(r => r.menu_sku)).size;
+        host.innerHTML = '<p class="set-card-t">ค่าอื่นๆ ต่อแก้ว</p>'
+          + '<p class="set-card-sub">ของที่ไม่นับสต๊อก เช่น น้ำแข็ง หลอด แก้ว แก้ราคาที่นี่ที่เดียว ทุกเมนูที่เลือกไว้เปลี่ยนตาม</p>'
+          + (extras.length ? extras.map(x => `
+            <div class="cost-extra-row">
+              <div class="min-w-0" style="flex:1 1 auto">
+                <p class="set-row-t">${escHtml(x.name)}</p>
+                <p class="set-row-s">ใช้ใน ${usedIn(x.id)} เมนู</p>
+              </div>
+              <span class="cost-extra-price">฿${x.price.toFixed(2)}</span>
+              <button onclick="Controller.openCostExtraForm('${escAttr(x.id)}')" class="set-btn set-btn-sm set-btn-soft">แก้</button>
+            </div>`).join('') : '<div class="set-empty">ยังไม่มี — เพิ่มน้ำแข็ง หลอด แก้ว แล้วไปแตะเลือกในสูตรของแต่ละเมนู</div>')
+          + '<div class="set-savebar"><button onclick="Controller.openCostExtraForm()" class="set-btn set-btn-go">+ เพิ่มค่าอื่น</button></div>';
+      },
+
+      openCostExtraForm(id) {
+        const extras = parseCostExtras(this.shopInfo && this.shopInfo.costExtras);
+        const it = id ? extras.find(x => x.id === id) : null;
+        if (id && !it) return;
+        this.editingCostExtraId = it ? it.id : null;
+        const old = document.getElementById('modal-cost-extra');
+        if (old) old.remove();
+        const wrap = document.createElement('div');
+        wrap.id = 'modal-cost-extra';
+        wrap.className = 'modal-opening fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
+        wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-xl">'
+          + '<h3 class="font-bold text-lg text-secondary mb-4">' + (it ? 'แก้ค่าอื่น' : 'เพิ่มค่าอื่น') + '</h3>'
+          + '<label class="text-sm font-bold text-slate-500 mb-1 block">ชื่อ</label>'
+          + '<input id="cost-extra-name" maxlength="40" placeholder="เช่น น้ำแข็ง หลอด แก้ว 16oz" class="w-full border border-sand rounded-xl p-2.5 mb-3" value="' + escAttr(it ? it.name : '') + '">'
+          + '<label class="text-sm font-bold text-slate-500 mb-1 block">ราคาต่อแก้ว (บาท)</label>'
+          + '<input id="cost-extra-price" type="number" min="0" step="0.01" inputmode="decimal" class="w-full border border-sand rounded-xl p-2.5 mb-5" value="' + (it ? it.price : '') + '">'
+          + '<div class="flex gap-2">'
+          + '<button onclick="Controller.closeCostExtraForm()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
+          + '<button onclick="Controller.saveCostExtraForm()" class="flex-1 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl py-2.5 font-bold hover:brightness-110 transition">บันทึก</button>'
+          + '</div>'
+          + (it ? '<button onclick="Controller.deleteCostExtra()" class="w-full text-sm font-bold text-red-400 hover:underline mt-4">ลบรายการนี้</button>' : '')
+          + '</div>';
+        document.body.appendChild(wrap);
+        if (!it) document.getElementById('cost-extra-name').focus();
+      },
+
+      closeCostExtraForm() {
+        const m = document.getElementById('modal-cost-extra');
+        if (m) m.remove();
+      },
+
+      async saveCostExtraForm() {
+        const name = document.getElementById('cost-extra-name').value.trim();
+        const priceRaw = document.getElementById('cost-extra-price').value;
+        const price = Number(priceRaw);
+        if (!name) return this.showAlert('ใส่ชื่อก่อน', '');
+        if (priceRaw === '' || !Number.isFinite(price) || price < 0) return this.showAlert('ใส่ราคาเป็นตัวเลข', '');
+        const extras = parseCostExtras(this.shopInfo && this.shopInfo.costExtras);
+        const id = this.editingCostExtraId;
+        const next = id
+          ? extras.map(x => x.id === id ? { id, name, price } : x)
+          : extras.concat([{ id: 'X' + Date.now().toString(36), name, price }]);
+        this.closeCostExtraForm();
+        await this._saveCostExtras(next);
+      },
+
+      async deleteCostExtra() {
+        const id = this.editingCostExtraId;
+        const extras = parseCostExtras(this.shopInfo && this.shopInfo.costExtras);
+        const it = extras.find(x => x.id === id);
+        if (!it) return;
+        const ok = await this.showConfirm(this.tf('ลบ "{x}" ออกจากต้นทุนทุกเมนูที่เลือกไว้ใช่ไหม', it.name), '');
+        if (!ok) return;
+        this.closeCostExtraForm();
+        await this._saveCostExtras(extras.filter(x => x.id !== id));
+      },
+
+      async _saveCostExtras(list) {
+        const json = JSON.stringify(list);
+        this.showLoading();
+        try {
+          const res = await this.saveShopInfoRemote({ costExtras: json });
+          if (res && res.success === false) throw new Error(res.error || '');
+          this.shopInfo.costExtras = json;
+          this.cacheShopInfo();
+          this.hideLoading();
+          this.renderCostTable();
+        } catch (e) {
+          this.hideLoading();
+          this.showAlert('บันทึกไม่สำเร็จ ลองใหม่อีกครั้ง', '');
+        }
+      },
+
       renderCostTable() {
         const host = document.getElementById('cost-list');
         if (!host) return;
 
         const byId = {};
         for (const inv of (this.inventoryData || [])) byId[inv.id] = inv;
+        const extras = parseCostExtras(this.shopInfo && this.shopInfo.costExtras);
+        this.renderCostExtras(extras);
 
         const recipesBySku = {};
         for (const r of (this.recipes || [])) (recipesBySku[r.menu_sku] ||= []).push(r);
@@ -2957,7 +3052,7 @@
           const recipeRows = recipesBySku[m.sku] || [];
           if (recipeRows.length === 0) { noRecipe.push(m.name); continue; }
 
-          const result = recipeCost(recipeRows, byId);
+          const result = recipeCost(recipeRows, byId, extras);
           const typed = Number(m.cost) || 0;
           const price = Number(m.price) || 0;
           const computed = result.total;
@@ -4856,6 +4951,31 @@
             + '</div>';
         },
 
+        // ค่าอื่นๆ ต่อแก้ว (น้ำแข็ง หลอด แก้ว) เป็นปุ่มใหญ่ให้แตะเลือก นับ 1 ชิ้นต่อแก้วเสมอ
+        // รายการกลางตั้งที่หน้าต้นทุนเมนู แก้ราคาที่นั่นทีเดียว ทุกเมนูที่เลือกไว้เปลี่ยนตาม
+        _recipeExtrasHtml(pickedIds) {
+          const extras = parseCostExtras(this.shopInfo && this.shopInfo.costExtras);
+          if (extras.length === 0) {
+            return '<p class="text-xs text-slate-400 mb-3">ยังไม่มีค่าอื่นๆ ต่อแก้ว (น้ำแข็ง หลอด แก้ว) — เพิ่มได้ที่หน้าต้นทุนเมนู</p>';
+          }
+          return '<p class="text-xs font-bold text-slate-400 mb-2">ค่าอื่นๆ ต่อแก้ว — แตะเพื่อเลือก</p>'
+            + '<div id="recipe-extras" class="flex flex-wrap gap-2 mb-3">'
+            + extras.map(x => '<button type="button" data-extra-id="' + escAttr(x.id) + '" aria-pressed="' + (pickedIds.has(x.id) ? 'true' : 'false') + '"'
+              + ' onclick="Controller.toggleRecipeExtra(this)" class="recipe-extra">'
+              + escHtml(x.name) + ' ฿' + x.price.toFixed(2) + '</button>').join('')
+            + '</div>';
+        },
+
+        toggleRecipeExtra(btn) {
+          btn.setAttribute('aria-pressed', btn.getAttribute('aria-pressed') === 'true' ? 'false' : 'true');
+          this.updateRecipeCostPreview();
+        },
+
+        _pickedRecipeExtras() {
+          return Array.from(document.querySelectorAll('#modal-recipe-form .recipe-extra[aria-pressed="true"]'))
+            .map(b => ({ inventory_item_id: COST_EXTRA_PREFIX + b.dataset.extraId, qty: 1 }));
+        },
+
         // คิดต้นทุนสดๆ ตอนแก้สูตร ใช้ราคาวัตถุดิบที่โหลดมาแล้วในเครื่อง ไม่ต้องยิงเซิร์ฟเวอร์
         updateRecipeCostPreview() {
           const wrap = document.getElementById('modal-recipe-form');
@@ -4868,7 +4988,7 @@
             inventory_item_id: el.querySelector('.recipe-ing-select').value,
             qty: Number(el.querySelector('.recipe-ing-qty').value) || 0,
           }));
-          const result = recipeCost(rows.filter(r => r.inventory_item_id && r.qty > 0), byId);
+          const result = recipeCost(rows.filter(r => r.inventory_item_id && r.qty > 0).concat(this._pickedRecipeExtras()), byId, this.shopInfo && this.shopInfo.costExtras);
 
           // ผูกผลลัพธ์กลับเข้าแถวตามลำดับแถว ไม่ใช่ตาม id
           // วัตถุดิบตัวเดียวกันใส่ได้สองแถว (เช่น กาแฟสองช็อต) ถ้าเทียบด้วย id แถวหลังจะทับแถวแรก
@@ -4902,7 +5022,10 @@
           const old = document.getElementById('modal-recipe-form');
           if (old) old.remove();
           this.editingRecipeSku = sku;
-          const rows = (this.recipes || []).filter(r => r.menu_sku === sku);
+          const allRows = (this.recipes || []).filter(r => r.menu_sku === sku);
+          const isExtra = r => String(r.inventory_item_id || '').startsWith(COST_EXTRA_PREFIX);
+          const rows = allRows.filter(r => !isExtra(r));
+          const pickedExtras = new Set(allRows.filter(isExtra).map(r => String(r.inventory_item_id).slice(COST_EXTRA_PREFIX.length)));
           const wrap = document.createElement('div');
           wrap.id = 'modal-recipe-form';
           wrap.className = 'modal-opening fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
@@ -4912,8 +5035,9 @@
             + '<div id="recipe-rows">' + (rows.length ? rows.map(r => this._recipeRowHtml(r.inventory_item_id, r.qty)).join('') : '') + '</div>'
             + (rows.length === 0 ? '<p id="recipe-empty-note" class="text-xs text-slate-400 mb-2">ยังไม่ได้ตั้งสูตรสำหรับสินค้านี้</p>' : '')
             + '<button onclick="Controller.addRecipeRow()" class="text-sm font-bold text-primary hover:underline mb-3 block">+ เพิ่มวัตถุดิบ</button>'
+            + this._recipeExtrasHtml(pickedExtras)
             + '<div class="border-t border-sand pt-3 mb-1 flex justify-between items-center">'
-            + '<span class="text-sm font-bold text-slate-500">ต้นทุนวัตถุดิบต่อแก้ว</span>'
+            + '<span class="text-sm font-bold text-slate-500">ต้นทุนต่อแก้ว</span>'
             + '<span id="recipe-cost-total" class="font-black text-secondary"></span>'
             + '</div>'
             + '<p id="recipe-cost-note" class="text-xs text-amber-500 font-bold mb-4"></p>'
@@ -4942,7 +5066,8 @@
           const ingredients = Array.from(document.querySelectorAll('#modal-recipe-form .recipe-row')).map(row => ({
             inventoryItemId: row.querySelector('.recipe-ing-select').value,
             qty: Number(row.querySelector('.recipe-ing-qty').value) || 0
-          })).filter(ing => ing.inventoryItemId && ing.qty > 0);
+          })).filter(ing => ing.inventoryItemId && ing.qty > 0)
+            .concat(this._pickedRecipeExtras().map(x => ({ inventoryItemId: x.inventory_item_id, qty: 1 })));
           this.closeRecipeForm();
           this.showLoading();
           google.script.run

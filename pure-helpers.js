@@ -49,19 +49,50 @@ function unitCost(item) {
   return price / (Number.isFinite(factor) && factor > 0 ? factor : 1);
 }
 
+// ---- ค่าอื่นๆ ต่อแก้ว (น้ำแข็ง หลอด แก้ว) ----
+// ของที่ไม่นับสต๊อก ตั้งชื่อกับราคาไว้ที่เดียวใน shop_info.costExtras (JSON)
+// สูตรของแต่ละเมนูอ้างถึงด้วยแถว recipes ที่ inventory_item_id = "extra:<id>" จำนวน 1
+const COST_EXTRA_PREFIX = 'extra:';
+
+// shop_info เก็บทุกค่าเป็น TEXT ค่าที่ได้กลับมาจึงเป็น string JSON เสมอ รับได้ทั้ง string และ array
+// ข้อมูลเสียหรือแถวไม่ครบให้ทิ้งไป ไม่โยน error ใส่หน้าต้นทุนทั้งหน้า
+function parseCostExtras(raw) {
+  let list = raw;
+  if (typeof raw === 'string') {
+    try { list = JSON.parse(raw); } catch (e) { return []; }
+  }
+  if (!Array.isArray(list)) return [];
+  return list
+    .filter(x => x && x.id && String(x.name || '').trim())
+    .map(x => ({ id: String(x.id), name: String(x.name).trim(), price: Math.max(0, Number(x.price) || 0) }));
+}
+
 // รวมต้นทุนของสูตรหนึ่งเมนู แยกเป็นรายวัตถุดิบ
 // total เป็น null ถ้ามีวัตถุดิบตัวใดยังไม่มีราคา จะได้ไม่แสดงตัวเลขที่ดูน่าเชื่อแต่ผิด
-function recipeCost(recipeRows, inventoryById) {
+// ค่าอื่นๆ ที่ถูกลบออกจากรายการไปแล้วให้ข้ามเงียบๆ เจ้าของตั้งใจเอาออกเอง ไม่ใช่ราคาหาย
+function recipeCost(recipeRows, inventoryById, costExtras) {
   const rows = Array.isArray(recipeRows) ? recipeRows : [];
   const byId = inventoryById || {};
+  const extrasById = {};
+  for (const x of parseCostExtras(costExtras)) extrasById[x.id] = x;
   const lines = [];
   const missingPrice = [];
   let sum = 0;
 
   for (const row of rows) {
     const id = row.inventory_item_id || row.inventoryItemId || '';
-    const item = byId[id];
     const qty = Number(row.qty) || 0;
+
+    if (id.startsWith(COST_EXTRA_PREFIX)) {
+      const extra = extrasById[id.slice(COST_EXTRA_PREFIX.length)];
+      if (!extra) continue;
+      const subtotal = extra.price * qty;
+      lines.push({ id, name: extra.name, qty, unitCost: extra.price, subtotal, extra: true });
+      sum += subtotal;
+      continue;
+    }
+
+    const item = byId[id];
     const cost = unitCost(item);
     const subtotal = cost === null ? null : cost * qty;
 
@@ -88,5 +119,5 @@ function queueEtaRange(drinksAhead, minutesPerDrink) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ONLINE_ORDER_ENABLED, escAttr, escHtml, bufToHex, sha256Hex, hashPinWithSalt, calcVatBreakdown, unitCost, recipeCost, queueEtaRange };
+  module.exports = { ONLINE_ORDER_ENABLED, escAttr, escHtml, bufToHex, sha256Hex, hashPinWithSalt, calcVatBreakdown, unitCost, recipeCost, parseCostExtras, COST_EXTRA_PREFIX, queueEtaRange };
 }
