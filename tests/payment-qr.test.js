@@ -154,6 +154,7 @@ function loadController(options) {
   const C = sandbox.__Controller;
   const alerts = [];
   C.showAlert = (msg) => { alerts.push(String(msg)); return Promise.resolve(true); };
+  C.showToast = (msg) => { alerts.push(String(msg)); return Promise.resolve(true); };
   C.showConfirm = () => Promise.resolve(true);
   C.showLoading = () => {};
   C.hideLoading = () => {};

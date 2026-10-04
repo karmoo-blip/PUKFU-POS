@@ -1864,7 +1864,7 @@
             ? 'is-active-cat text-white border border-transparent'
             : 'bg-white text-secondary border border-sand hover:bg-accent';
 
-          return `<button onclick="Controller.selectCategory('${cat}')" style="--j:${j}" class="whitespace-nowrap px-5 min-h-[2.75rem] inline-flex items-center justify-center rounded-full font-bold text-sm transition-all active:scale-95 ${btnStyle}"><span${cat === 'All' ? '' : ' data-no-translate'}>${cat}</span></button>`;
+          return `<button onclick="Controller.selectCategory('${cat}')" style="--j:${j}" class="whitespace-nowrap px-5 min-h-[2.75rem] inline-flex items-center justify-center rounded-full font-bold text-sm transition-all active:scale-95 ${btnStyle}"><span${cat === 'All' ? '' : ' data-no-translate'}>${cat === 'All' ? 'ทั้งหมด' : cat}</span></button>`;
         }).join('');
         // ไล่ปุ่มขึ้นมาครั้งเดียวตอนวาดครั้งแรก ฟังก์ชันนี้ถูกเรียกใหม่ทุกครั้งที่กดเปลี่ยนหมวด
         // ถ้าไม่กั้น ปุ่มจะไล่ใหม่ทุกครั้งที่กด และไปแย่งจังหวะกับตัวชี้ที่กำลังเลื่อน
@@ -2085,6 +2085,23 @@
         });
       },
 
+      // ข่าวดีที่ไม่ต้องตัดสินใจอะไร (บันทึกแล้ว พักบิลแล้ว) ไม่ควรหยุดทั้งจอรอคนกดตกลง
+      // ขึ้นแถบเล็กๆ สองวินาทีครึ่งแล้วหายเอง อันใหม่ทับอันเก่า คืน Promise เหมือน showAlert ให้ await ที่มีอยู่ยังใช้ได้
+      // ข้อผิดพลาด คำถาม และอะไรที่มีตัวเลขต้องอ่าน ยังใช้ showAlert ตามเดิม
+      showToast(message) {
+        const bar = document.getElementById('toast-bar');
+        const text = document.getElementById('toast-text');
+        if (!bar || !text) return Promise.resolve(true);
+        text.innerText = message;
+        const pos = document.getElementById('view-pos');
+        bar.classList.toggle('on-till', !!pos && !pos.classList.contains('hidden'));
+        bar.classList.remove('hidden');
+        this.replayClass(bar, 'is-in');
+        clearTimeout(this.toastTimer);
+        this.toastTimer = setTimeout(() => bar.classList.add('hidden'), 2500);
+        return Promise.resolve(true);
+      },
+
       showConfirm(message, icon) {
         return new Promise(resolve => {
           this._openAlertModal({
@@ -2168,7 +2185,7 @@
 
       async showSyncQueueInfo() {
         if (this.syncQueue.length === 0) {
-          await this.showAlert('บิลทั้งหมด sync เข้าระบบเรียบร้อยแล้ว', '');
+          await this.showToast('บิลทั้งหมด sync เข้าระบบเรียบร้อยแล้ว');
           return;
         }
         const list = this.syncQueue.map(o => `- ${o.invoice} (฿${o.total})`).join('\n');
@@ -2610,7 +2627,7 @@
             this.renderPendingOrdersList();
             this.checkPendingOrders();
             this.refreshFromServer();
-            this.showAlert('ยืนยันออเดอร์เรียบร้อยแล้ว บันทึกเข้าระบบขายแล้ว', '');
+            this.showToast('ยืนยันออเดอร์เรียบร้อยแล้ว บันทึกเข้าระบบขายแล้ว');
           })
           .withFailureHandler((err) => { this.hideLoading(); this.showAlert(this.failText(err, 'เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่'), ''); })
           .confirmPendingOrder({ id: o.id, user: userName });
@@ -2630,7 +2647,7 @@
             this.pendingOrders = this.pendingOrders.filter(p => p.id !== o.id);
             this.renderPendingOrdersList();
             this.checkPendingOrders();
-            this.showAlert('ปฏิเสธออเดอร์แล้ว', '');
+            this.showToast('ปฏิเสธออเดอร์แล้ว');
           })
           .withFailureHandler((err) => { this.hideLoading(); this.showAlert(this.failText(err, 'เชื่อมต่อไม่สำเร็จ กรุณาลองใหม่'), ''); })
           .rejectPendingOrder({ id: o.id, reason: reason.trim() });
@@ -3230,7 +3247,7 @@
         google.script.run
           .withSuccessHandler(() => {
             this.setBtnLoading(btn, false);
-            this.showAlert('บันทึกการตั้งค่าคิวแล้ว', '');
+            this.showToast('บันทึกการตั้งค่าคิวแล้ว');
           })
           .withFailureHandler((err) => { this.setBtnLoading(btn, false); this.showAlert(this.failText(err), ''); })
           .saveShopInfo({ queueMinutesPerDrink: perDrink, queueWindowMinutes: windowMin });
@@ -3318,7 +3335,7 @@
           this.cacheShopInfo();
           this.renderPaymentQrPreview();
           this.hideLoading();
-          this.showAlert('อัพโหลดรูป QR ชำระเงินเรียบร้อยแล้ว ลูกค้าจะเห็นรูปนี้ตอนสั่งออนไลน์', '');
+          this.showToast('อัพโหลดรูป QR ชำระเงินเรียบร้อยแล้ว ลูกค้าจะเห็นรูปนี้ตอนสั่งออนไลน์');
         } catch (e) {
           this.hideLoading();
           this.showAlert('อัพโหลดรูป QR ไม่สำเร็จ: ' + ((e && e.message) || 'ไม่ทราบสาเหตุ'), '');
@@ -4609,7 +4626,7 @@
           this.autoLockMinutes = isNaN(v) || v < 0 ? 10 : v;
           localStorage.setItem('pos_autoLockMinutes', this.autoLockMinutes);
           this.resetAutoLockTimer();
-          this.showAlert('บันทึกเวลาล็อกหน้าจอแล้ว', '');
+          this.showToast('บันทึกเวลาล็อกหน้าจอแล้ว');
         },
 
         exportReportPDF() {
@@ -4791,7 +4808,7 @@
               this.hideLoading();
               if (res && res.success) {
                 this.fetchInventory();
-                this.showAlert('บันทึกวัตถุดิบแล้ว', '');
+                this.showToast('บันทึกวัตถุดิบแล้ว');
               } else {
                 this.showAlert((res && res.error) || 'บันทึกไม่สำเร็จ', '');
               }
@@ -4811,7 +4828,7 @@
               if (res && res.success) {
                 this.logPinAttempt('ลบวัตถุดิบ: ' + (item ? item.name : id), true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
                 this.fetchInventory();
-                this.showAlert('ลบวัตถุดิบแล้ว', '');
+                this.showToast('ลบวัตถุดิบแล้ว');
               } else {
                 this.showAlert('ลบไม่สำเร็จ (ไม่พบรายการนี้)', '');
               }
@@ -5003,7 +5020,7 @@
               this.hideLoading();
               if (res && res.success) {
                 this.fetchMenuForAdmin();
-                this.showAlert('บันทึกสินค้าแล้ว', '');
+                this.showToast('บันทึกสินค้าแล้ว');
               } else {
                 this.showAlert((res && res.error) || 'บันทึกไม่สำเร็จ', '');
               }
@@ -5025,7 +5042,7 @@
               if (res && res.success) {
                 this.logPinAttempt('ลบสินค้า: ' + (item ? item.name : sku), true, auth.employee.name);
                 this.fetchMenuForAdmin();
-                this.showAlert('ลบสินค้าแล้ว', '');
+                this.showToast('ลบสินค้าแล้ว');
               } else {
                 this.showAlert((res && res.error) || 'ลบไม่สำเร็จ', '');
               }
@@ -5203,7 +5220,7 @@
               try { localStorage.setItem('pos_menuData', JSON.stringify(this.menuData)); } catch (e) { /* แคชไม่ได้ก็ไม่เป็นไร */ }
             }
             this.hideLoading();
-            this.showAlert('บันทึกสูตรแล้ว', '');
+            this.showToast('บันทึกสูตรแล้ว');
             try {
               this.recipes = await run('getRecipes');
               localStorage.setItem('pos_recipes', JSON.stringify(this.recipes));
@@ -5322,7 +5339,7 @@
               this.hideLoading();
               if (res && res.success) {
                 this.fetchNotifications();
-                this.showAlert('บันทึกแจ้งเตือนแล้ว', '');
+                this.showToast('บันทึกแจ้งเตือนแล้ว');
               } else {
                 this.showAlert((res && res.error) || 'บันทึกไม่สำเร็จ', '');
               }
@@ -5416,7 +5433,7 @@
               this.hideLoading();
               if (res && res.success) {
                 this.logPinAttempt('แก้ไขบิล: ' + data.invoice, true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
-                this.showAlert('บันทึกการแก้ไขแล้ว', '');
+                this.showToast('บันทึกการแก้ไขแล้ว');
                 if (this.historyViewDate) this.loadHistoryDate(this.historyViewDate);
                 else this.fetchServerData();
               } else {
@@ -6034,13 +6051,13 @@ renderReport(r) {
         this.updateSweetnessButtons();
 
         const addBtnNew = document.getElementById('btn-modal-add-cart');
-        if (addBtnNew) addBtnNew.innerText = 'Add to Cart';
+        if (addBtnNew) addBtnNew.innerText = 'ใส่ออเดอร์';
 
         this.openModal('modal-product');
       },
 
       // ความหวานล่าสุดของแต่ละเมนู จำไว้ในเครื่องนี้ ไม่ซิงก์ข้ามเครื่อง
-      // แก้วที่ขายบ่อยจะเหลือแตะการ์ดแล้วกดใส่ตะกร้า สองทีจบ
+      // แก้วที่ขายบ่อยจะเหลือแตะการ์ดแล้วกดใส่ออเดอร์ สองทีจบ
       lastSweetnessMap() {
         if (!this._lastSweetness) {
           try { this._lastSweetness = JSON.parse(localStorage.getItem('pos_lastSweetness') || '{}') || {}; }
@@ -6459,7 +6476,7 @@ renderReport(r) {
           items: [...this.cart], total, summary: name
         });
         this.cart = []; this.hideUndo(); this.saveLocalState(); this.renderCart();
-        this.showAlert('เก็บเป็นบิลค้างชำระแล้ว', '');
+        this.showToast('เก็บเป็นบิลค้างชำระแล้ว');
       },
 
       openHeldOrdersModal(e) {
@@ -6758,7 +6775,7 @@ renderReport(r) {
         // รับมาแล้วแต่ไม่พอ ช่องเงินทอนบอกว่าขาดอีกเท่าไร แทนที่จะโชว์ 0 เฉยๆ ให้คนเดาเอง
         const short = received > 0 && change < 0;
         const changeLabel = document.getElementById('cash-change-label');
-        if (changeLabel) changeLabel.innerText = short ? 'ขาดอีก' : 'Change:';
+        if (changeLabel) changeLabel.innerText = short ? 'ขาดอีก' : 'เงินทอน';
         const changeEl = document.getElementById('cash-change');
         if (changeEl) {
           // ช่องนี้เป็นจำนวนเต็มล้วน ไม่ใช่ยอดเงินที่มีทศนิยม จึงไม่ส่ง money
@@ -6771,7 +6788,7 @@ renderReport(r) {
         const submitBtn = document.getElementById('btn-submit-order');
         submitBtn.disabled = change < 0;
         submitBtn.classList.toggle('is-short', change < 0);
-        submitBtn.innerText = short ? 'เงินยังไม่พอ' : 'Confirm Order';
+        submitBtn.innerText = short ? 'เงินยังไม่พอ' : 'ยืนยันรับเงิน';
       },
 
       // แบงก์ที่ลูกค้ายื่นมา บวกเพิ่มจากที่รับไว้แล้ว ยื่นร้อยสองใบก็กดร้อยสองที
@@ -6887,7 +6904,7 @@ renderReport(r) {
         } else if (state === 'paid') {
           btn.innerHTML = '<span class="inline-flex items-center justify-center gap-2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" style="width:1.1em;height:1.1em;flex:none"><path d="M20 6L9 17l-5-5"/></svg>รับเงินแล้ว</span>';
         } else {
-          btn.innerText = 'Confirm Order';
+          btn.innerText = 'ยืนยันรับเงิน';
         }
       },
 
@@ -7187,7 +7204,7 @@ renderReport(r) {
           .saveShopInfo({ ...this.shopInfo, ...receiptSettingsForSync });
 
         this.markPrinterDirty(false);
-        this.showAlert('บันทึกการตั้งค่าเครื่องพิมพ์แล้ว', '');
+        this.showToast('บันทึกการตั้งค่าเครื่องพิมพ์แล้ว');
       },
 
       async handleLogoUpload(event) {
@@ -7205,7 +7222,7 @@ renderReport(r) {
             .withFailureHandler((err) => this.showAlert(this.failText(err, 'ซิงก์โลโก้ไปเครื่องอื่นไม่สำเร็จ (จะเก็บไว้ในเครื่องนี้ก่อน)'), ''))
             .saveShopInfo({ logoBase64: resizedBase64 });
           this.hideLoading();
-          this.showAlert('อัปโหลดโลโก้เรียบร้อยแล้ว', '');
+          this.showToast('อัปโหลดโลโก้เรียบร้อยแล้ว');
         } catch (e) {
           this.hideLoading();
           this.showAlert('อัปโหลดโลโก้ไม่สำเร็จ: ' + e.message, '');
@@ -7269,7 +7286,7 @@ renderReport(r) {
         const printer = this._printerForRole(role);
         const res = await printer.connect();
         if (res.success) {
-          this.showAlert('เชื่อมต่อสำเร็จ: ' + res.name, '');
+          this.showToast('เชื่อมต่อสำเร็จ: ' + res.name);
           localStorage.setItem('pos_btPrinterName_' + (role || 'receipt'), res.name);
         } else {
           this.showAlert('เชื่อมต่อไม่สำเร็จ: ' + res.message, '');
@@ -7441,7 +7458,7 @@ renderReport(r) {
           localStorage.setItem(NativePrinter.storageKey(sheet.role), JSON.stringify(target));
           this.updatePrinterStatusUI(sheet.role);
           this.closePrinterSheet();
-          this.showAlert('เชื่อมต่อสำเร็จ: ' + NativePrinter.describe(target), '');
+          this.showToast('เชื่อมต่อสำเร็จ: ' + NativePrinter.describe(target));
         });
       },
 
@@ -7455,7 +7472,7 @@ renderReport(r) {
         localStorage.removeItem('pos_btPrinterName_' + (role || 'receipt'));
         localStorage.removeItem(NativePrinter.storageKey(role));
         this.updatePrinterStatusUI(role);
-        this.showAlert('ตัดการเชื่อมต่อแล้ว', 'ℹ');
+        this.showToast('ตัดการเชื่อมต่อแล้ว');
       },
 
       async testBTPrint(role) {
@@ -7465,7 +7482,7 @@ renderReport(r) {
         }
         try {
           await printer.printTest(this.receiptSettings);
-          this.showAlert('ส่งหน้าทดสอบสำเร็จ!', '');
+          this.showToast('ส่งหน้าทดสอบสำเร็จ!');
         } catch (e) {
           this.showAlert('พิมพ์ไม่สำเร็จ: ' + e.message, '');
         }
@@ -8319,7 +8336,7 @@ renderReport(r) {
               this.logPinAttempt(`คืนเงิน: ${order.invoice} ฿${amount.toFixed(2)}`, true, userName);
               order.refundedTotal = res.refundedTotal;
               this.renderHistory();
-              this.showAlert('คืนเงินสำเร็จแล้ว', '');
+              this.showToast('คืนเงินสำเร็จแล้ว');
             } else {
               this.showAlert((res && res.error) || 'คืนเงินไม่สำเร็จ', '');
             }
@@ -8836,7 +8853,7 @@ renderReport(r) {
 
         // 2. ปิดหน้าต่างและแจ้งเตือนทันที
         this.closeModal('modal-float-cash');
-        this.showAlert('บันทึกรายการสำเร็จ!', '');
+        this.showToast('บันทึกรายการสำเร็จ!');
         this.logPinAttempt(`${action === 'IN' ? 'นำเงินเข้า' : 'นำเงินออก'}: ฿${total}`, true, userName);
 
         // 3. ส่งขึ้นเซิร์ฟเวอร์ แล้วค่อยรีเฟรช Summary ตอนสำเร็จ
