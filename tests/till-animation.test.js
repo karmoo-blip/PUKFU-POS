@@ -1523,3 +1523,98 @@ test('the till keeps its big totals, big change and 44px cart buttons', () => {
   assert.ok(html.includes('bg-red-50 p-3 rounded-xl mb-3 text-red-500'), 'กล่องเงินทอนยังเป็นสีแดงตามที่เจ้าของร้านขอ');
   for (const n of [20, 50, 100, 500, 1000]) assert.ok(html.includes(`Controller.addCash(${n})`), 'ปุ่มแบงก์ ' + n);
 });
+
+// ---- หน้าขายรอบที่เจ็ด: กดน้อยลงต่อบิล ----
+function sweetButtons(document, FakeEl, names) {
+  const btns = names.map(n => { const b = new FakeEl('sw-' + n, 'button'); b.innerText = n; b.removeAttribute = () => {}; return b; });
+  document.__qa['.mod-btn'] = btns;
+  return btns;
+}
+
+test('a drink opens with the sweetness it was last sold with, and says so', () => {
+  const { C, el, document, FakeEl, localStorage } = loadController({ reducedMotion: true });
+  C.sweetnessLevels = [{ name: 'หวานน้อย' }, { name: 'หวานปกติ' }];
+  const btns = sweetButtons(document, FakeEl, ['หวานน้อย', 'หวานปกติ']);
+  C.menuData = [{ sku: 'TT', name: 'ชาไทย', price: 45 }];
+  C.soldOutItems = [];
+
+  C.selectProduct(0);
+  assert.ok(!btns.some(b => b.getAttribute('data-selected') === 'true' || b.classes.has('text-white')), 'ขายครั้งแรกยังไม่มีอะไรถูกเลือก');
+
+  C.rememberSweetness('TT', 'หวานน้อย');
+  assert.equal(JSON.parse(localStorage.getItem('pos_lastSweetness')).TT, 'หวานน้อย', 'ต้องจำลงเครื่อง');
+
+  C.selectProduct(0);
+  assert.ok(btns[0].classes.has('text-white'), 'ครั้งต่อไปต้องเลือกหวานน้อยให้เลย');
+  assert.ok(!el('modal-sweetness-remembered').classes.has('hidden'), 'ต้องมีป้ายเหมือนครั้งก่อน');
+
+  C.selectSweetness(btns[1]);
+  assert.ok(el('modal-sweetness-remembered').classes.has('hidden'), 'เลือกระดับอื่นแล้วป้ายต้องหาย');
+});
+
+test('a renamed sweetness level is not picked, and editing keeps the line\'s own sweetness', () => {
+  const { C, document, FakeEl } = loadController({ reducedMotion: true });
+  C.sweetnessLevels = [{ name: 'หวานปกติ' }];
+  const btns = sweetButtons(document, FakeEl, ['หวานปกติ']);
+  C.menuData = [{ sku: 'TT', name: 'ชาไทย', price: 45 }];
+  C.soldOutItems = [];
+  C.rememberSweetness('TT', 'หวานน้อยมาก');
+  C.selectProduct(0);
+  assert.ok(!btns[0].classes.has('text-white'), 'ระดับที่จำไว้ไม่มีแล้ว ต้องไม่เดาให้');
+
+  C.rememberSweetness('TT', 'หวานปกติ');
+  C.activeProduct = C.menuData[0];
+  C.editingCartIndex = 0;
+  btns[0].classes.delete('text-white');
+  C.preselectLastSweetness();
+  assert.ok(!btns[0].classes.has('text-white'), 'ตอนแก้ไขรายการเดิมห้ามเอาค่าที่จำไว้มาทับ');
+});
+
+test('removing an item asks nothing, and เอากลับ puts the same line back in place', async () => {
+  const { C, el } = loadController({ reducedMotion: true });
+  let asked = false;
+  C.showConfirm = () => { asked = true; return Promise.resolve(true); };
+  C.cart = [
+    { sku: 'A', name: 'ชาไทย', price: 45, qty: 2, note: 'ความหวาน: หวานน้อย' },
+    { sku: 'B', name: 'มัทฉะ', price: 55, qty: 1, note: 'ความหวาน: หวานปกติ' },
+  ];
+
+  await C.updateQty(1, -1);
+  assert.equal(asked, false, 'ต้องไม่ถาม');
+  assert.equal(C.cart.length, 1);
+  assert.ok(!el('undo-bar').classes.has('hidden'), 'ต้องมีแถบเอากลับ');
+
+  await C.removeFromCart(0);
+  assert.equal(C.cart.length, 0);
+  assert.equal(el('undo-bar-text').innerText, 'ลบ ชาไทย ×2 แล้ว', 'เอากลับได้แค่อันล่าสุด');
+
+  C.undoRemove();
+  assert.equal(C.cart.length, 1);
+  assert.equal(C.cart[0].qty, 2, 'จำนวนเท่าเดิม');
+  assert.equal(C.cart[0].note, 'ความหวาน: หวานน้อย', 'ตัวเลือกเหมือนเดิม');
+  assert.ok(el('undo-bar').classes.has('hidden'));
+  C.hideUndo();
+});
+
+test('holding a bill clears the undo, so a removed item cannot jump into the next bill', async () => {
+  const { C, el } = loadController({ reducedMotion: true });
+  C.showAlert = () => Promise.resolve();
+  C.cart = [{ sku: 'A', name: 'ชาไทย', price: 45, qty: 1, note: '' }, { sku: 'B', name: 'มัทฉะ', price: 55, qty: 1, note: '' }];
+  await C.removeFromCart(0);
+  C.holdCurrentOrder();
+  assert.equal(C.lastRemoved, null);
+  assert.ok(el('undo-bar').classes.has('hidden'));
+});
+
+test('the after-sale choice maps to autoPrint and noReceipt, and loading it does not mark the page dirty', () => {
+  const { C, el } = loadController({});
+  C.setAfterSaleMode('ask', true);
+  assert.ok(!el('printer-save-note').classes.has('is-dirty'), 'เปิดหน้ามาเฉยๆ ต้องไม่ขึ้นว่าแก้แล้ว');
+  C.setAfterSaleMode('none');
+  assert.ok(el('printer-save-note').classes.has('is-dirty'), 'กดเปลี่ยนแล้วต้องเตือนให้บันทึก');
+  assert.equal(C.afterSaleMode, 'none');
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  assert.ok(app.includes("autoPrint: this.afterSaleMode === 'all'"));
+  assert.ok(app.includes("noReceipt: this.afterSaleMode === 'none'"));
+  assert.ok(app.includes("const rsBoolKeys = ['autoPrint', 'noReceipt',"), 'ต้องซิงก์ข้ามเครื่องเหมือน autoPrint');
+});
