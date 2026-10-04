@@ -225,7 +225,13 @@
         </div>
         
         <!-- Cart Footer -->
-        <div class="p-5 border-t border-dashed border-sand bg-white shrink-0">
+        <div class="relative p-5 border-t border-dashed border-sand bg-white shrink-0">
+          <!-- ลบของออกจากตะกร้าแล้วไม่ถาม แต่ให้เวลาห้าวินาทีกดเอากลับ ลอยอยู่เหนือยอดรวม -->
+          <div id="undo-bar" class="undo-bar hidden" role="status" aria-live="polite">
+            <span id="undo-bar-text" class="undo-bar-t" data-no-translate></span>
+            <button type="button" onclick="Controller.undoRemove()" class="undo-bar-b">เอากลับ</button>
+            <span class="undo-bar-line" aria-hidden="true"></span>
+          </div>
           <div class="pos-sum-cups"><span>จำนวน</span><span id="cart-cups">0 แก้ว</span></div>
           <div class="pos-sum-total mb-4">
             <span>รวมสุทธิ</span>
@@ -486,7 +492,16 @@
             </div>
           </div>
           <div style="margin-top:12px;display:flex;flex-direction:column;gap:10px">
-            <label class="set-check"><input type="checkbox" id="printer-auto-print">พิมพ์ใบเสร็จอัตโนมัติเมื่อกดชำระเงิน</label>
+            <!-- หลังปิดบิล: พิมพ์ทุกบิล / ถามทุกครั้ง / ไม่พิมพ์ เก็บเป็น autoPrint + noReceipt สองตัว เครื่องเก่าที่ไม่รู้จัก noReceipt ยังทำงานเหมือนเดิม -->
+            <div>
+              <p class="set-check" style="min-height:0;margin:0 0 8px">หลังปิดบิล</p>
+              <div id="printer-after-sale" class="set-seg" style="flex-wrap:wrap">
+                <button type="button" data-mode="all" onclick="Controller.setAfterSaleMode('all')" class="set-seg-btn">พิมพ์ทุกบิล</button>
+                <button type="button" data-mode="ask" onclick="Controller.setAfterSaleMode('ask')" class="set-seg-btn">ถามทุกครั้ง</button>
+                <button type="button" data-mode="none" onclick="Controller.setAfterSaleMode('none')" class="set-seg-btn">ไม่พิมพ์ใบเสร็จ</button>
+              </div>
+              <p id="printer-after-sale-hint" class="set-row-s" style="margin-top:8px"></p>
+            </div>
             <label class="set-check"><input type="checkbox" id="printer-show-queue">แสดงเลขคิวบนใบเสร็จ (Q01-Q99)</label>
             <label class="set-check"><input type="checkbox" id="printer-print-order-slip">พิมพ์ใบสั่งทำเครื่องดื่ม (บาริสต้า/ห้องครัว)</label>
             <p class="set-row-s" style="margin:-4px 0 0 28px">ใบนี้ออกทันทีที่ปิดบิล ไม่ต้องรอตอบคำถามเรื่องใบเสร็จ</p>
@@ -761,6 +776,7 @@
         <div class="mb-5">
           <p class="font-bold text-sm text-secondary mb-3 flex items-center gap-1">
             Sweetness Level <span class="text-red-500">*</span>
+            <span id="modal-sweetness-remembered" class="sweet-remembered hidden">เหมือนครั้งก่อน</span>
           </p>
           <div id="modal-sweetness-container" class="flex flex-wrap gap-2">
             <!-- Sweetness levels will be populated here -->

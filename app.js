@@ -1796,7 +1796,7 @@
 
             // ดึงการตั้งค่าเครื่องพิมพ์ที่ซิงก์มาจาก shop_info ก้อนเดียวกัน (ไม่มีตารางแยก เก็บรวมกันไว้)
             // merge ทับของเดิมในเครื่อง ไม่ replace ทั้งก้อน กันกรณีเครื่องนี้ยังไม่เคยซิงก์ค่าพวกนี้ขึ้นไปเลย
-            const rsBoolKeys = ['autoPrint', 'showQueue', 'printOrderSlip', 'showLogo', 'showHeader', 'showBranch', 'showCompany', 'showBranchNo', 'showAddress', 'showTaxId', 'showPhone', 'showDocTitle', 'showPosId', 'showInvoiceNo', 'showStaff', 'showDateTime', 'showItemNote', 'showSummary', 'showPayment', 'showFooter'];
+            const rsBoolKeys = ['autoPrint', 'noReceipt', 'showQueue', 'printOrderSlip', 'showLogo', 'showHeader', 'showBranch', 'showCompany', 'showBranchNo', 'showAddress', 'showTaxId', 'showPhone', 'showDocTitle', 'showPosId', 'showInvoiceNo', 'showStaff', 'showDateTime', 'showItemNote', 'showSummary', 'showPayment', 'showFooter'];
             const rsStrKeys = ['header', 'footer', 'branch', 'company', 'branchNo', 'posId', 'docTitle', 'paperSize', 'logoBase64'];
             const syncedReceiptSettings = {};
             rsStrKeys.forEach(k => { if (data[k] !== undefined) syncedReceiptSettings[k] = data[k]; });
@@ -2942,7 +2942,7 @@
           document.getElementById('printer-branch-no').value = this.receiptSettings.branchNo || '';
           document.getElementById('printer-pos-id').value = this.receiptSettings.posId || '';
           document.getElementById('printer-doc-title').value = this.receiptSettings.docTitle || '';
-          document.getElementById('printer-auto-print').checked = this.receiptSettings.autoPrint !== false;
+          this.setAfterSaleMode(this.receiptSettings.autoPrint !== false ? 'all' : (this.receiptSettings.noReceipt ? 'none' : 'ask'), true);
           document.getElementById('printer-show-queue').checked = this.receiptSettings.showQueue !== false;
           document.getElementById('printer-print-order-slip').checked = this.receiptSettings.printOrderSlip === true;
           document.getElementById('printer-paper-size').value = this.receiptSettings.paperSize || '80mm';
@@ -6030,21 +6030,51 @@ renderReport(r) {
         document.getElementById('modal-note').value = '';
         this.ensureOrderOptionsLoaded();
         this.updateAddonButtons();
+        // วาดปุ่มความหวานใหม่ทั้งชุด (ยังไม่มีอันไหนถูกเลือก) แล้วเลือกอันที่ขายแก้วนี้ครั้งล่าสุดให้เลย
         this.updateSweetnessButtons();
 
-        document.querySelectorAll('.mod-btn').forEach(btn => {
-          btn.classList.remove('bg-gradient-to-b', 'from-primary', 'to-secondary', 'text-white', 'border-primary');
-          btn.classList.add('text-slate-500', 'border-slate-200');
-          btn.removeAttribute('data-selected');
-        });
-        
         const addBtnNew = document.getElementById('btn-modal-add-cart');
         if (addBtnNew) addBtnNew.innerText = 'Add to Cart';
 
         this.openModal('modal-product');
       },
 
+      // ความหวานล่าสุดของแต่ละเมนู จำไว้ในเครื่องนี้ ไม่ซิงก์ข้ามเครื่อง
+      // แก้วที่ขายบ่อยจะเหลือแตะการ์ดแล้วกดใส่ตะกร้า สองทีจบ
+      lastSweetnessMap() {
+        if (!this._lastSweetness) {
+          try { this._lastSweetness = JSON.parse(localStorage.getItem('pos_lastSweetness') || '{}') || {}; }
+          catch (e) { this._lastSweetness = {}; }
+        }
+        return this._lastSweetness;
+      },
+
+      rememberSweetness(sku, name) {
+        if (!sku || !name) return;
+        const map = this.lastSweetnessMap();
+        map[sku] = name;
+        try { localStorage.setItem('pos_lastSweetness', JSON.stringify(map)); } catch (e) { /* จำไม่ได้ก็ขายต่อได้ */ }
+      },
+
+      // เฉพาะตอนเพิ่มแก้วใหม่ ตอนแก้ไขรายการเดิม editCartItem เลือกความหวานของรายการนั้นเอง
+      preselectLastSweetness() {
+        const tag = document.getElementById('modal-sweetness-remembered');
+        if (tag) tag.classList.add('hidden');
+        this._rememberedSweetness = null;
+        if (!this.activeProduct || (this.editingCartIndex !== null && this.editingCartIndex !== undefined)) return;
+        const name = this.lastSweetnessMap()[this.activeProduct.sku];
+        if (!name) return;
+        const btn = Array.from(document.querySelectorAll('.mod-btn')).find(b => b.innerText.trim() === name);
+        if (!btn) return; // ระดับนั้นถูกลบหรือเปลี่ยนชื่อไปแล้ว ปล่อยให้เลือกเอง
+        this.selectSweetness(btn);
+        this._rememberedSweetness = name;
+        if (tag) tag.classList.remove('hidden');
+      },
+
       selectSweetness(selectedBtn) {
+        // ป้าย "เหมือนครั้งก่อน" ต้องหมายความตามนั้นจริง เลือกระดับอื่นแล้วป้ายต้องหาย
+        const tag = document.getElementById('modal-sweetness-remembered');
+        if (tag && selectedBtn.innerText.trim() !== this._rememberedSweetness) tag.classList.add('hidden');
         document.querySelectorAll('.mod-btn').forEach(btn => {
           btn.classList.remove('bg-gradient-to-b', 'from-primary', 'to-secondary', 'text-white', 'border-primary');
           btn.classList.add('text-slate-500', 'border-slate-200');
@@ -6078,6 +6108,8 @@ renderReport(r) {
           html += `<button class="mod-btn border border-sand px-4 min-h-[2.75rem] inline-flex items-center justify-center rounded-full text-sm font-bold text-slate-500 hover:bg-accent active:scale-95 transition-all" onclick="Controller.selectSweetness(this)">${escHtml(sw.name)}</button>`;
         });
         container.innerHTML = html;
+        // รายการความหวานอาจโหลดมาทีหลังตอนหน้าต่างเปิดอยู่แล้ว เลือกให้ตรงนี้จึงครอบทั้งสองกรณี
+        this.preselectLastSweetness();
       },
 
       // บางครั้งตอนเปิดแอปครั้งแรก (เครื่องใหม่/เน็ตช้าตอน sync รอบแรก) ข้อมูลความหวาน/แอดออนอาจโหลดไม่ทันหรือพลาดไปเงียบๆ
@@ -6130,7 +6162,8 @@ renderReport(r) {
           return;
         }
 
-        const sweetness = selectedSweetnessBtn.innerText;
+        const sweetness = selectedSweetnessBtn.innerText.trim();
+        this.rememberSweetness(this.activeProduct && this.activeProduct.sku, sweetness);
         const textNote = document.getElementById('modal-note').value.trim();
         
         let finalNote = `ความหวาน: ${sweetness}`;
@@ -6425,7 +6458,7 @@ renderReport(r) {
           time: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
           items: [...this.cart], total, summary: name
         });
-        this.cart = []; this.saveLocalState(); this.renderCart();
+        this.cart = []; this.hideUndo(); this.saveLocalState(); this.renderCart();
         this.showAlert('เก็บเป็นบิลค้างชำระแล้ว', '');
       },
 
@@ -6480,12 +6513,7 @@ renderReport(r) {
         const newQty = item.qty + change;
         
         if (newQty <= 0) {
-          const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกใช่ไหม?', '');
-          if (ok) {
-            await this.animateCartLineOut(idx);
-            this.cart.splice(idx, 1);
-            this.renderCart();
-          }
+          await this.removeCartLine(idx);
           return;
         }
 
@@ -6508,12 +6536,48 @@ renderReport(r) {
       },
 
       async removeFromCart(idx) {
-        const ok = await this.showConfirm('ต้องการลบสินค้านี้ออกใช่ไหม?', '');
-        if (ok) {
-          await this.animateCartLineOut(idx);
-          this.cart.splice(idx, 1);
-          this.renderCart();
+        await this.removeCartLine(idx);
+      },
+
+      // ลบทันทีไม่ถาม แล้วให้กดเอากลับได้ห้าวินาที เก็บได้ทีละรายการ ลบอันใหม่ก็ทับอันเก่า
+      async removeCartLine(idx) {
+        const item = this.cart[idx];
+        if (!item) return;
+        await this.animateCartLineOut(idx);
+        const at = this.cart.indexOf(item);
+        if (at === -1) return;
+        this.cart.splice(at, 1);
+        this.renderCart();
+        this.showUndo(item, at);
+      },
+
+      showUndo(item, at) {
+        this.lastRemoved = { item, at };
+        const bar = document.getElementById('undo-bar');
+        const text = document.getElementById('undo-bar-text');
+        if (text) text.innerText = this.tf('ลบ {x} ×{x} แล้ว', this.itemName(item), item.qty);
+        if (bar) {
+          bar.classList.remove('hidden');
+          this.replayClass(bar, 'is-running');
         }
+        clearTimeout(this.undoTimer);
+        this.undoTimer = setTimeout(() => this.hideUndo(), 5000);
+      },
+
+      hideUndo() {
+        clearTimeout(this.undoTimer);
+        this.lastRemoved = null;
+        const bar = document.getElementById('undo-bar');
+        if (bar) bar.classList.add('hidden');
+      },
+
+      undoRemove() {
+        const last = this.lastRemoved;
+        if (!last) return;
+        const at = Math.min(last.at, this.cart.length);
+        this.cart.splice(at, 0, last.item);
+        this.hideUndo();
+        this.renderCart({ newIdx: at });
       },
       
       async openCheckout() {
@@ -6796,6 +6860,7 @@ renderReport(r) {
         this.setSubmitButtonState('paid');
 
         this.cart = [];
+        this.hideUndo(); // บิลปิดไปแล้ว ของที่ลบก่อนหน้าเอากลับเข้าบิลใหม่ไม่ได้
         if (this.reducedMotion()) this.renderCart();
         else setTimeout(() => this.renderCart(), 300);
         this.closeModal('modal-checkout', { animated: true });
@@ -6929,6 +6994,9 @@ renderReport(r) {
         // ของเดิมใบนี้ออกได้ทางเดียวคือตอบว่าพิมพ์ใบเสร็จ ตอบว่าไม่แล้วครัวไม่ได้อะไรเลยทั้งที่ติ๊กไว้
         if (this.receiptSettings.printOrderSlip) this.printOrderSlipFor(order, queueStr);
 
+        // ร้านที่ไม่ให้ใบเสร็จเลย ไม่ต้องตอบคำถามเดิมทุกบิล
+        if (this.receiptSettings.noReceipt) return;
+
         // ถามลูกค้าว่าจะพิมพ์บิลหรือไม่
         const ok = await this.showConfirm('ต้องการพิมพ์ใบเสร็จสำหรับออเดอร์นี้หรือไม่?', '');
         if (ok) this.printReceipt(order, queueStr, { skipOrderSlip: true });
@@ -6980,6 +7048,19 @@ renderReport(r) {
         panel.addEventListener('input', onEdit);
         panel.addEventListener('change', onEdit);
         this._printerPanelBound = true;
+      },
+
+      // สามทางหลังปิดบิล ปุ่มเป็น button ไม่ใช่ input จึงไม่ยิง change ต้องบอกเองว่ามีของยังไม่บันทึก
+      setAfterSaleMode(mode, loading) {
+        this.afterSaleMode = mode;
+        document.querySelectorAll('#printer-after-sale [data-mode]').forEach(b => b.classList.toggle('is-on', b.dataset.mode === mode));
+        const hint = document.getElementById('printer-after-sale-hint');
+        if (hint) hint.innerText = {
+          all: 'ใบเสร็จออกเองทุกบิล ไม่ถาม',
+          ask: 'ปิดบิลแล้วถามทุกครั้งว่าจะพิมพ์ใบเสร็จไหม',
+          none: 'ไม่ถาม ไม่พิมพ์ใบเสร็จ ใบสั่งทำเครื่องดื่มยังออกตามปกติถ้าติ๊กไว้',
+        }[mode] || '';
+        if (!loading) this.markPrinterDirty(true);
       },
 
       markPrinterDirty(dirty) {
@@ -7069,7 +7150,8 @@ renderReport(r) {
           branchNo: document.getElementById('printer-branch-no').value,
           posId: document.getElementById('printer-pos-id').value,
           docTitle: document.getElementById('printer-doc-title').value,
-          autoPrint: document.getElementById('printer-auto-print').checked,
+          autoPrint: this.afterSaleMode === 'all',
+          noReceipt: this.afterSaleMode === 'none',
           showQueue: document.getElementById('printer-show-queue').checked,
           printOrderSlip: document.getElementById('printer-print-order-slip').checked,
           paperSize: document.getElementById('printer-paper-size').value,

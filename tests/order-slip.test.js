@@ -100,3 +100,16 @@ test('ไม่ได้ต่อเครื่องพิมพ์เลย �
 
   assert.deepEqual(alerts, []);
 });
+
+test('ไม่พิมพ์ใบเสร็จ: ไม่ถาม ไม่พิมพ์ใบเสร็จ แต่ใบบาริสต้ายังออก', async () => {
+  const { C } = loadController({});
+  C.receiptSettings = { autoPrint: false, noReceipt: true, printOrderSlip: true };
+  const printed = spy(C);
+  let asked = false;
+  C.showConfirm = () => { asked = true; return Promise.resolve(true); };
+
+  await C.printAfterCheckout(ORDER, 'Q07');
+
+  assert.equal(asked, false, 'ต้องไม่ถาม');
+  assert.deepEqual(printed.map(p => p.what), ['slip']);
+});
