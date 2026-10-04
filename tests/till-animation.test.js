@@ -1505,9 +1505,9 @@ test('short cash says how much is missing and greys the confirm button', () => {
   assert.ok(el('btn-submit-order').classList.contains('is-short'), 'ปุ่มต้องดูออกว่ากดไม่ได้');
   assert.equal(el('btn-submit-order').innerText, 'เงินยังไม่พอ');
   C.addCash(50);
-  assert.equal(el('cash-change-label').innerText, 'Change:');
+  assert.equal(el('cash-change-label').innerText, 'เงินทอน');
   assert.ok(!el('btn-submit-order').classList.contains('is-short'));
-  assert.equal(el('btn-submit-order').innerText, 'Confirm Order');
+  assert.equal(el('btn-submit-order').innerText, 'ยืนยันรับเงิน');
 });
 
 test('the till keeps its big totals, big change and 44px cart buttons', () => {
@@ -1617,4 +1617,43 @@ test('the after-sale choice maps to autoPrint and noReceipt, and loading it does
   assert.ok(app.includes("autoPrint: this.afterSaleMode === 'all'"));
   assert.ok(app.includes("noReceipt: this.afterSaleMode === 'none'"));
   assert.ok(app.includes("const rsBoolKeys = ['autoPrint', 'noReceipt',"), 'ต้องซิงก์ข้ามเครื่องเหมือน autoPrint');
+});
+
+// ---- หน้าขายรอบที่แปด: ข่าวดีไม่หยุดจอ และป้ายภาษาไทย ----
+test('good news shows as a message that goes away by itself, sitting above the cart on the till', async () => {
+  const { C, el } = loadController({});
+  el('view-pos').classes.delete('hidden');
+  let blocked = false;
+  C.showAlert = () => { blocked = true; return Promise.resolve(true); };
+  C.showToast('บันทึกสินค้าแล้ว');
+  assert.equal(blocked, false, 'ต้องไม่เปิดหน้าต่างที่ต้องกดตกลง');
+  assert.equal(el('toast-text').innerText, 'บันทึกสินค้าแล้ว');
+  assert.ok(!el('toast-bar').classes.has('hidden'));
+  assert.ok(el('toast-bar').classes.has('on-till'), 'หน้าขายต้องลอยเหนือแถบตะกร้า');
+  el('view-pos').classes.add('hidden');
+  C.showToast('บันทึกสูตรแล้ว');
+  assert.ok(!el('toast-bar').classes.has('on-till'), 'หน้าอื่นอยู่กลางล่าง');
+  clearTimeout(C.toastTimer);
+});
+
+test('only plain good news became a message; numbers, errors and questions still stop the screen', () => {
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  const toasts = (app.match(/this\.showToast\(/g) || []).length;
+  assert.equal(toasts, 22, 'รายการที่เจ้าของร้านอนุมัติมี 22 ข้อความ');
+  for (const keep of ['ปิดยอดประจำวันสำเร็จ', 'เก็บข้อมูลเรียบร้อยแล้ว', 'กู้คืนข้อมูลสำเร็จแล้ว', 'สำรองข้อมูลสำเร็จแล้ว', 'รีเซ็ตยอดแก้วเรียบร้อยแล้ว', 'รีเซ็ตเลขคิวเป็น Q01', 'บิลนี้คืนเงินครบแล้ว']) {
+    assert.ok(new RegExp("showAlert\\([`']" + keep).test(app), keep + ' ต้องยังเป็นหน้าต่างที่กดตกลง');
+  }
+  assert.ok(!/showToast\([^)]*ไม่สำเร็จ/.test(app), 'ข้อผิดพลาดห้ามหายไปเอง');
+});
+
+test('the selling and checkout labels are Thai, and the category value stays All inside', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
+  for (const en of ['>Checkout<', 'Confirm Order<', '>Cancel<', 'Received:</span>', '>Change:</span>', 'Sweetness Level <span', 'Additional Note', '</svg> Payment<', '> Add to Cart <']) {
+    assert.ok(!html.includes(en), 'ยังเหลือ ' + en);
+  }
+  // ใบเสร็จกระดาษยังพิมพ์ Received:/Change: อยู่ แยกเรื่องกับจอ
+  assert.ok(!app.includes("'Confirm Order'") && !app.includes("'Add to Cart'") && !app.includes("'ขาดอีก' : 'Change:'"));
+  assert.ok(app.includes("${cat === 'All' ? 'ทั้งหมด' : cat}"), 'โชว์ทั้งหมด แต่ค่าข้างในยังเป็น All');
+  assert.ok(app.includes("activeCategory: 'All'"));
 });
