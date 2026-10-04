@@ -824,12 +824,12 @@
         container.style.height = ''; // ล้างความสูงที่ตั้งเองไว้ระหว่างลาก (ถ้ามี) ให้คลาสด้านล่างคุมความสูงแทน
 
         if (this.isCartOpenMobile) {
-          container.classList.remove('h-[72px]');
+          container.classList.remove('h-[84px]');
           container.classList.add('h-[65vh]'); // ดึงตะกร้าขึ้นมา 65% ของหน้าจอ
           icon.innerText = '▼';
         } else {
           container.classList.remove('h-[65vh]');
-          container.classList.add('h-[72px]'); // พับเก็บเหลือ 72px
+          container.classList.add('h-[84px]'); // พับเก็บเหลือ 84px
           icon.innerText = '▲';
         }
       },
@@ -842,7 +842,7 @@
         header.dataset.dragInit = '1';
 
         let startY = 0, startHeight = 0, dragging = false, moved = false;
-        const minH = 72;
+        const minH = 84;
         const maxH = () => window.innerHeight * 0.65;
 
         header.addEventListener('touchstart', (e) => {
@@ -852,8 +852,8 @@
           dragging = true;
           moved = false;
           container.style.transition = 'none';
-          // เอาคลาส h-[72px]/h-[65vh] ออกชั่วคราว (มี !important ใน style.css) จะได้กำหนดความสูงเองผ่าน inline style ตอนลากได้
-          container.classList.remove('h-[72px]', 'h-[65vh]');
+          // เอาคลาส h-[84px]/h-[65vh] ออกชั่วคราว (มี !important ใน style.css) จะได้กำหนดความสูงเองผ่าน inline style ตอนลากได้
+          container.classList.remove('h-[84px]', 'h-[65vh]');
           container.style.height = startHeight + 'px';
         }, { passive: true });
 
@@ -6357,17 +6357,14 @@ renderReport(r) {
                 </div>
                 <div class="pos-line-bot">
                   <span class="pos-line-note">${escHtml(item.note || '-')}</span>
+                  <div class="pos-line-acts">
+                    <button onclick="Controller.editCartItem(${idx})">แก้ไข</button>
+                    <button onclick="Controller.removeFromCart(${idx})" class="is-del">ลบ</button>
+                  </div>
                   <div class="pos-step">
                     <button onclick="Controller.updateQty(${idx}, -1)" aria-label="ลดจำนวน">−</button>
                     <span class="pos-qty"><span class="${qtyCls}">${item.qty}</span></span>
                     <button onclick="Controller.updateQty(${idx}, 1)" aria-label="เพิ่มจำนวน">+</button>
-                  </div>
-                </div>
-                <div class="pos-line-bot" style="margin-top:2px">
-                  <span></span>
-                  <div class="pos-line-acts">
-                    <button onclick="Controller.editCartItem(${idx})">แก้ไข</button>
-                    <button onclick="Controller.removeFromCart(${idx})" class="is-del">ลบ</button>
                   </div>
                 </div>
               </div>
@@ -6663,7 +6660,10 @@ renderReport(r) {
         } else {
           numpad.classList.add('hidden');
           numpad.classList.remove('numpad-in');
-          document.getElementById('btn-submit-order').disabled = false;
+          const submitBtn = document.getElementById('btn-submit-order');
+          submitBtn.disabled = false;
+          submitBtn.classList.remove('is-short');
+          this.setSubmitButtonState('idle');
         }
       },
 
@@ -6691,14 +6691,30 @@ renderReport(r) {
 
         const change = received - total;
         const changeVal = change >= 0 ? change : 0;
+        // รับมาแล้วแต่ไม่พอ ช่องเงินทอนบอกว่าขาดอีกเท่าไร แทนที่จะโชว์ 0 เฉยๆ ให้คนเดาเอง
+        const short = received > 0 && change < 0;
+        const changeLabel = document.getElementById('cash-change-label');
+        if (changeLabel) changeLabel.innerText = short ? 'ขาดอีก' : 'Change:';
         const changeEl = document.getElementById('cash-change');
         if (changeEl) {
           // ช่องนี้เป็นจำนวนเต็มล้วน ไม่ใช่ยอดเงินที่มีทศนิยม จึงไม่ส่ง money
-          if (instant) changeEl.innerText = changeVal;
+          if (short) changeEl.innerText = -change;
+          else if (instant) changeEl.innerText = changeVal;
           else this.countTo(changeEl, Number(String(changeEl.innerText).replace(/[^0-9-]/g, '')) || 0, changeVal, 220);
         }
 
-        document.getElementById('btn-submit-order').disabled = change < 0;
+        // ปุ่มที่กดไม่ได้ต้องดูออกว่ากดไม่ได้ ใช้คลาสแยกจาก disabled เพราะตอนกำลังบันทึกปุ่มก็ disabled แต่ต้องคงสีเดิม
+        const submitBtn = document.getElementById('btn-submit-order');
+        submitBtn.disabled = change < 0;
+        submitBtn.classList.toggle('is-short', change < 0);
+        submitBtn.innerText = short ? 'เงินยังไม่พอ' : 'Confirm Order';
+      },
+
+      // แบงก์ที่ลูกค้ายื่นมา บวกเพิ่มจากที่รับไว้แล้ว ยื่นร้อยสองใบก็กดร้อยสองที
+      addCash(amount) {
+        const received = parseInt(this.cashInput, 10) || 0;
+        this.cashInput = String(received + amount);
+        this.updateCashUI();
       },
 
       setExactCash() {
@@ -6833,7 +6849,7 @@ renderReport(r) {
 
         this.replayClass(document.getElementById('cart-container'), 'is-paid');
 
-        // บนมือถือแถบตะกร้าย่ออยู่แค่ 72px เครื่องหมายถูกจะโดนบีบจนดูไม่ออก โชว์เฉพาะตอนที่เห็นตัวตะกร้าจริงๆ
+        // บนมือถือแถบตะกร้าย่ออยู่แค่ 84px เครื่องหมายถูกจะโดนบีบจนดูไม่ออก โชว์เฉพาะตอนที่เห็นตัวตะกร้าจริงๆ
         const cartBodyVisible = window.innerWidth >= 1024 || this.isCartOpenMobile;
         const mark = document.getElementById('cart-paid-mark');
         if (mark && cartBodyVisible) {

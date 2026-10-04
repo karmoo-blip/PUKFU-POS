@@ -90,10 +90,10 @@
         bottom: 0;
         padding-bottom: env(safe-area-inset-bottom);
       }
-      #cart-container[class*="h-[72px]"] { height: calc(72px + env(safe-area-inset-bottom)) !important; }
+      #cart-container[class*="h-[84px]"] { height: calc(84px + env(safe-area-inset-bottom)) !important; }
       #cart-container[class*="h-[65vh]"] { height: calc(65vh + env(safe-area-inset-bottom)) !important; }
       /* กันเนื้อหาเมนูโดนแถบตะกร้า (fixed) บังตอนเลื่อนดูสินค้า */
-      #pos-content-scroll { padding-bottom: calc(72px + env(safe-area-inset-bottom) + 1rem) !important; }
+      #pos-content-scroll { padding-bottom: calc(84px + env(safe-area-inset-bottom) + 1rem) !important; }
     }
 
     /* Print Styles */
@@ -1610,37 +1610,58 @@
     .pos-card:hover .pos-add, .pos-card:active .pos-add { background: var(--color-primary); color: #fff; }
 
     /* ---- ตะกร้าแบบใบเสร็จ ---- */
-    .pos-line { padding: 12px 0; border-bottom: 1px dashed var(--color-fill-2); }
+    .pos-line { padding: 14px 0; border-bottom: 1px dashed var(--color-fill-2); }
     .pos-line:last-child { border-bottom: none; }
     .pos-line-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
-    .pos-line-name { font-size: 13.5px; font-weight: 700; color: var(--color-secondary); min-width: 0;
+    .pos-line-name { font-size: 16px; font-weight: 700; color: var(--color-secondary); min-width: 0;
                      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .pos-line-sum { font-size: 14px; font-weight: 800; color: var(--color-primary); flex: none; }
-    .pos-line-bot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 7px; }
-    .pos-line-note { font-size: 11px; font-weight: 700; color: var(--color-mute); min-width: 0;
+    .pos-line-sum { font-size: 16px; font-weight: 800; color: var(--color-primary); flex: none; font-variant-numeric: tabular-nums; }
+    /* โน้ต ปุ่มแก้ไข/ลบ และปุ่มบวกลบอยู่แถวเดียวกัน ทุกปุ่มสูง 44px กดโดนง่ายตอนมือยุ่ง */
+    .pos-line-bot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 8px; }
+    .pos-line-note { flex: 1; font-size: 13px; font-weight: 700; color: var(--color-mute); min-width: 0;
                      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .pos-step { display: flex; align-items: center; gap: 4px; flex: none; }
     .pos-step button {
-      width: 34px; height: 34px; border: none; border-radius: var(--r-sm);
+      width: 44px; height: 44px; border: none; border-radius: var(--r-sm);
       background: var(--color-fill); color: var(--color-secondary);
-      font-family: inherit; font-size: 15px; font-weight: 700;
+      font-family: inherit; font-size: 20px; font-weight: 700;
       transition: background-color .14s ease, transform .1s ease;
     }
     .pos-step button:active { background: var(--color-fill-2); transform: scale(.94); }
-    .pos-step .pos-qty { min-width: 26px; text-align: center; font-size: 14px; font-weight: 800; }
-    .pos-line-acts { display: flex; gap: 2px; flex: none; }
+    .pos-step .pos-qty { min-width: 30px; text-align: center; font-size: 17px; font-weight: 800; }
+    .pos-line-acts { display: flex; gap: 6px; flex: none; }
     .pos-line-acts button {
-      border: none; background: none; font-family: inherit; font-size: 11px; font-weight: 700;
-      padding: 8px 6px; color: var(--color-mute);
+      height: 44px; padding: 0 12px; border-radius: var(--r-sm);
+      border: 1px solid var(--color-fill-2); background: #fff;
+      font-family: inherit; font-size: 14px; font-weight: 700; color: var(--color-mute);
     }
-    .pos-line-acts .is-del { color: var(--color-danger); }
+    .pos-line-acts .is-del { color: var(--color-danger); border-color: color-mix(in srgb, var(--color-danger) 30%, #fff); }
 
     /* ยอดรวมท้ายตะกร้า อ่านเป็นใบเสร็จ: จำนวนแก้วบรรทัดบน เส้นคั่น แล้วยอดตัวใหญ่ */
     .pos-sum-cups { display: flex; justify-content: space-between; align-items: baseline;
                     font-size: 12px; font-weight: 700; color: var(--color-mute); }
     .pos-sum-total { display: flex; justify-content: space-between; align-items: baseline;
                      margin-top: 8px; padding-top: 10px; border-top: 1px solid var(--color-secondary); }
-    .pos-sum-total span { font-size: 14px; font-weight: 700; color: var(--color-secondary); }
+    .pos-sum-total span { font-size: 18px; font-weight: 700; color: var(--color-secondary); }
+    /* ยอดรวมคือสิ่งที่คนมองจากอีกฝั่งเคาน์เตอร์ ของเดิม text-2xl ถูกกฎบรรทัดบนทับจนเหลือ 14px */
+    .pos-sum-total #cart-total { font-size: 40px; font-weight: 800; line-height: 1.1; color: var(--color-primary);
+                                 font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+    .cart-total-bar { font-size: 32px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+    /* จอ 360 ที่มีปุ่มบิลค้างชำระกับยอดหลักพัน ลูกศรโดนดันตกขอบ 14px ที่ 32px */
+    @media (max-width: 379.98px) { .cart-total-bar { font-size: 28px; } }
+
+    /* ---- หน้าต่างรับเงินสด ---- */
+    .cash-change-big { font-size: 32px; font-weight: 800; line-height: 1; font-variant-numeric: tabular-nums; }
+    .cash-note {
+      min-height: 48px; border-radius: var(--r-sm);
+      border: 1px solid var(--color-sand); background: #fff; color: var(--color-secondary);
+      font-family: inherit; font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums;
+      transition: transform .1s ease, background-color .15s ease;
+    }
+    .cash-note:active { transform: scale(.96); background: var(--color-accent); }
+    .cash-note.is-exact { font-size: 15px; background: var(--color-accent); color: var(--color-primary); }
+    .checkout-confirm { background: var(--color-primary); color: #fff; box-shadow: var(--sh-2); }
+    .checkout-confirm.is-short { background: var(--color-fill-2); color: var(--color-mute); box-shadow: none; }
 
     /* ===== ปุ่มท้ายตะกร้า =====
        ของเดิมปุ่มหลักในแอปมีสามสูตรปนกัน (ไล่สี+เงาสี / rounded-xl ไม่มีเงา / .set-btn-go)
