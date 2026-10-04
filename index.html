@@ -194,10 +194,10 @@
       </div>
 
             <!-- ส่วนของตะกร้าสินค้า (Cart Section) -->
-      <div id="cart-container" class="relative w-full lg:w-[400px] bg-white lg:shadow-sm shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] flex flex-col h-[72px] lg:h-full border-t lg:border-t-0 lg:border-l border-sand shrink-0 transition-all duration-300 z-30">
+      <div id="cart-container" class="relative w-full lg:w-[400px] bg-white lg:shadow-sm shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] flex flex-col h-[84px] lg:h-full border-t lg:border-t-0 lg:border-l border-sand shrink-0 transition-all duration-300 z-30">
         
         <!-- Cart Header -->
-        <div id="cart-mobile-header" class="p-4 lg:p-5 bg-white border-b border-sand flex justify-between items-center cursor-pointer lg:cursor-default h-[72px] shrink-0 relative" onclick="Controller.toggleMobileCart()">
+        <div id="cart-mobile-header" class="p-4 lg:p-5 bg-white border-b border-sand flex justify-between items-center cursor-pointer lg:cursor-default h-[84px] shrink-0 relative" onclick="Controller.toggleMobileCart()">
           <div class="lg:hidden absolute top-1.5 left-1/2 -translate-x-1/2 w-10 h-1.5 rounded-full" style="background:var(--color-line)" aria-hidden="true"></div>
           <div class="font-bold text-lg lg:text-xl text-secondary flex items-center gap-2">
             Order
@@ -209,7 +209,7 @@
             <span id="cart-queue-chip" class="hidden ml-2 text-secondary text-xs px-2.5 py-1 rounded-full font-black whitespace-nowrap shrink-0" style="background:color-mix(in srgb, var(--color-mustard) 18%, #fff);border:1px solid var(--color-mustard)"></span>
           </div>
           <div class="flex items-center gap-3">
-            <span id="cart-total-mobile" class="text-primary font-bold lg:hidden">฿0.00</span>
+            <span id="cart-total-mobile" class="cart-total-bar text-primary lg:hidden">฿0.00</span>
             <span id="cart-toggle-icon" class="lg:hidden font-bold" style="color:var(--color-mute)">▲</span>
             <div class="hidden lg:flex w-8 h-8 bg-primary/10 rounded-full items-center justify-center text-primary text-xs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.5 11h10L20 7H6"/></svg></div>
           </div>
@@ -229,7 +229,7 @@
           <div class="pos-sum-cups"><span>จำนวน</span><span id="cart-cups">0 แก้ว</span></div>
           <div class="pos-sum-total mb-4">
             <span>รวมสุทธิ</span>
-            <span id="cart-total" class="text-primary text-2xl font-black">฿0.00</span>
+            <span id="cart-total" class="text-primary">฿0.00</span>
           </div>
           <div class="flex gap-2">
             <button id="btn-print-order-slip" onclick="Controller.printOrderSlipNow()" class="btn-till is-ghost hidden shrink-0 w-14" title="พิมพ์ใบสั่ง (ก่อนชำระเงิน)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg></button>
@@ -1004,13 +1004,19 @@
               <button onclick="Controller.numpad('C')" class="text-xs font-bold text-red-400 hover:text-red-600 hover:underline">ล้างทั้งหมด</button>
             </span>
           </div>
-          <div class="flex justify-between items-center bg-red-50 p-3 rounded-xl mb-3 text-red-500">
-            <span class="font-bold text-sm">Change:</span> 
-            <span id="cash-change" class="text-xl font-black">0</span>
+          <div class="flex justify-between items-center bg-red-50 p-3 rounded-xl mb-3 text-red-500 min-h-[4rem]">
+            <span id="cash-change-label" class="font-bold text-base">Change:</span>
+            <span id="cash-change" class="cash-change-big">0</span>
           </div>
-          
-          <div class="mb-3">
-             <button onclick="Controller.setExactCash()" class="w-full bg-emerald-100 text-emerald-600 border border-emerald-200 py-2.5 rounded-xl font-bold hover:bg-emerald-200 transition-colors shadow-sm">เต็มจำนวน</button>
+
+          <!-- แบงก์ที่ลูกค้ายื่นมา กดแล้วบวกเพิ่ม ไม่ใช่แทนที่ ยื่นร้อยสองใบก็กดร้อยสองที -->
+          <div class="grid grid-cols-3 gap-2 mb-3">
+            <button onclick="Controller.setExactCash()" class="cash-note is-exact">เต็มจำนวน</button>
+            <button onclick="Controller.addCash(20)" class="cash-note">฿20</button>
+            <button onclick="Controller.addCash(50)" class="cash-note">฿50</button>
+            <button onclick="Controller.addCash(100)" class="cash-note">฿100</button>
+            <button onclick="Controller.addCash(500)" class="cash-note">฿500</button>
+            <button onclick="Controller.addCash(1000)" class="cash-note">฿1,000</button>
           </div>
 
           <div class="grid grid-cols-3 gap-2 mb-2">
@@ -1023,7 +1029,7 @@
             <button onclick="Controller.numpad('7')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">7</button>
             <button onclick="Controller.numpad('8')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">8</button>
             <button onclick="Controller.numpad('9')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">9</button>
-            <button onclick="Controller.numpad('back')" class="numpad-key bg-red-50 text-red-400 py-3 rounded-2xl text-xl font-bold hover:bg-red-100 active:bg-red-100 active:scale-95 transition-transform">⌫</button>
+            <button onclick="Controller.numpad('back')" aria-label="ลบตัวเลขตัวท้าย" class="numpad-key py-3 rounded-2xl text-xl font-bold active:scale-95 transition-transform" style="background:var(--color-fill);color:var(--color-mute)">⌫</button>
             <button onclick="Controller.numpad('0')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">0</button>
             <button onclick="Controller.numpad('00')" class="numpad-key bg-accent border border-sand py-3 rounded-2xl text-xl font-bold text-secondary hover:bg-sand active:bg-sand active:scale-95 transition-transform">00</button>
           </div>
@@ -1032,7 +1038,7 @@
       </div>
       <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-between gap-3 shrink-0" style="padding-bottom: max(1rem, env(safe-area-inset-bottom))">
         <button onclick="Controller.closeModal('modal-checkout', { animated: true })" class="flex-1 py-3 border border-sand bg-white rounded-2xl text-slate-500 font-bold hover:bg-accent active:scale-95 transition-all">Cancel</button>
-        <button onclick="Controller.submitOrder()" id="btn-submit-order" class="flex-[1.5] py-3 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl font-bold shadow-md shadow-primary/30 hover:brightness-110 active:scale-95 transition-all"> Confirm Order </button>
+        <button onclick="Controller.submitOrder()" id="btn-submit-order" class="checkout-confirm flex-[1.5] py-3 rounded-2xl font-bold active:scale-95 transition-all">Confirm Order</button>
       </div>
     </div>
   </div>

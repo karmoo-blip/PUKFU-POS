@@ -1477,3 +1477,49 @@ test('the printer page marks its wide cards in the markup, not by card order', (
   assert.equal((panel.match(/set-card-wide/g) || []).length, 3,
     'ข้อมูลร้าน หัวข้อที่แสดงบนใบเสร็จ และแถบบันทึก ต้องกินเต็มความกว้างบนจอกว้าง');
 });
+
+// ---- หน้าขายรอบที่หก: ยอดตัวใหญ่ เงินทอนตัวใหญ่ ปุ่มแบงก์ ปุ่มในตะกร้า 44px ----
+test('cash notes add up, so two ฿100 notes make ฿200', () => {
+  const { C, el } = loadController({});
+  C.cart = [{ sku: 'A', name: 'ชาไทย', price: 45, qty: 2, note: '' }, { sku: 'B', name: 'มัทฉะ', price: 55, qty: 1, note: '' }];
+  C.checkoutDiscount = 0;
+  C.cashInput = '0';
+  C.addCash(100);
+  C.addCash(100);
+  assert.equal(el('cash-received').innerText, 200, 'แบงก์ต้องบวกเพิ่ม ไม่ใช่แทนที่');
+  assert.equal(el('btn-submit-order').disabled, false);
+  assert.ok(!el('btn-submit-order').classList.contains('is-short'));
+  C.numpad('C');
+  assert.equal(el('cash-received').innerText, 0, 'ล้างทั้งหมดต้องกลับเป็นศูนย์');
+});
+
+test('short cash says how much is missing and greys the confirm button', () => {
+  const { C, el } = loadController({});
+  C.cart = [{ sku: 'A', name: 'ชาไทย', price: 45, qty: 2, note: '' }, { sku: 'B', name: 'มัทฉะ', price: 55, qty: 1, note: '' }];
+  C.checkoutDiscount = 0;
+  C.cashInput = '0';
+  C.addCash(100);
+  assert.equal(el('cash-change-label').innerText, 'ขาดอีก');
+  assert.equal(el('cash-change').innerText, 45, 'ต้องบอกว่าขาดอีก 45');
+  assert.equal(el('btn-submit-order').disabled, true);
+  assert.ok(el('btn-submit-order').classList.contains('is-short'), 'ปุ่มต้องดูออกว่ากดไม่ได้');
+  assert.equal(el('btn-submit-order').innerText, 'เงินยังไม่พอ');
+  C.addCash(50);
+  assert.equal(el('cash-change-label').innerText, 'Change:');
+  assert.ok(!el('btn-submit-order').classList.contains('is-short'));
+  assert.equal(el('btn-submit-order').innerText, 'Confirm Order');
+});
+
+test('the till keeps its big totals, big change and 44px cart buttons', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  // node ไม่มีตัววางหน้า วัดขนาดจริงไม่ได้ จึงตรึงกฎ CSS ไว้แทน
+  assert.match(css, /\.pos-sum-total #cart-total \{ font-size: 40px;/, 'ยอดรวมในตะกร้า 40px และต้องชนะ .pos-sum-total span');
+  assert.match(css, /\.cart-total-bar \{ font-size: 32px;/, 'ยอดบนแถบตะกร้ามือถือ 32px');
+  assert.match(css, /\.cash-change-big \{ font-size: 32px;/, 'เงินทอน 32px');
+  assert.match(css, /\.pos-step button \{\s*width: 44px; height: 44px;/, 'ปุ่มบวกลบ 44px');
+  assert.match(css, /\.pos-line-acts button \{\s*height: 44px;/, 'ปุ่มแก้ไข/ลบ 44px');
+  assert.ok(html.includes('id="cart-total-mobile" class="cart-total-bar'), 'แถบมือถือต้องใช้คลาสตัวใหญ่');
+  assert.ok(html.includes('bg-red-50 p-3 rounded-xl mb-3 text-red-500'), 'กล่องเงินทอนยังเป็นสีแดงตามที่เจ้าของร้านขอ');
+  for (const n of [20, 50, 100, 500, 1000]) assert.ok(html.includes(`Controller.addCash(${n})`), 'ปุ่มแบงก์ ' + n);
+});
