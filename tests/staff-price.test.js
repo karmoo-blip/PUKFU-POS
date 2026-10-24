@@ -80,3 +80,35 @@ test('the staff price comes from shop settings, and a bad value falls back to 50
   C.shopInfo = { staffPrice: 'abc' };
   assert.equal(C.staffPriceSetting(), 50);
 });
+
+test('saving the staff price from the add-ons tab sends only that value', async () => {
+  const { C, calls, el } = setup({ vatRate: 7 });
+  C.showToast = () => {};
+  el('shop-staff-price').value = '45';
+  await C.saveStaffPrice(Object.assign(el('btn'), { dataset: {} }));
+  await new Promise(r => setTimeout(r, 0));
+  assert.equal(C.shopInfo.staffPrice, 45);
+  assert.equal(C.shopInfo.vatRate, 7, 'ค่าอื่นในข้อมูลร้านต้องอยู่ครบ');
+  const sent = calls.filter(c => c.fn === 'saveShopInfo');
+  assert.equal(sent.length, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(sent[0].args[0])), { staffPrice: 45 });
+});
+
+test('an empty staff price saves the default 50', async () => {
+  const { C, el } = setup();
+  C.showToast = () => {};
+  el('shop-staff-price').value = '';
+  await C.saveStaffPrice(Object.assign(el('btn'), { dataset: {} }));
+  assert.equal(C.shopInfo.staffPrice, 50);
+});
+
+test('a zero or negative staff price is refused and nothing is sent', async () => {
+  for (const bad of ['0', '-5']) {
+    const { C, calls, alerts, el } = setup({ staffPrice: 50 });
+    el('shop-staff-price').value = bad;
+    await C.saveStaffPrice(Object.assign(el('btn'), { dataset: {} }));
+    assert.equal(C.shopInfo.staffPrice, 50);
+    assert.equal(calls.filter(c => c.fn === 'saveShopInfo').length, 0);
+    assert.ok(alerts.some(a => a.includes('ราคาพนักงานต้องมากกว่า 0')));
+  }
+});

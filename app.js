@@ -2981,7 +2981,6 @@
           document.getElementById('shop-tax-id').value = this.shopInfo.taxId || '';
           document.getElementById('vat-enabled').checked = this.shopInfo.vatEnabled === true;
           document.getElementById('vat-rate').value = this.shopInfo.vatRate || 7;
-          document.getElementById('shop-staff-price').value = this.staffPriceSetting();
           this.toggleVatRateInput();
           
           const qDisplay = document.getElementById('current-queue-display');
@@ -2995,7 +2994,10 @@
         if (tab === 'employees') this.fetchEmployeeList();
         if (tab === 'stock') this.renderProductList();
         if (tab === 'log') { this.switchLogView(this.currentLogView || 'access'); this.fetchAccessLog(); this.fetchErrorLogs(); this.fetchChangeLog(); }
-        if (tab === 'addons') { this.renderAddonList(); this.fetchAddons(); }
+        if (tab === 'addons') {
+          this.renderAddonList(); this.fetchAddons();
+          document.getElementById('shop-staff-price').value = this.staffPriceSetting();
+        }
         if (tab === 'sweetness') { this.renderSweetnessList(); this.fetchSweetnessLevels(); }
         if (tab === 'notifications') { this.renderNotificationList(); this.fetchNotifications(); }
         // วาดจากข้อมูลในเครื่องก่อนแล้วค่อยดึงของใหม่ ตอนเน็ตหลุดจะได้ไม่เจอหน้าว่าง (แท็บอื่นทำแบบนี้อยู่แล้ว)
@@ -3261,6 +3263,26 @@
           })
           .withFailureHandler((err) => { this.setBtnLoading(btn, false); this.showAlert(this.failText(err), ''); })
           .saveShopInfo({ queueMinutesPerDrink: perDrink, queueWindowMinutes: windowMin });
+      },
+
+      // ราคาพนักงาน อยู่หน้าส่วนเสริม เก็บใน shop_info เหมือนค่าตั้งคิว ส่งไปแค่ค่านี้ค่าเดียว
+      async saveStaffPrice(btn) {
+        // ช่องว่าง = ใช้ค่าเริ่มต้น 50 แต่ติดลบหรือศูนย์คือพิมพ์ผิด ห้ามบันทึก ไม่งั้นแท็บพนักงานขายแจกฟรี
+        const raw = document.getElementById('shop-staff-price').value.trim();
+        const staffPrice = raw === '' ? STAFF_PRICE_DEFAULT : Number(raw);
+        if (!(staffPrice > 0)) return this.showAlert('ราคาพนักงานต้องมากกว่า 0', '');
+        this.setBtnLoading(btn, true);
+        this.shopInfo.staffPrice = staffPrice;
+        this.cacheShopInfo();
+        // ราคาบนการ์ดแท็บพนักงานต้องเปลี่ยนตามทันที ไม่ต้องรอกดแท็บใหม่
+        if (this.activeCategory === STAFF_TAB) this.renderMenu({ noStagger: true });
+        google.script.run
+          .withSuccessHandler(() => {
+            this.setBtnLoading(btn, false);
+            this.showToast('บันทึกราคาพนักงานแล้ว');
+          })
+          .withFailureHandler((err) => { this.setBtnLoading(btn, false); this.showAlert(this.failText(err), ''); })
+          .saveShopInfo({ staffPrice });
       },
 
       // เก็บสำเนาข้อมูลร้านไว้ในเครื่องเผื่อออฟไลน์ ตัวจริงอยู่ที่เซิร์ฟเวอร์เสมอ
@@ -7202,13 +7224,6 @@ renderReport(r) {
       },
 
       async savePrinterSettings() {
-        // ช่องว่าง = ใช้ค่าเริ่มต้น 50 แต่ติดลบหรือศูนย์คือพิมพ์ผิด ห้ามบันทึก ไม่งั้นแท็บพนักงานขายแจกฟรี
-        const staffRaw = document.getElementById('shop-staff-price').value.trim();
-        const staffPrice = staffRaw === '' ? STAFF_PRICE_DEFAULT : Number(staffRaw);
-        if (!(staffPrice > 0)) {
-          await this.showAlert('ราคาพนักงานต้องมากกว่า 0', '');
-          return;
-        }
         const oldPaperSize = this.receiptSettings.paperSize;
         this.receiptSettings = {
           ...this.receiptSettings,
@@ -7242,12 +7257,9 @@ renderReport(r) {
           phone: document.getElementById('shop-phone').value.trim(),
           taxId: document.getElementById('shop-tax-id').value.trim(),
           vatEnabled: document.getElementById('vat-enabled').checked,
-          vatRate: Number(document.getElementById('vat-rate').value) || 7,
-          staffPrice: staffPrice
+          vatRate: Number(document.getElementById('vat-rate').value) || 7
         };
         this.cacheShopInfo();
-        // ราคาบนการ์ดแท็บพนักงานต้องเปลี่ยนตามทันที ไม่ต้องรอกดแท็บใหม่
-        if (this.activeCategory === STAFF_TAB) this.renderMenu({ noStagger: true });
 
         // ส่งทั้งข้อมูลร้านและการตั้งค่าเครื่องพิมพ์ไปเก็บที่ backend ไปพร้อมกัน (shop_info เป็น key-value เก็บได้ทุกอย่าง)
         // เครื่องอื่นที่ล็อกอินจะได้เห็นค่าเดียวกัน ไม่ต้องตั้งใหม่ทีละเครื่อง
