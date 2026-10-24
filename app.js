@@ -796,6 +796,12 @@
     // จะได้ยังเห็นแก้วเทา ไม่ใช่ช่องว่างทั้งกริด
     const MENU_ART_FALLBACK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l-1.2 11a2 2 0 0 1-2 1.8H9.2a2 2 0 0 1-2-1.8L6 8z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M9.5 12.5c1 .8 2 .8 3 0s2-.8 3 0"/></svg>';
 
+    // แท็บราคาพนักงาน ไม่ใช่หมวดจริงในเมนู แค่แสดงทุกเมนูในราคาพนักงาน ใช้ sku เดิม รายงาน/ต้นทุนจึงไม่เพี้ยน
+    // ชื่อมีขีดล่างนำหน้า กันชนกับหมวดที่ร้านตั้งเอง
+    const STAFF_TAB = '__staff__';
+    const STAFF_NOTE = 'ราคาพนักงาน';
+    const STAFF_PRICE_DEFAULT = 50;
+
 
     const Controller = {
       employees: [], // cache รายชื่อพนักงาน+PIN สำหรับเช็คสิทธิ์เข้า Settings แบบออฟไลน์
@@ -1845,7 +1851,7 @@
         // กรองหาชื่อหมวดหมู่ที่ไม่ซ้ำกัน ถ้าสินค้าไม่มี category ให้ตั้งว่า 'อื่นๆ'
         const cats = new Set(this.menuData.map(item => item.category || 'อื่นๆ'));
         
-        this.categories = ['All', ...Array.from(cats)];
+        this.categories = ['All', ...Array.from(cats), STAFF_TAB];
         document.getElementById('menu-categories').classList.remove('hidden');
         
         this.renderCategories();
@@ -1864,6 +1870,9 @@
             ? 'is-active-cat text-white border border-transparent'
             : 'bg-white text-secondary border border-sand hover:bg-accent';
 
+          if (cat === STAFF_TAB) {
+            return `<button onclick="Controller.selectCategory('${cat}')" style="--j:${j}" class="cat-staff whitespace-nowrap px-5 min-h-[2.75rem] inline-flex items-center justify-center rounded-full font-bold text-sm transition-all active:scale-95 ${btnStyle}"><span>พนักงาน</span></button>`;
+          }
           return `<button onclick="Controller.selectCategory('${cat}')" style="--j:${j}" class="whitespace-nowrap px-5 min-h-[2.75rem] inline-flex items-center justify-center rounded-full font-bold text-sm transition-all active:scale-95 ${btnStyle}"><span${cat === 'All' ? '' : ' data-no-translate'}>${cat === 'All' ? 'ทั้งหมด' : cat}</span></button>`;
         }).join('');
         // ไล่ปุ่มขึ้นมาครั้งเดียวตอนวาดครั้งแรก ฟังก์ชันนี้ถูกเรียกใหม่ทุกครั้งที่กดเปลี่ยนหมวด
@@ -2972,6 +2981,7 @@
           document.getElementById('shop-tax-id').value = this.shopInfo.taxId || '';
           document.getElementById('vat-enabled').checked = this.shopInfo.vatEnabled === true;
           document.getElementById('vat-rate').value = this.shopInfo.vatRate || 7;
+          document.getElementById('shop-staff-price').value = this.staffPriceSetting();
           this.toggleVatRateInput();
           
           const qDisplay = document.getElementById('current-queue-display');
@@ -5986,9 +5996,18 @@ renderReport(r) {
         const _o = opts || {};
         const grid = document.getElementById('menu-grid');
 
-        const filteredItems = this.activeCategory === 'All'
+        const isStaff = this.activeCategory === STAFF_TAB;
+        const filteredItems = (this.activeCategory === 'All' || isStaff)
           ? this.menuData
           : this.menuData.filter(item => (item.category || 'อื่นๆ') === this.activeCategory);
+        grid.classList.toggle('is-staff', isStaff);
+        const catInd = document.getElementById('menu-cat-indicator');
+        if (catInd) catInd.classList.toggle('is-staff', isStaff);
+        const banner = document.getElementById('menu-staff-banner');
+        if (banner) {
+          banner.classList.toggle('hidden', !isStaff);
+          if (isStaff) banner.innerText = `ราคาพนักงาน · ทุกแก้ว ฿${this.staffPriceSetting()}`;
+        }
 
         grid.innerHTML = filteredItems.map((item, gridIdx) => {
           const originalIdx = this.menuData.indexOf(item);
@@ -6013,6 +6032,11 @@ renderReport(r) {
             </div>`;
 
           const right = isSoldOut ? '' : '<span class="pos-add">+</span>';
+          // แท็บพนักงาน: ราคาพนักงานตัวใหญ่ ราคาปกติขีดฆ่าไว้ข้างใต้ (ถ้าราคาไม่ได้ลดก็ไม่ต้องขีด)
+          const staffPrice = isStaff ? this.staffPriceFor(item) : null;
+          const priceHtml = isStaff && staffPrice < item.price
+            ? `<span class="pos-price pos-price-staff${isSoldOut ? ' is-out' : ''}">฿${staffPrice}<s>฿${item.price}</s></span>`
+            : `<span class="pos-price${isSoldOut ? ' is-out' : ''}">฿${item.price}</span>`;
 
           return `
             <div onclick="Controller.selectProduct(${originalIdx})" class="${cls}" style="--i:${staggerIdx}" data-menu-idx="${originalIdx}">
@@ -6021,7 +6045,7 @@ renderReport(r) {
                 <p class="pos-name" data-no-translate>${escHtml(this.itemName(item))}</p>
                 <p class="pos-sub">${escHtml(item.lang2 || '')}&nbsp;</p>
               </div>
-              <span class="pos-price${isSoldOut ? ' is-out' : ''}">฿${item.price}</span>
+              ${priceHtml}
               ${right}
             </div>
           `;
@@ -6038,9 +6062,9 @@ renderReport(r) {
       selectProduct(idx) {
         const item = this.menuData[idx];
 
-        if (this.soldOutItems.includes(item.name)) return; 
+        if (this.soldOutItems.includes(item.name)) return;
 
-        this.activeProduct = item;
+        this.activeProduct = this.activeCategory === STAFF_TAB ? this.staffProduct(item) : item;
         this.selectedAddons = [];
         this.editingCartIndex = null;
         document.getElementById('modal-product-name').innerText = this.activeProduct.name;
@@ -6183,7 +6207,9 @@ renderReport(r) {
         this.rememberSweetness(this.activeProduct && this.activeProduct.sku, sweetness);
         const textNote = document.getElementById('modal-note').value.trim();
         
-        let finalNote = `ความหวาน: ${sweetness}`;
+        // ป้ายราคาพนักงานนำหน้า note ทำให้แก้วราคาพนักงานไม่ยุบรวมกับแก้วราคาปกติ (ยุบด้วย sku + note)
+        // และติดไปบนใบเสร็จ/ประวัติบิลให้เห็นว่าแก้วไหนคิดราคาพนักงาน
+        let finalNote = `${this.activeProduct.staffPrice ? STAFF_NOTE + ' | ' : ''}ความหวาน: ${sweetness}`;
         let additionalPrice = 0;
         
         if (this.selectedAddons.length > 0) {
@@ -6249,7 +6275,8 @@ renderReport(r) {
         if (!isEditing) {
           this.flyToCart(document.getElementById('modal-product'));
           // การ์ดที่กดสั่งเด้งรับ คู่กับของที่ลอยไปตะกร้า
-          const srcIdx = this.menuData.indexOf(this.activeProduct);
+          // หาด้วย sku ไม่ใช่ indexOf เพราะแก้วราคาพนักงานเป็นสำเนาของเมนู ไม่ใช่ตัวเดียวกัน
+          const srcIdx = this.menuData.findIndex(m => m.sku === this.activeProduct.sku);
           if (srcIdx !== -1) this.replayClass(document.querySelector(`#menu-grid [data-menu-idx="${srcIdx}"]`), 'card-added');
         }
 
@@ -6318,6 +6345,7 @@ renderReport(r) {
             result.sweetness = part.replace('ความหวาน:', '').trim();
             return;
           }
+          if (part === STAFF_NOTE) return;
           const addonName = part.replace(/\s*\([^)]*\)\s*$/, '').trim();
           const found = (this.addons || []).find(a => a.name === addonName);
           if (found) {
@@ -6338,7 +6366,8 @@ renderReport(r) {
         const baseProduct = (this.menuData || []).find(m => m.sku === item.sku);
 
         if (baseProduct) {
-          this.activeProduct = baseProduct;
+          // แก้แก้วราคาพนักงานต้องยังเป็นราคาพนักงาน ไม่งั้นกดแก้ความหวานทีเดียวราคากลับเป็นราคาเต็ม
+          this.activeProduct = item.staffPrice ? this.staffProduct(baseProduct) : baseProduct;
         } else {
           // ไม่เจอในเมนู (เช่นสินค้าถูกลบไปแล้ว) ให้ถอดราคาส่วนเสริมออกเพื่อหาราคาฐาน
           const addonSum = info.addons.reduce((s, a) => s + (Number(a.price) || 0), 0);
@@ -6406,7 +6435,7 @@ renderReport(r) {
                   <span class="pos-line-sum">฿${(item.price * item.qty).toFixed(2)}</span>
                 </div>
                 <div class="pos-line-bot">
-                  <span class="pos-line-note">${escHtml(item.note || '-')}</span>
+                  <span class="pos-line-note">${item.staffPrice ? '<span class="cart-staff-tag">' + STAFF_NOTE + '</span>' + escHtml(String(item.note || '').replace(STAFF_NOTE + ' | ', '')) : escHtml(item.note || '-')}</span>
                   <div class="pos-line-acts">
                     <button onclick="Controller.editCartItem(${idx})">แก้ไข</button>
                     <button onclick="Controller.removeFromCart(${idx})" class="is-del">ลบ</button>
@@ -6665,6 +6694,22 @@ renderReport(r) {
 
       getCartSubtotal() {
         return this.cart.reduce((s, i) => s + (i.price * i.qty), 0);
+      },
+
+      // ราคาพนักงานต่อแก้ว ตั้งในหน้าข้อมูลร้าน ไม่ได้ตั้ง/ตั้งผิดให้ใช้ 50
+      staffPriceSetting() {
+        const n = Number(this.shopInfo && this.shopInfo.staffPrice);
+        return n > 0 ? n : STAFF_PRICE_DEFAULT;
+      },
+
+      // แก้วที่ถูกกว่าราคาพนักงานอยู่แล้วคงราคาเดิม ไม่ดันราคาขึ้น
+      staffPriceFor(item) {
+        return Math.min(Number(item.price) || 0, this.staffPriceSetting());
+      },
+
+      // สำเนาเมนูที่เปลี่ยนแค่ราคา ห้ามแก้ตัวใน menuData ตรงๆ ไม่งั้นแท็บอื่นจะเห็นราคาพนักงานไปด้วย
+      staffProduct(item) {
+        return { ...item, price: this.staffPriceFor(item), staffPrice: true };
       },
 
       setDiscountMode(mode) {
@@ -7157,6 +7202,13 @@ renderReport(r) {
       },
 
       async savePrinterSettings() {
+        // ช่องว่าง = ใช้ค่าเริ่มต้น 50 แต่ติดลบหรือศูนย์คือพิมพ์ผิด ห้ามบันทึก ไม่งั้นแท็บพนักงานขายแจกฟรี
+        const staffRaw = document.getElementById('shop-staff-price').value.trim();
+        const staffPrice = staffRaw === '' ? STAFF_PRICE_DEFAULT : Number(staffRaw);
+        if (!(staffPrice > 0)) {
+          await this.showAlert('ราคาพนักงานต้องมากกว่า 0', '');
+          return;
+        }
         const oldPaperSize = this.receiptSettings.paperSize;
         this.receiptSettings = {
           ...this.receiptSettings,
@@ -7190,9 +7242,12 @@ renderReport(r) {
           phone: document.getElementById('shop-phone').value.trim(),
           taxId: document.getElementById('shop-tax-id').value.trim(),
           vatEnabled: document.getElementById('vat-enabled').checked,
-          vatRate: Number(document.getElementById('vat-rate').value) || 7
+          vatRate: Number(document.getElementById('vat-rate').value) || 7,
+          staffPrice: staffPrice
         };
         this.cacheShopInfo();
+        // ราคาบนการ์ดแท็บพนักงานต้องเปลี่ยนตามทันที ไม่ต้องรอกดแท็บใหม่
+        if (this.activeCategory === STAFF_TAB) this.renderMenu({ noStagger: true });
 
         // ส่งทั้งข้อมูลร้านและการตั้งค่าเครื่องพิมพ์ไปเก็บที่ backend ไปพร้อมกัน (shop_info เป็น key-value เก็บได้ทุกอย่าง)
         // เครื่องอื่นที่ล็อกอินจะได้เห็นค่าเดียวกัน ไม่ต้องตั้งใหม่ทีละเครื่อง
