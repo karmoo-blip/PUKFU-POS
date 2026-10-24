@@ -1639,7 +1639,7 @@ test('good news shows as a message that goes away by itself, sitting above the c
 test('only plain good news became a message; numbers, errors and questions still stop the screen', () => {
   const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8');
   const toasts = (app.match(/this\.showToast\(/g) || []).length;
-  assert.equal(toasts, 22, 'รายการที่เจ้าของร้านอนุมัติมี 22 ข้อความ');
+  assert.equal(toasts, 23, 'รายการที่เจ้าของร้านอนุมัติมี 23 ข้อความ (ข้อ 23 บันทึกราคาพนักงานแล้ว)');
   for (const keep of ['ปิดยอดประจำวันสำเร็จ', 'เก็บข้อมูลเรียบร้อยแล้ว', 'กู้คืนข้อมูลสำเร็จแล้ว', 'สำรองข้อมูลสำเร็จแล้ว', 'รีเซ็ตยอดแก้วเรียบร้อยแล้ว', 'รีเซ็ตเลขคิวเป็น Q01', 'บิลนี้คืนเงินครบแล้ว']) {
     assert.ok(new RegExp("showAlert\\([`']" + keep).test(app), keep + ' ต้องยังเป็นหน้าต่างที่กดตกลง');
   }

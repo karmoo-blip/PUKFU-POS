@@ -455,9 +455,7 @@
             <div class="set-field"><label>สาขา</label><input type="text" id="printer-branch" placeholder="เช่น Central Ladprao"></div>
             <div class="set-field set-field-full"><label>ที่อยู่ร้าน</label><textarea id="shop-address" rows="2" placeholder="เช่น 123 ถ.สุขุมวิท แขวง... เขต... กรุงเทพฯ 10110"></textarea></div>
             <div class="set-field"><label>เบอร์โทรศัพท์ติดต่อ</label><input type="text" id="shop-phone" placeholder="เช่น 08X-XXX-XXXX"></div>
-            <div class="set-field"><label>เลขประจำตัวผู้เสียภาษี</label><input type="text" id="shop-tax-id" placeholder="เช่น 0-1055-XXXXX-XX-X"><span class="set-hint">ใส่หรือไม่ใส่ก็ได้</span></div>
-            <div class="set-field"><label>ราคาพนักงาน (บาท/แก้ว)</label><input type="number" id="shop-staff-price" min="1" step="1" inputmode="numeric" placeholder="50"><span class="set-hint">ใช้กับแท็บ "พนักงาน" ที่หน้าขาย · เครื่องดื่มที่ราคาต่ำกว่านี้คงราคาเดิม</span></div>
-            <div class="set-field"><label>ชื่อนิติบุคคล</label><input type="text" id="printer-company" placeholder="เช่น บริษัท ปุ๊กฟู่ จำกัด"></div>
+            <div class="set-field"><label>เลขประจำตัวผู้เสียภาษี</label><input type="text" id="shop-tax-id" placeholder="เช่น 0-1055-XXXXX-XX-X"><span class="set-hint">ใส่หรือไม่ใส่ก็ได้</span></div>            <div class="set-field"><label>ชื่อนิติบุคคล</label><input type="text" id="printer-company" placeholder="เช่น บริษัท ปุ๊กฟู่ จำกัด"></div>
             <div class="set-field"><label>เลขที่สาขา</label><input type="text" id="printer-branch-no" placeholder="เช่น 00000"></div>
             <div class="set-field"><label>POS ID</label><input type="text" id="printer-pos-id" placeholder="เช่น 00000"></div>
             <div class="set-field"><label>หัวเอกสาร</label><input type="text" id="printer-doc-title" placeholder="Receipt / TAX Invoice (ABB)"></div>
@@ -643,6 +641,14 @@
           <button onclick="Controller.openAddonForm()" class="set-btn set-btn-go">+ เพิ่มส่วนเสริม</button>
         </div>
         <div class="set-card"><div id="addon-list"></div></div>
+        <div class="set-card">
+          <p class="set-card-t">ราคาพนักงาน</p>
+          <p class="set-card-sub">ราคาต่อแก้วของแท็บ "พนักงาน" ที่หน้าขาย · เครื่องดื่มที่ราคาต่ำกว่านี้คงราคาเดิม · เว้นว่างไว้ = ฿50</p>
+          <div class="set-fields">
+            <div class="set-field"><label for="shop-staff-price">บาท/แก้ว</label><input type="number" id="shop-staff-price" min="1" step="1" inputmode="numeric" placeholder="50"></div>
+          </div>
+          <button onclick="Controller.saveStaffPrice(this)" class="set-btn set-btn-go">บันทึกราคาพนักงาน</button>
+        </div>
       </div>
 
       <div id="settings-panel-sweetness" class="settings-panel hidden">
