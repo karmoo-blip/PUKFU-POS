@@ -91,7 +91,7 @@ test('saving the staff price from the add-ons tab sends only that value', async 
   assert.equal(C.shopInfo.vatRate, 7, 'ค่าอื่นในข้อมูลร้านต้องอยู่ครบ');
   const sent = calls.filter(c => c.fn === 'saveShopInfo');
   assert.equal(sent.length, 1);
-  assert.deepEqual(JSON.parse(JSON.stringify(sent[0].args[0])), { staffPrice: 45 });
+  assert.deepEqual(JSON.parse(JSON.stringify(sent[0].args[0])), { staffPrice: 45, staffTabIdleSeconds: 60 });
 });
 
 test('an empty staff price saves the default 50', async () => {
@@ -111,4 +111,72 @@ test('a zero or negative staff price is refused and nothing is sent', async () =
     assert.equal(calls.filter(c => c.fn === 'saveShopInfo').length, 0);
     assert.ok(alerts.some(a => a.includes('ราคาพนักงานต้องมากกว่า 0')));
   }
+});
+
+// ---- แท็บพนักงานกลับหน้าทั้งหมดเองเมื่อไม่มีใครแตะ ----
+function setupTimer(shopInfo) {
+  const h = setup(shopInfo);
+  h.C.renderCategories = () => {};
+  h.C.renderMenu = () => {};
+  return h;
+}
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
+
+test('the staff tab goes back to All after the idle time', async () => {
+  const { C } = setupTimer({ staffTabIdleSeconds: 0.03 });
+  C.selectCategory('__staff__');
+  assert.equal(C.activeCategory, '__staff__');
+  await wait(60);
+  assert.equal(C.activeCategory, 'All');
+});
+
+test('activity restarts the staff tab countdown', async () => {
+  const { C } = setupTimer({ staffTabIdleSeconds: 0.05 });
+  C.selectCategory('__staff__');
+  await wait(30);
+  C.resetStaffTabTimer(); // แตะจอ
+  await wait(30);
+  assert.equal(C.activeCategory, '__staff__', 'แตะแล้วต้องนับใหม่ ยังไม่ควรเด้งกลับ');
+  await wait(50);
+  assert.equal(C.activeCategory, 'All');
+});
+
+test('staff cups already in the cart keep the staff price after going back', async () => {
+  const { C } = setupTimer({ staffTabIdleSeconds: 0.03 });
+  C.selectCategory('__staff__');
+  C.selectProduct(0);
+  await C.addToCartFromModal();
+  await wait(60);
+  assert.equal(C.activeCategory, 'All');
+  assert.equal(C.cart[0].price, 50);
+  await add(C, 'All', 0);
+  assert.equal(C.cart[1].price, 65, 'แก้วใหม่หลังกลับหน้าทั้งหมดต้องเป็นราคาปกติ');
+});
+
+test('idle time 0 keeps the staff tab open, and empty means 60 seconds', () => {
+  const { C } = setupTimer({ staffTabIdleSeconds: '0' });
+  C.selectCategory('__staff__');
+  assert.equal(C.staffTabTimer, null, 'ตั้ง 0 ต้องไม่นับถอยหลัง');
+  C.shopInfo = {};
+  assert.equal(C.staffTabIdleSeconds(), 60);
+  C.shopInfo = { staffTabIdleSeconds: '90' };
+  assert.equal(C.staffTabIdleSeconds(), 90);
+  C.leaveStaffTab();
+});
+
+test('waking up after the idle time goes straight back to All', () => {
+  const { C } = setupTimer({ staffTabIdleSeconds: 60 });
+  C.selectCategory('__staff__');
+  C.staffTabLastActive = Date.now() - 61 * 1000; // จอดับไปนานกว่าเวลาที่ตั้ง
+  C.checkStaffTabOnResume();
+  assert.equal(C.activeCategory, 'All');
+});
+
+test('a negative idle time is refused', async () => {
+  const { C, calls, alerts, el } = setup();
+  el('shop-staff-price').value = '50';
+  el('shop-staff-idle').value = '-1';
+  await C.saveStaffPrice(Object.assign(el('btn'), { dataset: {} }));
+  assert.equal(calls.filter(c => c.fn === 'saveShopInfo').length, 0);
+  assert.ok(alerts.some(a => a.includes('ติดลบไม่ได้')));
 });

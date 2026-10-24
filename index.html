@@ -646,6 +646,7 @@
           <p class="set-card-sub">ราคาต่อแก้วของแท็บ "พนักงาน" ที่หน้าขาย · เครื่องดื่มที่ราคาต่ำกว่านี้คงราคาเดิม · เว้นว่างไว้ = ฿50</p>
           <div class="set-fields">
             <div class="set-field"><label for="shop-staff-price">บาท/แก้ว</label><input type="number" id="shop-staff-price" min="1" step="1" inputmode="numeric" placeholder="50"></div>
+            <div class="set-field"><label for="shop-staff-idle">กลับหน้าทั้งหมดเองเมื่อไม่มีการใช้งาน (วินาที)</label><input type="number" id="shop-staff-idle" min="0" step="1" inputmode="numeric" placeholder="60"><span class="set-hint">เว้นว่างไว้ = 60 วินาที · ใส่ 0 = ไม่กลับเอง · แก้วที่ใส่ออเดอร์ไปแล้วคงราคาพนักงาน</span></div>
           </div>
           <button onclick="Controller.saveStaffPrice(this)" class="set-btn set-btn-go">บันทึกราคาพนักงาน</button>
         </div>
