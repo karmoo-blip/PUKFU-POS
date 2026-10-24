@@ -801,6 +801,7 @@
     const STAFF_TAB = '__staff__';
     const STAFF_NOTE = 'ราคาพนักงาน';
     const STAFF_PRICE_DEFAULT = 50;
+    const STAFF_TAB_IDLE_DEFAULT = 60; // วินาที
 
 
     const Controller = {
@@ -1900,6 +1901,7 @@
         this.activeCategory = catName;
         this.renderCategories(); // อัปเดตสีปุ่ม
         this.renderMenu();       // อัปเดตตารางสินค้า
+        this.resetStaffTabTimer(); // เข้าแท็บพนักงานเริ่มนับ ออกจากแท็บก็หยุดนับ
         // เดิมหาปุ่มด้วย .bg-primary ซึ่งไม่เคยตรงเลย (ปุ่มที่เลือกใช้ไล่สี from-primary)
         // activeBtn จึงเป็น null ตลอด และ scrollIntoView ไม่เคยทำงาน
         const activeBtn = document.querySelector('#menu-categories-track button.is-active-cat');
@@ -2997,6 +2999,7 @@
         if (tab === 'addons') {
           this.renderAddonList(); this.fetchAddons();
           document.getElementById('shop-staff-price').value = this.staffPriceSetting();
+          document.getElementById('shop-staff-idle').value = this.staffTabIdleSeconds();
         }
         if (tab === 'sweetness') { this.renderSweetnessList(); this.fetchSweetnessLevels(); }
         if (tab === 'notifications') { this.renderNotificationList(); this.fetchNotifications(); }
@@ -3271,18 +3274,24 @@
         const raw = document.getElementById('shop-staff-price').value.trim();
         const staffPrice = raw === '' ? STAFF_PRICE_DEFAULT : Number(raw);
         if (!(staffPrice > 0)) return this.showAlert('ราคาพนักงานต้องมากกว่า 0', '');
+        // ช่องว่าง = 60 วินาที, 0 = ไม่กลับหน้าทั้งหมดเอง
+        const idleRaw = document.getElementById('shop-staff-idle').value.trim();
+        const staffTabIdleSeconds = idleRaw === '' ? STAFF_TAB_IDLE_DEFAULT : Number(idleRaw);
+        if (isNaN(staffTabIdleSeconds) || staffTabIdleSeconds < 0) return this.showAlert('เวลากลับหน้าทั้งหมดใส่ติดลบไม่ได้', '');
         this.setBtnLoading(btn, true);
         this.shopInfo.staffPrice = staffPrice;
+        this.shopInfo.staffTabIdleSeconds = staffTabIdleSeconds;
         this.cacheShopInfo();
         // ราคาบนการ์ดแท็บพนักงานต้องเปลี่ยนตามทันที ไม่ต้องรอกดแท็บใหม่
         if (this.activeCategory === STAFF_TAB) this.renderMenu({ noStagger: true });
+        this.resetStaffTabTimer();
         google.script.run
           .withSuccessHandler(() => {
             this.setBtnLoading(btn, false);
             this.showToast('บันทึกราคาพนักงานแล้ว');
           })
           .withFailureHandler((err) => { this.setBtnLoading(btn, false); this.showAlert(this.failText(err), ''); })
-          .saveShopInfo({ staffPrice });
+          .saveShopInfo({ staffPrice, staffTabIdleSeconds });
       },
 
       // เก็บสำเนาข้อมูลร้านไว้ในเครื่องเผื่อออฟไลน์ ตัวจริงอยู่ที่เซิร์ฟเวอร์เสมอ
@@ -6729,6 +6738,42 @@ renderReport(r) {
         return Math.min(Number(item.price) || 0, this.staffPriceSetting());
       },
 
+      // กี่วินาทีที่ไม่มีใครแตะแล้วแท็บพนักงานกลับไปหน้าทั้งหมด ไม่ได้ตั้ง = 60, ตั้ง 0 = ไม่กลับเอง
+      staffTabIdleSeconds() {
+        const v = this.shopInfo && this.shopInfo.staffTabIdleSeconds;
+        if (v === undefined || v === null || v === '') return STAFF_TAB_IDLE_DEFAULT;
+        const n = Number(v);
+        if (isNaN(n)) return STAFF_TAB_IDLE_DEFAULT;
+        return n > 0 ? n : 0;
+      },
+
+      // ทุกการแตะเรียกตัวนี้ (ผูกไว้ที่ startAutoLockWatcher) อยู่นอกแท็บพนักงานก็แค่ล้างตัวนับทิ้ง
+      resetStaffTabTimer() {
+        if (this.staffTabTimer) clearTimeout(this.staffTabTimer);
+        this.staffTabTimer = null;
+        if (this.activeCategory !== STAFF_TAB) return;
+        const secs = this.staffTabIdleSeconds();
+        if (!secs) return;
+        this.staffTabLastActive = Date.now();
+        this.staffTabTimer = setTimeout(() => this.leaveStaffTab(), secs * 1000);
+      },
+
+      // กลับแค่แท็บ แก้วราคาพนักงานที่อยู่ในตะกร้าแล้วคงราคาเดิม
+      leaveStaffTab() {
+        if (this.staffTabTimer) clearTimeout(this.staffTabTimer);
+        this.staffTabTimer = null;
+        if (this.activeCategory === STAFF_TAB) this.selectCategory('All');
+      },
+
+      // มือถือพัก setTimeout ตอนจอดับ ตื่นมาต้องเช็คเวลาที่หายไปเอง เหมือน checkAutoLockOnResume
+      checkStaffTabOnResume() {
+        if (this.activeCategory !== STAFF_TAB) return;
+        const secs = this.staffTabIdleSeconds();
+        if (!secs) return;
+        if (Date.now() - (this.staffTabLastActive || 0) >= secs * 1000) this.leaveStaffTab();
+        else this.resetStaffTabTimer();
+      },
+
       // สำเนาเมนูที่เปลี่ยนแค่ราคา ห้ามแก้ตัวใน menuData ตรงๆ ไม่งั้นแท็บอื่นจะเห็นราคาพนักงานไปด้วย
       staffProduct(item) {
         return { ...item, price: this.staffPriceFor(item), staffPrice: true };
@@ -7972,13 +8017,14 @@ renderReport(r) {
       startAutoLockWatcher() {
         // ผูก event ครั้งเดียวตอนเปิดแอป ทุกการแตะ/กด/เลื่อน จะรีเซ็ตเวลานับถอยหลัง
         ['click', 'touchstart', 'keydown', 'scroll'].forEach(evt => {
-          document.addEventListener(evt, () => this.resetAutoLockTimer(), { passive: true });
+          document.addEventListener(evt, () => { this.resetAutoLockTimer(); this.resetStaffTabTimer(); }, { passive: true });
         });
         // มือถือ (Android/iOS) มักหยุด/หน่วง setTimeout ตอนสลับแอปไปพักหน้าจอ โดยไม่ปิดหน้าเว็บทิ้ง
         // พอกลับมาเปิดแอปอีกครั้ง (visibilitychange) เลยต้องเช็คเวลาที่หายไปเองอีกที ไม่ต้องรอ event อื่น
         document.addEventListener('visibilitychange', () => {
           if (document.visibilityState === 'visible') {
             this.checkAutoLockOnResume();
+            this.checkStaffTabOnResume();
             this.maybeAutoRefresh(); // เครื่องที่หลับข้ามคืน ตื่นมาถึงจะรู้ว่าเลยตีสองแล้ว
           }
         });
@@ -8034,6 +8080,8 @@ renderReport(r) {
       // ตะกร้าไม่แตะ ออเดอร์ที่กดค้างไว้ยังอยู่เหมือนเดิม
       resetViewForNextUser() {
         this.closeUserMenu();
+        // คนถัดไปที่ปลดล็อกต้องเจอราคาปกติ ไม่ใช่แท็บพนักงานที่คนก่อนเปิดค้างไว้
+        this.leaveStaffTab();
 
         // ปิดโมดัลที่ค้างอยู่ทั้งหมดก่อนล็อก กันหน้าจอซ้อนกัน
         // ต้องเจาะจงเฉพาะตัวกรอบ (.fixed) ไม่ใช่ทุก id ที่ขึ้นต้นด้วย modal-
