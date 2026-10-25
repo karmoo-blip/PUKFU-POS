@@ -276,3 +276,31 @@ test('the × hides the green bar, and it stays hidden for the same version but c
   C.showUpdateBanner('web:999');
   assert.ok(!bar.classList.contains('hidden'), 'เวอร์ชันใหม่กว่าที่ปิดไปต้องขึ้นอีก');
 });
+
+test('web: the update button fetches the main files fresh before reloading, so the green bar does not come back', async () => {
+  const fetched = [];
+  const { C, sandbox } = loadWeb({
+    fetch: (url, opts) => {
+      fetched.push([String(url), opts && opts.cache]);
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(manifest()) });
+    },
+  });
+  sandbox.caches = { keys: async () => [], delete: async () => true };
+  let reloaded = false;
+  sandbox.location.reload = () => { reloaded = true; };
+  C.cart = [];
+  await C.applyAppUpdate();
+  assert.equal(reloaded, true);
+  for (const f of ['./app-version.js', './index.html', './app.js']) {
+    assert.ok(fetched.some(([u, c]) => u === f && c === 'reload'), f + ' ต้องถูกดึงใหม่แบบข้าม cache ของเบราว์เซอร์');
+  }
+});
+
+test('the offline copy asks the network first for the page and the version file', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const sw = fs.readFileSync(path.join(__dirname, '..', 'sw.js'), 'utf8');
+  assert.ok(sw.includes("req.mode === 'navigate'"));
+  assert.ok(sw.includes('app-version'));
+  assert.ok(sw.includes("fetch(req, { cache: 'no-cache' })"));
+});
