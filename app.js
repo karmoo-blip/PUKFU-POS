@@ -952,11 +952,9 @@
            if (this.syncQueue.length === 0) {
              this.history = []; // ล้างประวัติในแอป
              this.heldOrders = [];
-             this.groupBills = []; // บิลกลุ่มล้างข้ามวันเหมือนบิลค้างชำระ
              this.queueNumber = 1; // รีเซ็ตคิว
              localStorage.setItem('pos_history', JSON.stringify([]));
              localStorage.setItem('pos_heldOrders', JSON.stringify([]));
-             localStorage.setItem('pos_groupBills', JSON.stringify([]));
              localStorage.setItem('pos_queueNumber', this.queueNumber);
              
              // จดจำไว้ว่าของวันนี้ถูกล้างไปแล้ว จะได้ไม่ลบซ้ำอีกในวันเดียวกัน
@@ -6685,7 +6683,8 @@ renderReport(r) {
         if (!name) return this.showAlert('กรุณาใส่ชื่อบิลกลุ่ม', '');
         if ((this.groupBills || []).some(g => g.name === name)) return this.showAlert('มีบิลกลุ่มชื่อนี้เปิดอยู่แล้ว', '');
         if (!(await this.moveNormalCartAside())) return;
-        const g = { id: 'G' + Date.now(), name, items: [], lastPerson: null, slipRound: 0, createdAt: new Date().toISOString() };
+        // สุ่มต่อท้าย เปิดสองบิลในมิลลิวินาทีเดียวกันต้องได้คนละ id
+        const g = { id: 'G' + Date.now() + Math.random().toString(36).slice(2, 6), name, items: [], lastPerson: null, slipRound: 0, createdAt: new Date().toISOString() };
         this.groupBills.push(g);
         this.enterGroup(g);
       },
@@ -6719,6 +6718,25 @@ renderReport(r) {
         this.renderCart();
       },
 
+      // บิลกลุ่มไม่ล้างข้ามวัน ยังมีแก้วที่ไม่จ่ายต้องใส่ PIN ถึงจะลบได้ กันเงินค้างหายเงียบๆ
+      async deleteGroup() {
+        const g = this.activeGroup();
+        if (!g) return;
+        if (g.items.length) {
+          const owed = this.groupTotal(g).toFixed(0);
+          const ok = await this.showConfirm(this.tf('ลบบิลกลุ่ม {x}? ยังมีแก้วที่ไม่ได้จ่าย ฿{x}', g.name, owed), '');
+          if (!ok) return;
+          const auth = await this.requireActionPin(this.tf('ใส่รหัส PIN เพื่อยืนยันลบบิลกลุ่ม {x}', g.name));
+          if (!auth) return;
+          this.logPinAttempt(`ลบบิลกลุ่ม ${g.name} ที่ยังค้างจ่าย ฿${owed}`, true, auth.employee.name);
+        }
+        this.groupBills = this.groupBills.filter(x => x !== g);
+        this.activeGroupId = null;
+        this.cart = [];
+        this.saveLocalState();
+        this.renderCart();
+      },
+
       // แถบชิปบิลกลุ่มที่เปิดอยู่ + หัวบิลกลุ่มที่กำลังดู
       renderGroupStrip() {
         const strip = document.getElementById('group-strip');
@@ -6727,10 +6745,23 @@ renderReport(r) {
         const g = this.activeGroup();
         if (!groups.length) { strip.innerHTML = ''; strip.classList.add('hidden'); return; }
         strip.classList.remove('hidden');
-        const chips = groups.map(x => `<button type="button" data-id="${escAttr(x.id)}" onclick="Controller.switchToGroup(this.dataset.id, event)" class="group-chip${x.id === this.activeGroupId ? ' is-on' : ''}"><span data-no-translate>${escHtml(x.name)}</span><small>฿${this.groupTotal(x).toFixed(0)}</small></button>`).join('');
-        const people = g ? this.groupPersons(g).length : 0;
-        const cups = g ? g.items.reduce((n, i) => n + i.qty, 0) : 0;
-        const bar = g ? `<div class="group-bar"><b data-no-translate>${escHtml(this.tf('บิลกลุ่ม: {x}', g.name))}</b><span>${people} คน · ${cups} แก้ว</span></div>` : '';
+        const today = new Date().toLocaleDateString();
+        const chips = groups.map(x => {
+          const old = x.createdAt && new Date(x.createdAt).toLocaleDateString() !== today;
+          const left = (x.paid && x.paid.length) ? this.tf('เหลือ ฿{x}', this.groupTotal(x).toFixed(0)) : `฿${this.groupTotal(x).toFixed(0)}`;
+          return `<button type="button" data-id="${escAttr(x.id)}" onclick="Controller.switchToGroup(this.dataset.id, event)" class="group-chip${x.id === this.activeGroupId ? ' is-on' : ''}${old ? ' is-old' : ''}"><span data-no-translate>${escHtml(x.name)}</span><small>${left}</small>${old ? '<em>ค้างจากวันก่อน</em>' : ''}</button>`;
+        }).join('');
+        let bar = '';
+        if (g) {
+          const people = this.groupPersons(g).length;
+          const cups = g.items.reduce((n, i) => n + i.qty, 0);
+          const paid = g.paid || [];
+          const info = paid.length
+            ? this.tf('จ่ายแล้ว {x} · เหลือ {x} คน', paid.reduce((n, p) => n + p.persons.length, 0), people)
+            : `${people} คน · ${cups} แก้ว`;
+          bar = `<div class="group-bar"><b data-no-translate>${escHtml(this.tf('บิลกลุ่ม: {x}', g.name))}</b><span>${info}</span><button type="button" onclick="Controller.deleteGroup()" class="group-del" aria-label="ลบบิลกลุ่ม">ลบ</button></div>`
+            + paid.map(p => `<div class="group-paid"><span data-no-translate>${escHtml(this.tf('จ่ายแล้ว: {x}', p.persons.join(', ')))}</span><small>฿${Number(p.total).toFixed(0)} · ${escHtml(p.paymentType || '')}</small></div>`).join('');
+        }
         strip.innerHTML = `<div class="group-chips">${chips}</div>${bar}`;
       },
 
@@ -6867,8 +6898,88 @@ renderReport(r) {
         this.renderCart({ newIdx: at });
       },
       
+      // บิลกลุ่มถามก่อนว่าจ่ายทั้งบิลหรือแยกจ่ายรายคน ออเดอร์ปกติเข้าหน้าชำระเงินเลยเหมือนเดิม
       async openCheckout() {
         if (this.cart.length === 0) return this.showAlert('ยังไม่มีสินค้า', '');
+        this.splitCheckout = null;
+        const g = this.activeGroup();
+        if (g && this.groupPersons(g).length > 1) {
+          this.renderGroupPayChoice();
+          this.openModal('modal-group-pay');
+          return;
+        }
+        this.startCheckout();
+      },
+
+      renderGroupPayChoice() {
+        const g = this.activeGroup();
+        const body = document.getElementById('group-pay-body');
+        if (!g || !body) return;
+        const total = this.groupTotal(g);
+        const whole = (g.paid && g.paid.length) ? this.tf('จ่ายที่เหลือทั้งหมด ฿{x}', total.toFixed(0)) : this.tf('จ่ายทั้งบิล ฿{x}', total.toFixed(0));
+        body.innerHTML = `<p class="group-pay-t" data-no-translate>${escHtml(this.tf('ชำระเงิน · {x}', g.name))}</p>
+          <div class="group-pay-choice">
+            <button type="button" onclick="Controller.payWholeGroup()" class="group-pay-btn is-go">${whole}<small>ทุกคนจ่ายรวมกันครั้งเดียว</small></button>
+            <button type="button" onclick="Controller.openSplitPicker()" class="group-pay-btn is-group">แยกจ่ายรายคน<small>เลือกคนที่จะจ่าย ทีละคนหรือหลายคนพร้อมกัน</small></button>
+          </div>`;
+      },
+
+      payWholeGroup() {
+        this.splitCheckout = null;
+        this.closeModal('modal-group-pay');
+        this.startCheckout();
+      },
+
+      openSplitPicker() {
+        this.splitPick = [];
+        this.renderSplitPicker();
+      },
+
+      toggleSplitPerson(name) {
+        this.splitPick = this.splitPick || [];
+        const i = this.splitPick.indexOf(name);
+        if (i === -1) this.splitPick.push(name); else this.splitPick.splice(i, 1);
+        this.renderSplitPicker();
+      },
+
+      renderSplitPicker() {
+        const g = this.activeGroup();
+        const body = document.getElementById('group-pay-body');
+        if (!g || !body) return;
+        const people = this.groupPersons(g);
+        const pick = this.splitPick || [];
+        const of = p => g.items.filter(i => i.person === p);
+        const sum = list => list.reduce((s, i) => s + i.price * i.qty, 0);
+        const chosen = sum(g.items.filter(i => pick.includes(i.person)));
+        body.innerHTML = `<p class="group-pay-t" data-no-translate>${escHtml(this.tf('แยกจ่าย · {x}', g.name))}</p>
+          <p class="group-pay-sub">${this.tf('เหลือ {x} คน · ฿{x}', people.length, sum(g.items).toFixed(0))}</p>
+          ${people.map(p => `<button type="button" data-person="${escAttr(p)}" onclick="Controller.toggleSplitPerson(this.dataset.person)" class="split-person${pick.includes(p) ? ' is-on' : ''}">
+              <span class="split-box">${pick.includes(p) ? '✓' : ''}</span>
+              <span class="split-info"><b data-no-translate>${escHtml(p)}</b><small data-no-translate>${escHtml(of(p).map(i => this.itemName(i) + (i.qty > 1 ? ' ×' + i.qty : '')).join(', '))}</small></span>
+              <span class="split-amt">฿${sum(of(p)).toFixed(0)}</span>
+            </button>`).join('')}
+          <button type="button" onclick="Controller.paySplit()" class="group-pay-btn is-go"${pick.length ? '' : ' disabled'}>${pick.length ? this.tf('ชำระ ฿{x}', chosen.toFixed(0)) + `<small data-no-translate>${escHtml(pick.join(', '))}</small>` : 'เลือกคนที่จะจ่าย'}</button>`;
+      },
+
+      paySplit() {
+        const g = this.activeGroup();
+        const pick = (this.splitPick || []).slice();
+        if (!g || !pick.length) return;
+        // เลือกครบทุกคนก็คือจ่ายทั้งบิล
+        this.splitCheckout = pick.length === this.groupPersons(g).length ? null : { groupId: g.id, persons: pick };
+        this.closeModal('modal-group-pay');
+        this.startCheckout();
+      },
+
+      startCheckout() {
+        const forEl = document.getElementById('checkout-for');
+        if (forEl) {
+          const g = this.activeGroup();
+          const sc = this.splitCheckout;
+          const text = !g ? '' : (sc ? this.tf('{x} · {x}', g.name, sc.persons.join(', ')) : this.tf('บิลกลุ่ม: {x}', g.name));
+          forEl.innerText = text;
+          forEl.classList.toggle('hidden', !text);
+        }
         this.checkoutDiscount = 0;
         this.checkoutDiscountRaw = 0;
         this.checkoutDiscountReason = '';
@@ -6934,7 +7045,14 @@ renderReport(r) {
       },
 
       getCartSubtotal() {
-        return this.cart.reduce((s, i) => s + (i.price * i.qty), 0);
+        return this.checkoutItems().reduce((s, i) => s + (i.price * i.qty), 0);
+      },
+
+      // ของที่กำลังจ่ายในหน้าต่างชำระเงิน ปกติคือทั้งออเดอร์ แยกจ่ายบิลกลุ่มคือเฉพาะแก้วของคนที่เลือก
+      checkoutItems() {
+        const sc = this.splitCheckout;
+        if (sc && sc.groupId === this.activeGroupId) return this.cart.filter(i => sc.persons.includes(i.person));
+        return this.cart;
       },
 
       // ราคาพนักงานต่อแก้ว ตั้งในหน้าข้อมูลร้าน ไม่ได้ตั้ง/ตั้งผิดให้ใช้ 50
@@ -7407,7 +7525,7 @@ renderReport(r) {
         const orderData = {
           timestamp: new Date().toISOString(),
           invoice: invoiceId,
-          items: [...this.cart],
+          items: [...this.checkoutItems()],
           subtotal: subtotal,
           discount: discount,
           discountLabel: discountLabel,
@@ -7421,7 +7539,8 @@ renderReport(r) {
           cashier: this.loggedInEmployee ? this.loggedInEmployee.name : ''
         };
         const group = this.activeGroup();
-        if (group) orderData.note = this.tf('บิลกลุ่ม: {x}', group.name);
+        const split = group && this.splitCheckout && this.splitCheckout.groupId === group.id ? this.splitCheckout : null;
+        if (group) orderData.note = split ? this.tf('บิลกลุ่ม: {x} · {x}', group.name, split.persons.join(', ')) : this.tf('บิลกลุ่ม: {x}', group.name);
 
         this.syncQueue.push(orderData);
         
@@ -7438,13 +7557,22 @@ renderReport(r) {
         // ห้าม await ตรงนี้ ปุ่มกับหน้าต่างถามพิมพ์บิลต้องมาทันในจังหวะเดียวกัน
         this.setSubmitButtonState('paid');
 
-        // บิลกลุ่มที่จ่ายแล้วปิดทิ้ง ออเดอร์กลับเป็นออเดอร์ปกติ
-        if (this.activeGroupId) {
+        // แยกจ่าย: เอาเฉพาะแก้วที่จ่ายแล้วออกจากบิลกลุ่ม คนที่เหลือยังสั่งต่อได้ จ่ายครบแล้วบิลกลุ่มปิดเอง
+        let keepGroup = false;
+        if (split) {
+          const paidItems = new Set(orderData.items);
+          for (let i = group.items.length - 1; i >= 0; i--) if (paidItems.has(group.items[i])) group.items.splice(i, 1);
+          group.paid = group.paid || [];
+          group.paid.push({ persons: split.persons, total, paymentType: this.paymentMode, invoice: invoiceId, at: orderData.timestamp });
+          keepGroup = group.items.length > 0;
+        }
+        this.splitCheckout = null;
+        if (this.activeGroupId && !keepGroup) {
           this.groupBills = this.groupBills.filter(g => g.id !== this.activeGroupId);
           this.activeGroupId = null;
-          this.saveLocalState();
         }
-        this.cart = [];
+        if (group) this.saveLocalState();
+        if (!keepGroup) this.cart = [];
         this.hideUndo(); // บิลปิดไปแล้ว ของที่ลบก่อนหน้าเอากลับเข้าบิลใหม่ไม่ได้
         if (this.reducedMotion()) this.renderCart();
         else setTimeout(() => this.renderCart(), 300);
@@ -9241,7 +9369,14 @@ renderReport(r) {
         btn.innerText = closed ? 'ปิดยอดแล้ววันนี้' : 'ปิดยอดประจำวัน';
       },
 
-      closeDayCashManual(btn) {
+      async closeDayCashManual(btn) {
+        // ปิดยอดได้แม้บิลกลุ่มยังค้าง (ปิดเฉพาะเงินที่รับจริงวันนี้) แต่ต้องเตือนก่อน กันลืมโต๊ะที่ยังไม่จ่าย
+        const open = (this.groupBills || []).filter(g => g.items && g.items.length);
+        if (open.length) {
+          const list = open.map(g => `${g.name} · ฿${this.groupTotal(g).toFixed(0)}`).join(', ');
+          const ok = await this.showConfirm(this.tf('ยังมีบิลกลุ่มค้างจ่าย {x} บิล ({x}) ปิดยอดเลยไหม?', open.length, list), '');
+          if (!ok) return;
+        }
         // ลืมกดส่งยอดพนักงานดื่ม/ของเสีย ปิดยอดแล้วส่งให้เลย
         this.sendFreeCups();
         this.setBtnLoading(btn, true);

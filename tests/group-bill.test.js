@@ -191,3 +191,132 @@ test('paying a group bill closes it and labels the bill with the group name', as
   assert.equal(C.activeGroupId, null);
   assert.equal(C.cart.length, 0);
 });
+
+// ---- แยกจ่ายรายคน ----
+function checkoutStubs(C) {
+  C.syncQueue = [];
+  C.paymentMethods = [{ id: 'cash', name: 'เงินสด', isCash: true }];
+  C.currentPaymentMethodId = 'cash';
+  C.paymentMode = 'เงินสด';
+  C.cashInput = '500';
+  C.getQueueNumber = () => 'Q01';
+  C.playBillDone = () => {};
+  C.setSubmitButtonState = () => {};
+  C.printAfterCheckout = async () => {};
+  C.processSyncQueue = () => {};
+  C.renderHistory = () => {};
+  C.updateCupUI = () => {};
+  C.renderCheckoutPaymentMethods = () => {};
+  C.updateCashUI = () => {};
+}
+
+async function tableOf3(h) {
+  const { C } = h;
+  h.prompts.push('โต๊ะ 3');
+  await C.openNewGroup();
+  await add(C, 0, 'นัท');   // 65
+  await add(C, 1, 'นัท');   // 60
+  await add(C, 0, 'บอล');   // 65
+  await add(C, 1, 'โต้');   // 60
+  checkoutStubs(C);
+  return C.activeGroup();
+}
+
+test('ชำระเงิน on a group bill asks first, and split pay charges only the ticked people', async () => {
+  const h = setup();
+  const { C, el } = h;
+  const g = await tableOf3(h);
+  await C.openCheckout();
+  assert.match(el('group-pay-body').innerHTML, /จ่ายทั้งบิล ฿250/);
+  C.openSplitPicker();
+  C.toggleSplitPerson('บอล');
+  C.toggleSplitPerson('โต้');
+  assert.match(el('group-pay-body').innerHTML, /ชำระ ฿125/);
+  C.paySplit();
+  assert.equal(C.getCartSubtotal(), 125, 'หน้าชำระเงินเห็นเฉพาะของบอลกับโต้');
+  assert.match(el('checkout-for').innerText, /โต๊ะ 3 · บอล, โต้/);
+  await C.finalizeOrder('INV-S1');
+  const bill = C.syncQueue[0];
+  assert.equal(bill.total, 125);
+  assert.equal(bill.note, 'บิลกลุ่ม: โต๊ะ 3 · บอล, โต้');
+  assert.deepEqual([...bill.items.map(i => i.person)], ['บอล', 'โต้']);
+  assert.ok(C.groupBills.includes(g), 'ยังมีคนค้างจ่าย บิลกลุ่มต้องยังอยู่');
+  assert.equal(C.activeGroupId, g.id);
+  assert.equal(C.cart, g.items);
+  assert.deepEqual([...C.groupPersons(g)], ['นัท']);
+  assert.equal(C.groupTotal(g), 125);
+  assert.equal(g.paid[0].total, 125);
+  C.renderGroupStrip();
+  assert.match(el('group-strip').innerHTML, /จ่ายแล้ว: บอล, โต้/);
+  assert.match(el('group-strip').innerHTML, /เหลือ ฿125/);
+});
+
+test('when the last person pays, the group bill closes by itself', async () => {
+  const h = setup();
+  const { C } = h;
+  await tableOf3(h);
+  C.openSplitPicker();
+  C.toggleSplitPerson('นัท');
+  C.paySplit();
+  await C.finalizeOrder('INV-S1');
+  await C.openCheckout(); // เหลือสองคน ยังถาม
+  C.payWholeGroup();
+  assert.equal(C.getCartSubtotal(), 125);
+  await C.finalizeOrder('INV-S2');
+  assert.equal(C.groupBills.length, 0);
+  assert.equal(C.activeGroupId, null);
+  assert.equal(C.syncQueue.reduce((s, b) => s + b.total, 0), 250, 'สองบิลรวมกันเท่ายอดทั้งโต๊ะ');
+});
+
+test('ticking everyone in split pay is the same as paying the whole bill', async () => {
+  const h = setup();
+  const { C } = h;
+  await tableOf3(h);
+  C.openSplitPicker();
+  ['นัท', 'บอล', 'โต้'].forEach(p => C.toggleSplitPerson(p));
+  C.paySplit();
+  assert.equal(C.splitCheckout, null);
+  await C.finalizeOrder('INV-S1');
+  assert.equal(C.syncQueue[0].note, 'บิลกลุ่ม: โต๊ะ 3');
+  assert.equal(C.groupBills.length, 0);
+});
+
+test('group bills survive midnight, show a label when left from an earlier day, and need a PIN to delete when unpaid', async () => {
+  const h = setup();
+  const { C, el, store } = h;
+  await tableOf3(h);
+  const g = C.activeGroup();
+  g.createdAt = new Date(Date.now() - 86400000).toISOString();
+  C.renderGroupStrip();
+  assert.match(el('group-strip').innerHTML, /ค้างจากวันก่อน/);
+  // จำลองเปิดแอปวันใหม่: ล้างประวัติวันก่อน แต่บิลกลุ่มต้องไม่หาย
+  store.set('pos_lastClearDate', 'วันก่อน');
+  C.syncQueue = [];
+  C.checkAndClearDailyCache && C.checkAndClearDailyCache();
+  assert.ok(JSON.parse(store.get('pos_groupBills')).length === 1, 'ข้ามวันแล้วบิลกลุ่มต้องยังอยู่');
+  let pinAsked = false;
+  C.requireActionPin = async () => { pinAsked = true; return null; };
+  await C.deleteGroup();
+  assert.equal(pinAsked, true);
+  assert.equal(C.groupBills.length, 1, 'ไม่ใส่ PIN ห้ามลบ');
+  C.requireActionPin = async () => ({ employee: { name: 'บอน' }, employeeId: 'E1', pin: '1' });
+  C.logPinAttempt = () => {};
+  await C.deleteGroup();
+  assert.equal(C.groupBills.length, 0);
+  assert.equal(C.cart.length, 0);
+});
+
+test('ปิดยอดประจำวัน warns about unpaid group bills first', async () => {
+  const h = setup();
+  const { C, calls } = h;
+  await tableOf3(h);
+  C.setBtnLoading = () => {};
+  let asked = '';
+  C.showConfirm = async (msg) => { asked = msg; return false; };
+  await C.closeDayCashManual({ dataset: {} });
+  assert.match(asked, /บิลกลุ่มค้างจ่าย 1 บิล \(โต๊ะ 3 · ฿250\)/);
+  assert.equal(calls.filter(c => c.fn === 'closeDayCash').length, 0, 'ตอบไม่ ต้องไม่ปิดยอด');
+  C.showConfirm = async () => true;
+  await C.closeDayCashManual({ dataset: {} });
+  assert.equal(calls.filter(c => c.fn === 'closeDayCash').length, 1);
+});
