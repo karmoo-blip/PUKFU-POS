@@ -1501,6 +1501,9 @@
           const keys = await caches.keys();
           await Promise.all(keys.map(k => caches.delete(k)));
         } catch (e) { /* ล้าง cache ไม่สำเร็จก็ยัง reload ต่อได้ แค่ช้ากว่าปกติ */ }
+        // GitHub Pages ให้เบราว์เซอร์ใช้ไฟล์เดิมซ้ำได้สิบนาที (max-age=600) ล้าง cache ของแอปอย่างเดียวไม่พอ
+        // reload แล้วยังได้ app-version.js เก่า แถบเขียวเลยขึ้นซ้ำทั้งที่อัปเดตแล้ว ดึงไฟล์หลักใหม่แบบข้าม cache ก่อน
+        await Promise.all(this.APP_SHELL_FILES.map(u => fetch(u, { cache: 'reload' }).catch(() => null)));
         // บังคับใส่ PIN ใหม่หลังอัปเดตแอปเสมอ กันกรณีคนละคนถืออุปกรณ์ต่อตอนอัปเดตพอดี ไม่ใช่แค่สลับแท็บ/รีเฟรชปกติ
         localStorage.removeItem('pos_loggedInUserId');
         location.reload();
@@ -1511,6 +1514,8 @@
       // ปลั๊กอิน @capgo/capacitor-updater ดาวน์โหลด ถอดรหัส ตรวจลายเซ็น แล้วสลับไปใช้ตอนเปิดแอปครั้งถัดไป หรือทันทีเมื่อกดอัปเดต
       // ไม่ reload เอง เพราะตะกร้ายังไม่ได้ persist ไว้ อัปเดตกลางบิลรายการจะหาย
       APP_UPDATE_URL: 'https://karmoo-blip.github.io/PUKFU-POS/app-update/latest.json',
+      // ไฟล์ที่ต้องได้ของใหม่ตอนกดอัปเดตบนเว็บ (ชุดเดียวกับ APP_SHELL ใน sw.js ส่วนที่เปลี่ยนทุก deploy)
+      APP_SHELL_FILES: ['./', './index.html', './app.js', './app-version.js', './style.css', './pure-helpers.js', './lang-my.js'],
       APP_UPDATE_BUNDLE_PREFIX: 'https://karmoo-blip.github.io/PUKFU-POS/app-update/',
       APP_UPDATE_APK_PREFIX: 'https://github.com/karmoo-blip/PUKFU-POS/releases/download/',
       APP_UPDATE_AUTO_MS: 30 * 60 * 1000,
