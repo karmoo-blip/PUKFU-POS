@@ -1889,7 +1889,8 @@
         // กรองหาชื่อหมวดหมู่ที่ไม่ซ้ำกัน ถ้าสินค้าไม่มี category ให้ตั้งว่า 'อื่นๆ'
         const cats = new Set(this.menuData.map(item => item.category || 'อื่นๆ'));
         
-        this.categories = ['All', ...Array.from(cats), STAFF_TAB];
+        // หน้าขายราคาพนักงานไม่อยู่ในแถบหมวดแล้ว เปิดจากเมนูชื่อผู้ใช้เท่านั้น (openStaffSale) กันลูกค้าเห็น/พนักงานใหม่กดเล่น
+        this.categories = ['All', ...Array.from(cats)];
         document.getElementById('menu-categories').classList.remove('hidden');
         
         this.renderCategories();
@@ -1935,6 +1936,7 @@
 
       //  ฟังก์ชันเมื่อคลิกเลือกหมวดหมู่
       selectCategory(catName) {
+        if (catName === STAFF_TAB && !this.canStaffSale(this.loggedInEmployee)) return;
         // เข้าแท็บพนักงานทุกครั้งเริ่มที่โหมดขาย กันกดของเสียค้างไว้จากรอบก่อน
         if (catName === STAFF_TAB && this.activeCategory !== STAFF_TAB) this.staffMode = 'sale';
         this.activeCategory = catName;
@@ -3652,7 +3654,9 @@
         const wrap = document.getElementById('emp-perm-groups');
         if (!wrap) return;
         const checked = new Set(checkedTabs || []);
-        wrap.innerHTML = this.SETTINGS_GROUPS.map(group => `
+        // สิทธิ์ที่ไม่ใช่แท็บในตั้งค่า แยกเป็นกลุ่มของตัวเอง ไม่งั้นจะไปโผล่เป็นเมนูในหน้าตั้งค่า
+        const groups = [...this.SETTINGS_GROUPS, { title: 'หน้าขาย', items: [{ tab: 'staffsale', label: 'ขายราคาพนักงาน' }] }];
+        wrap.innerHTML = groups.map(group => `
           <div class="emp-perm-group">
             <p class="emp-perm-group-t">${escHtml(group.title)}</p>
             <div class="set-checkgrid">
@@ -5573,7 +5577,7 @@ renderReport(r) {
           display: fmt(item.amount),
           extra: `${item.qty} แก้ว` + (item.hasCost ? ` · กำไร ${item.marginPct.toFixed(0)}%` : '')
         }))));
-        this.renderStaffBreakdown(r.staffBreakdown);
+        this.renderStaffBreakdown(r.staffBreakdown, r.staffSellers);
 
         html('sales-weekday', this.salesBarRows((r.byWeekday || []).map(w => ({
           label: w.label,
@@ -6082,7 +6086,8 @@ renderReport(r) {
           banner.classList.toggle('hidden', !isStaff);
           if (isStaff) {
             const sub = { sale: `฿${this.staffPriceSetting()} / แก้ว`, drink: '฿0 · กดแล้วบันทึกเลย', waste: '฿0 · กดแล้วบันทึกเลย' };
-            banner.innerHTML = ['sale', 'drink', 'waste'].map(m =>
+            banner.innerHTML = '<div class="staff-head"><b>ขายราคาพนักงาน</b><button type="button" onclick="Controller.leaveStaffTab()" class="staff-head-back">กลับหน้าขายปกติ</button></div>'
+              + ['sale', 'drink', 'waste'].map(m =>
               `<button type="button" onclick="Controller.setStaffMode('${m}')" class="staff-mode staff-mode-${m}${m === mode ? ' is-on' : ''}" aria-pressed="${m === mode}">${STAFF_MODES[m].label}<small>${sub[m]}</small></button>`
             ).join('');
           }
@@ -7058,6 +7063,22 @@ renderReport(r) {
         const sc = this.splitCheckout;
         if (sc && sc.groupId === this.activeGroupId) return this.cart.filter(i => sc.persons.includes(i.person));
         return this.cart;
+      },
+
+      // ใครขายราคาพนักงานได้: Owner/Admin ได้เสมอ คนอื่นต้องติ๊ก "ขายราคาพนักงาน" ในหน้าพนักงาน
+      canStaffSale(user) {
+        if (!user) return false;
+        if (user.role === 'Owner' || user.role === 'Admin') return true;
+        return String(user.permissions || '').split(',').map(t => t.trim()).includes('staffsale');
+      },
+
+      // เปิดจากเมนูชื่อผู้ใช้
+      openStaffSale() {
+        if (!this.canStaffSale(this.loggedInEmployee)) return this.showAlert('คุณไม่มีสิทธิ์ขายราคาพนักงาน', '');
+        // เปิดจากหน้าตั้งค่าได้ด้วย กลับมาหน้าขายก่อน
+        const pos = document.getElementById('view-pos');
+        if (pos && pos.classList.contains('hidden')) this.switchView('pos');
+        this.selectCategory(STAFF_TAB);
       },
 
       // ราคาพนักงานต่อแก้ว ตั้งในหน้าข้อมูลร้าน ไม่ได้ตั้ง/ตั้งผิดให้ใช้ 50
@@ -8575,6 +8596,10 @@ renderReport(r) {
         const el = document.getElementById('current-user-label');
         const wrap = document.getElementById('user-menu-wrap');
         if (!el || !wrap) return;
+        const staffItem = document.getElementById('menu-staff-sale');
+        if (staffItem) staffItem.classList.toggle('hidden', !this.canStaffSale(this.loggedInEmployee));
+        const staffPriceEl = document.getElementById('menu-staff-sale-price');
+        if (staffPriceEl) staffPriceEl.innerText = `฿${this.staffPriceSetting()} / แก้ว`;
         if (this.loggedInEmployee) {
           el.innerText = this.loggedInEmployee.name;
           wrap.classList.remove('hidden');
@@ -9276,7 +9301,9 @@ renderReport(r) {
                  //  หาต้นทุนจาก menuData โดยใช้ SKU (เพราะประวัติที่ดึงจากเซิร์ฟเวอร์ไม่ได้เก็บต้นทุนไว้)
                  const c = costInfo[item.sku];
                  const itemCost = c ? c.cost : (item.cost || 0);
-                 staffLines.push({ note: item.note, qty: item.qty, price: item.price, cost: itemCost, isWasteBill: isWaste });
+                 const menuItem = (this.menuData || []).find(m => m.sku === item.sku);
+                 staffLines.push({ note: item.note, qty: item.qty, price: item.price, cost: itemCost, isWasteBill: isWaste,
+                   seller: order.cashier || '', fullPrice: menuItem ? Number(menuItem.price) || 0 : item.price });
 
                  if (isWaste) {
                    wasteCost += itemCost * item.qty;
@@ -9331,7 +9358,7 @@ renderReport(r) {
               display: fmtMoney(item.amount),
               extra: `${item.qty} แก้ว`
             }))));
-            this.renderStaffBreakdown(staffBreakdown(staffLines));
+            this.renderStaffBreakdown(staffBreakdown(staffLines), staffSellers(staffLines));
 
             this.setIndicator('synced');
           })
@@ -9344,7 +9371,7 @@ renderReport(r) {
       },
 
       // ตารางพนักงานและของเสีย ใช้ทั้งช่วงวันนี้ (คิดจากบิลในเครื่อง) และช่วงอื่น (worker คิดมาให้)
-      renderStaffBreakdown(b) {
+      renderStaffBreakdown(b, sellers) {
         const el = document.getElementById('sales-staff');
         if (!el) return;
         const rows = [
@@ -9363,7 +9390,18 @@ renderReport(r) {
           + rows.map(r => tr(`<span class="staff-sum-kind"><span class="staff-sum-dot" style="background:${r.color}"></span>${r.label}</span>`, r)).join('')
           + tr('รวม', sum, 'is-sum')
           + '</tbody></table></div>'
-          + '<p class="sales-note">ต้นทุนคิดจากสูตรเมนู (เหมือนช่องต้นทุนด้านบน) · เมนูที่ยังไม่ได้ตั้งต้นทุนนับเป็น ฿0</p>';
+          + '<p class="sales-note">ต้นทุนคิดจากสูตรเมนู (เหมือนช่องต้นทุนด้านบน) · เมนูที่ยังไม่ได้ตั้งต้นทุนนับเป็น ฿0</p>'
+          + this.staffSellersHtml(sellers, money);
+      },
+
+      // ขายราคาพนักงานแยกตามคนขาย "ลดไป" เทียบกับราคาปกติในเมนูตอนนี้ คนที่ขายเยอะผิดปกติขึ้นป้ายแดง (กฎอยู่ที่ staffSellers)
+      staffSellersHtml(sellers, money) {
+        if (!sellers || !sellers.length) return '';
+        return '<p class="sales-sec-t staff-sellers-t">ขายราคาพนักงาน แยกตามคนขาย</p>'
+          + '<div class="staff-sum-wrap"><table class="staff-sum"><thead><tr><th>คนขาย</th><th>แก้ว</th><th>เงินที่รับ</th><th>ลดไป</th></tr></thead><tbody>'
+          + sellers.map(r => `<tr${r.flag ? ' class="is-flag"' : ''}><td><span data-no-translate>${escHtml(r.seller || 'ไม่ระบุ')}</span>${r.flag ? '<span class="staff-flag">สูงผิดปกติ</span>' : ''}</td><td>${r.cups.toLocaleString()}</td><td>${money(r.amount)}</td><td>${money(r.discount)}</td></tr>`).join('')
+          + '</tbody></table></div>'
+          + '<p class="sales-note">ป้ายสูงผิดปกติ: ขายเกินสองเท่าของค่าเฉลี่ยคนอื่น และอย่างน้อย 10 แก้ว</p>';
       },
 
       // ปุ่มปิดยอดกดได้วันละครั้ง กดแล้วต้องเห็นเลยว่าเงินขายสดย้ายเข้าเงินทอนแล้ว

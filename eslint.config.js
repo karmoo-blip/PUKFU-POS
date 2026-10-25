@@ -38,6 +38,7 @@ module.exports = [
         parseCostExtras: 'readonly',
         COST_EXTRA_PREFIX: 'readonly',
         staffBreakdown: 'readonly',
+        staffSellers: 'readonly',
       },
     },
   },

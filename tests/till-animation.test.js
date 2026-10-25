@@ -84,7 +84,7 @@ function loadController(options) {
     location: { search: '', pathname: '/', origin: 'http://x', href: 'http://x/' },
     escAttr: (v) => String(v), escHtml: (v) => String(v),
     calcVatBreakdown: () => ({ exVat: 0, vatAmount: 0, rate: 0 }),
-    unitCost: () => null, recipeCost: () => ({ total: null, lines: [], missingPrice: [] }), staffBreakdown: require('../pure-helpers.js').staffBreakdown,
+    unitCost: () => null, recipeCost: () => ({ total: null, lines: [], missingPrice: [] }), staffBreakdown: require('../pure-helpers.js').staffBreakdown, staffSellers: require('../pure-helpers.js').staffSellers,
     parseCostExtras: () => [], COST_EXTRA_PREFIX: 'extra:',
     hashPinWithSalt: async () => '', sha256Hex: async () => '', bufToHex: () => '',
     qrcode: () => ({ addData(){}, make(){}, createDataURL: () => '' }),
@@ -488,7 +488,10 @@ test('every settings page can be granted to an employee', () => {
     .map(m => m.replace(/.*value="/, '').replace('"', ''));
   const missing = allTabs.filter(t => !offered.includes(t));
   assert.strictEqual(missing.join(','), '', 'ทุกหน้าที่เข้าได้ต้องติ๊กให้สิทธิ์ได้ ขาด ' + missing.join(','));
-  assert.strictEqual(offered.length, allTabs.length, 'ห้ามมีช่องติ๊กที่ไม่ตรงกับหน้าไหนเลย');
+  // ข้อยกเว้นเดียว: สิทธิ์ขายราคาพนักงาน ไม่ใช่หน้าในตั้งค่า แต่เป็นเมนูหน้าขาย (Controller.canStaffSale)
+  const NOT_A_PAGE = ['staffsale'];
+  NOT_A_PAGE.forEach(t => assert.ok(offered.includes(t), 'ต้องติ๊กสิทธิ์ ' + t + ' ได้'));
+  assert.strictEqual(offered.length, allTabs.length + NOT_A_PAGE.length, 'ห้ามมีช่องติ๊กที่ไม่ตรงกับหน้าไหนเลย');
   C.SETTINGS_GROUPS.forEach(g => assert.ok(html.includes(g.title), 'ต้องจัดกลุ่มตามเมนูซ้าย ขาดกลุ่ม ' + g.title));
   assert.strictEqual((html.match(/ checked/g) || []).length, 2, 'ต้องติ๊กมาให้ตรงกับสิทธิ์เดิมเท่านั้น');
 });

@@ -1258,6 +1258,27 @@ function staffBreakdown(lines) {
   return out;
 }
 
+function staffSellers(lines) {
+  const by = {};
+  for (const l of lines) {
+    if (staffKindOf(l.note, l.isWasteBill) !== "sale") continue;
+    const qty = Number(l.qty) || 0;
+    const key = l.seller || "";
+    const r = (by[key] = by[key] || { seller: key, cups: 0, amount: 0, discount: 0, flag: false });
+    r.cups += qty;
+    r.amount += (Number(l.price) || 0) * qty;
+    r.discount += Math.max(0, (Number(l.fullPrice) || 0) - (Number(l.price) || 0)) * qty;
+  }
+  const rows = Object.values(by);
+  for (const r of rows) {
+    const others = rows.filter((o) => o !== r);
+    if (!others.length) continue;
+    const avg = others.reduce((sum, o) => sum + o.cups, 0) / others.length;
+    r.flag = r.cups >= 10 && r.cups > 2 * avg;
+  }
+  return rows.sort((a, b) => b.cups - a.cups);
+}
+
 async function summaryByRange(env, start, end) {
   const startDay = dayStr(start);
   const endDay = dayStr(end, startDay);
@@ -1364,6 +1385,16 @@ async function summaryByRange(env, start, end) {
   for (const s of wasteSales.results) {
     wasteCost += (costMap[s.sku] || 0) * Number(s.qty || 0);
   }
+  // คนคิดเงินอยู่ที่หัวบิล (payments.created_by) ราคาปกติเอาจากเมนูตอนนี้ ใช้คิด "ลดไป" ของขายราคาพนักงาน
+  const sellerByInvoice = {};
+  for (const p of paymentsR.results) sellerByInvoice[p.invoice] = p.created_by || "";
+  const menuPriceR = await env.DB.prepare("SELECT sku, price FROM menu").all();
+  const priceBySku = {};
+  for (const m of menuPriceR.results) priceBySku[m.sku] = Number(m.price) || 0;
+  const staffSellerRows = staffSellers(sales.results.map((s) => ({
+    note: s.note, qty: s.qty, price: s.price, isWasteBill: false,
+    seller: sellerByInvoice[s.invoice] || "", fullPrice: priceBySku[s.sku] !== undefined ? priceBySku[s.sku] : Number(s.price) || 0,
+  })));
   const staffRows = staffBreakdown([
     ...sales.results.map((s) => ({ note: s.note, qty: s.qty, price: s.price, cost: costMap[s.sku] || 0, isWasteBill: false })),
     ...wasteSales.results.map((s) => ({ note: s.note, qty: s.qty, price: s.price, cost: costMap[s.sku] || 0, isWasteBill: true })),
@@ -1380,7 +1411,7 @@ async function summaryByRange(env, start, end) {
   return {
     success: true, total, totalProfit, billCount, cupCount, totalCost, wasteCost, refundedTotal,
     avgPerBill, cash, other, qr: other, byType, topSellers, daily: dailyList, byWeekday, byHour, floatCash,
-    closedInRange, staffBreakdown: staffRows,
+    closedInRange, staffBreakdown: staffRows, staffSellers: staffSellerRows,
   };
 }
 

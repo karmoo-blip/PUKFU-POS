@@ -146,6 +146,30 @@ function staffBreakdown(lines) {
   return out;
 }
 
+// ขายราคาพนักงานแยกตามคนขาย lines เหมือน staffBreakdown + seller (คนคิดเงิน) และ fullPrice (ราคาปกติต่อแก้ว)
+// flag = ขายเกินสองเท่าของค่าเฉลี่ยคนอื่น และอย่างน้อย 10 แก้ว (มีคนขายคนเดียวไม่มีอะไรให้เทียบ ไม่ขึ้นป้าย)
+// worker/worker.js คิดแบบเดียวกัน
+function staffSellers(lines) {
+  const by = {};
+  (lines || []).forEach(l => {
+    if (staffKindOf(l.note, l.isWasteBill) !== 'sale') return;
+    const qty = Number(l.qty) || 0;
+    const key = l.seller || '';
+    const r = (by[key] = by[key] || { seller: key, cups: 0, amount: 0, discount: 0, flag: false });
+    r.cups += qty;
+    r.amount += (Number(l.price) || 0) * qty;
+    r.discount += Math.max(0, (Number(l.fullPrice) || 0) - (Number(l.price) || 0)) * qty;
+  });
+  const rows = Object.values(by);
+  rows.forEach(r => {
+    const others = rows.filter(o => o !== r);
+    if (!others.length) return;
+    const avg = others.reduce((s, o) => s + o.cups, 0) / others.length;
+    r.flag = r.cups >= 10 && r.cups > 2 * avg;
+  });
+  return rows.sort((a, b) => b.cups - a.cups);
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ONLINE_ORDER_ENABLED, escAttr, escHtml, bufToHex, sha256Hex, hashPinWithSalt, calcVatBreakdown, unitCost, recipeCost, parseCostExtras, COST_EXTRA_PREFIX, queueEtaRange, STAFF_KIND_NOTES, staffKindOf, staffBreakdown };
+  module.exports = { ONLINE_ORDER_ENABLED, escAttr, escHtml, bufToHex, sha256Hex, hashPinWithSalt, calcVatBreakdown, unitCost, recipeCost, parseCostExtras, COST_EXTRA_PREFIX, queueEtaRange, STAFF_KIND_NOTES, staffKindOf, staffBreakdown, staffSellers };
 }

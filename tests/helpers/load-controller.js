@@ -141,6 +141,7 @@ function loadController(options) {
     recipeCost: () => ({ total: null, lines: [], missingPrice: [] }),
     parseCostExtras: () => [],
     staffBreakdown: require('../../pure-helpers.js').staffBreakdown,
+    staffSellers: require('../../pure-helpers.js').staffSellers,
     COST_EXTRA_PREFIX: 'extra:',
     hashPinWithSalt: async () => '',
     sha256Hex: async () => '',

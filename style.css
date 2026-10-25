@@ -428,6 +428,12 @@
     :root { --color-staff-drink: #2f6f8f; }
     .menu-staff-banner { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
     .menu-staff-banner.hidden { display: none; }
+    .staff-head {
+      flex: 1 1 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px;
+      border: 1px solid var(--color-mustard); border-radius: var(--r-sm); background: color-mix(in srgb, var(--color-mustard) 12%, #fff);
+    }
+    .staff-head b { color: #8a4220; font-size: 15px; }
+    .staff-head-back { min-height: 40px; padding: 0 14px; border: 1px solid var(--color-sand); border-radius: var(--r-sm); background: #fff; color: var(--color-secondary); font-family: inherit; font-size: 14px; font-weight: 800; }
     .staff-mode {
       flex: 1 1 140px; min-height: 52px; padding: 6px 10px;
       display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.2;
@@ -543,6 +549,9 @@
     .staff-sum td { text-align: right; padding: 10px 8px; border-bottom: 1px dashed var(--color-fill-2); font-weight: 700; color: var(--color-secondary); }
     .staff-sum th:first-child, .staff-sum td:first-child { text-align: left; }
     .staff-sum tr.is-sum td { border-bottom: none; border-top: 1px solid var(--color-sand); font-weight: 800; }
+    .staff-sellers-t { margin-top: 18px; }
+    .staff-sum tr.is-flag td { color: var(--color-danger); }
+    .staff-flag { margin-left: 6px; padding: 1px 7px; border-radius: var(--r-pill); background: var(--color-danger); color: #fff; font-size: 11px; font-weight: 800; }
     .staff-sum-kind { display: inline-flex; align-items: center; gap: 8px; }
     .staff-sum-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
     .history-free-tag { display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: var(--r-pill); color: #fff; font-size: 11px; font-weight: 800; }
