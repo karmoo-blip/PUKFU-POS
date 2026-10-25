@@ -180,3 +180,127 @@ test('a negative idle time is refused', async () => {
   assert.equal(calls.filter(c => c.fn === 'saveShopInfo').length, 0);
   assert.ok(alerts.some(a => a.includes('ติดลบไม่ได้')));
 });
+
+// ---- สามโหมดของแท็บพนักงาน + ตารางพนักงานและของเสีย ----
+const { staffBreakdown } = require('../pure-helpers.js');
+
+function setupModes() {
+  const h = setupTimer({});
+  h.C.syncQueue = [];
+  h.C.history = [];
+  h.C.processSyncQueue = () => {};
+  h.C.renderHistory = () => {};
+  h.C.updateSyncQueueBadge = () => {};
+  h.C.saveLocalState = () => {};
+  h.C.loggedInEmployee = { name: 'บอน' };
+  return h;
+}
+
+test('staff drink and waste modes save one ฿0 cup straight away, without touching the order', () => {
+  const { C } = setupModes();
+  C.cart = [{ sku: 'LAT', name: 'ลาเต้เย็น', price: 65, qty: 1, note: 'ความหวาน: ปกติ' }];
+  C.selectCategory('__staff__');
+  C.setStaffMode('drink');
+  C.selectProduct(0);
+  C.setStaffMode('waste');
+  C.selectProduct(1);
+  assert.equal(C.cart.length, 1, 'ออเดอร์ของลูกค้าต้องไม่ถูกแตะ');
+  assert.equal(C.freePending.length, 2);
+  const [drink, waste] = C.freePending;
+  assert.equal(drink.status, 'waste');
+  assert.equal(drink.total, 0);
+  assert.equal(drink.items[0].price, 0);
+  assert.equal(drink.items[0].note, 'พนักงานดื่ม');
+  assert.equal(waste.items[0].note, 'ของเสีย');
+  assert.equal(waste.items[0].sku, 'WTR');
+  assert.equal(C.freeRecordKind(drink), 'drink');
+  assert.equal(C.freeRecordKind(waste), 'waste');
+  assert.equal(C.syncQueue.length, 0, 'ยังอยู่ในช่วงกดยกเลิกได้ ห้ามเข้าคิวซิงก์');
+  C.hideFreeUndo();
+  assert.equal(C.syncQueue.length, 2, 'หมดเวลาเอากลับแล้วต้องเข้าคิวซิงก์');
+  assert.equal(C.freePending.length, 0);
+  C.leaveStaffTab();
+});
+
+test('undo removes the latest free cup one at a time, for a double tap', () => {
+  const { C } = setupModes();
+  C.selectCategory('__staff__');
+  C.setStaffMode('waste');
+  C.selectProduct(0);
+  C.selectProduct(0);
+  C.undoFreeCup();
+  assert.equal(C.freePending.length, 1);
+  C.undoFreeCup();
+  assert.equal(C.freePending.length, 0);
+  assert.equal(C.syncQueue.length, 0, 'ยกเลิกหมดแล้วต้องไม่มีอะไรไปถึงเซิร์ฟเวอร์');
+  C.leaveStaffTab();
+});
+
+test('the staff sale mode still goes through the order, and the tab always opens on it', async () => {
+  const { C } = setupModes();
+  C.selectCategory('__staff__');
+  C.setStaffMode('waste');
+  C.selectCategory('All');
+  C.selectCategory('__staff__');
+  assert.equal(C.staffMode, 'sale', 'เข้าแท็บใหม่ต้องเริ่มที่โหมดขาย');
+  C.selectProduct(0);
+  await C.addToCartFromModal();
+  assert.equal(C.cart[0].price, 50);
+  assert.equal((C.freePending || []).length, 0);
+  C.setStaffMode('drink');
+  C.leaveStaffTab();
+  assert.equal(C.staffMode, 'sale', 'กลับหน้าทั้งหมดเองแล้วโหมดต้องกลับเป็นขาย');
+});
+
+test('a bill marked as waste from history is not a free record, so it cannot be cancelled', () => {
+  const { C } = setupModes();
+  assert.equal(C.freeRecordKind({ status: 'waste', items: [{ note: 'ความหวาน: ปกติ' }] }), null);
+  assert.equal(C.freeRecordKind({ status: 'active', items: [{ note: 'ของเสีย' }] }), null);
+  assert.equal(C.freeRecordKind({ status: 'waste', items: [{ note: 'ของเสีย' }, { note: 'พนักงานดื่ม' }] }), null);
+});
+
+const BREAKDOWN_LINES = [
+  { sku: 'LAT', note: 'ราคาพนักงาน | ความหวาน: ปกติ', qty: 2, price: 50, cost: 18, isWasteBill: false },
+  { sku: 'LAT', note: 'ความหวาน: ปกติ', qty: 3, price: 65, cost: 18, isWasteBill: false },
+  { sku: 'TEA', note: 'พนักงานดื่ม', qty: 1, price: 0, cost: 12, isWasteBill: true },
+  { sku: 'LAT', note: 'ของเสีย', qty: 1, price: 0, cost: 18, isWasteBill: true },
+  { sku: 'TEA', note: 'ความหวาน: น้อย', qty: 2, price: 60, cost: 12, isWasteBill: true }, // บิลที่กดบันทึกของเสียจากประวัติ
+];
+
+test('the staff and waste table adds up cups, money and cost per kind', () => {
+  const b = staffBreakdown(BREAKDOWN_LINES);
+  assert.deepEqual(b.sale, { cups: 2, amount: 100, cost: 36 });
+  assert.deepEqual(b.drink, { cups: 1, amount: 0, cost: 12 });
+  assert.deepEqual(b.waste, { cups: 3, amount: 0, cost: 42 }, 'ของเสียจากหน้าขาย 1 + บิลของเสียจากประวัติ 2 ไม่นับเงิน');
+});
+
+test('the server adds up the staff and waste table the same way as the app', async () => {
+  const sales = BREAKDOWN_LINES.filter(l => !l.isWasteBill).map(l => ({ ...l, bkk_date: '2026-10-25', invoice: 'A' }));
+  const waste = BREAKDOWN_LINES.filter(l => l.isWasteBill).map(l => ({ ...l, invoice: 'W' }));
+  const MENU = [{ sku: 'LAT', cost: 18 }, { sku: 'TEA', cost: 12 }];
+  const db = {
+    prepare(text) {
+      const stmt = {
+        bind() { return stmt; },
+        async run() { return { success: true }; },
+        async first() { return /schema_version/.test(text) ? { value: '999' } : null; },
+        async all() {
+          if (/FROM menu/.test(text)) return { results: MENU };
+          if (/FROM sales WHERE/.test(text) && /NOT IN/.test(text)) return { results: sales };
+          if (/FROM sales WHERE/.test(text) && /= 'waste'/.test(text)) return { results: waste };
+          return { results: [] };
+        },
+      };
+      return stmt;
+    },
+    async batch() { return []; },
+  };
+  const mod = await import('../worker/worker.js?staff=' + Date.now());
+  const res = await mod.default.fetch(new Request('https://example.com/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: 'staff-token', fn: 'getSummaryByRange', args: ['2026-10-25', '2026-10-25'] }),
+  }), { DB: db, API_TOKEN: 'staff-token' });
+  const r = (await res.json()).result;
+  assert.deepEqual(r.staffBreakdown, staffBreakdown(BREAKDOWN_LINES));
+});

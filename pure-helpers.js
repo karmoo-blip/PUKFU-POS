@@ -118,6 +118,34 @@ function queueEtaRange(drinksAhead, minutesPerDrink) {
   return { low: low, high: low + Math.round(perDrink) };
 }
 
+// ---- พนักงานและของเสีย ----
+// แยกแก้วตามป้ายที่หน้าขายติดไว้หน้า note: ราคาพนักงาน / พนักงานดื่ม / ของเสีย
+// บิลที่กด "บันทึกของเสีย" จากประวัติบิล (แก้วไม่มีป้าย) นับเป็นของเสียทั้งบิล
+// worker/worker.js มีตัวคิดแบบเดียวกัน (import ข้ามไม่ได้) tests/staff-price.test.js เทียบสองฝั่งไว้
+const STAFF_KIND_NOTES = { sale: 'ราคาพนักงาน', drink: 'พนักงานดื่ม', waste: 'ของเสีย' };
+
+function staffKindOf(note, isWasteBill) {
+  const head = String(note || '').split('|')[0].trim();
+  if (isWasteBill) return head === STAFF_KIND_NOTES.drink ? 'drink' : 'waste';
+  return head === STAFF_KIND_NOTES.sale ? 'sale' : null;
+}
+
+// lines: [{ note, qty, price, cost (ต่อแก้ว), isWasteBill }]
+function staffBreakdown(lines) {
+  const out = { sale: { cups: 0, amount: 0, cost: 0 }, drink: { cups: 0, amount: 0, cost: 0 }, waste: { cups: 0, amount: 0, cost: 0 } };
+  (lines || []).forEach(l => {
+    const kind = staffKindOf(l.note, l.isWasteBill);
+    if (!kind) return;
+    const qty = Number(l.qty) || 0;
+    const row = out[kind];
+    row.cups += qty;
+    // ของเสียกับพนักงานดื่มไม่ได้เงิน ต่อให้บิลเก่าที่ถูกกดเป็นของเสียทีหลังจะมีราคาค้างอยู่ก็ตาม
+    if (kind === 'sale') row.amount += (Number(l.price) || 0) * qty;
+    row.cost += (Number(l.cost) || 0) * qty;
+  });
+  return out;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = { ONLINE_ORDER_ENABLED, escAttr, escHtml, bufToHex, sha256Hex, hashPinWithSalt, calcVatBreakdown, unitCost, recipeCost, parseCostExtras, COST_EXTRA_PREFIX, queueEtaRange };
+  module.exports = { ONLINE_ORDER_ENABLED, escAttr, escHtml, bufToHex, sha256Hex, hashPinWithSalt, calcVatBreakdown, unitCost, recipeCost, parseCostExtras, COST_EXTRA_PREFIX, queueEtaRange, STAFF_KIND_NOTES, staffKindOf, staffBreakdown };
 }

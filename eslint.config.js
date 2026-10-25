@@ -37,6 +37,7 @@ module.exports = [
         recipeCost: 'readonly',
         parseCostExtras: 'readonly',
         COST_EXTRA_PREFIX: 'readonly',
+        staffBreakdown: 'readonly',
       },
     },
   },
