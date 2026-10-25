@@ -439,8 +439,33 @@
     .staff-mode-sale.is-on { background: var(--color-mustard); border-color: var(--color-mustard); color: #fff; }
     .staff-mode-drink.is-on { background: var(--color-staff-drink); border-color: var(--color-staff-drink); color: #fff; }
     .staff-mode-waste.is-on { background: var(--color-danger); border-color: var(--color-danger); color: #fff; }
-    .free-undo-bar { position: relative; left: auto; right: auto; bottom: auto; margin-bottom: 10px; }
-    .free-undo-bar.hidden { display: none; }
+    /* จำนวนพนักงานดื่ม/ของเสียของวันนี้ มุมขวาบนของการ์ด */
+    .pos-card { position: relative; }
+    .pos-free-badge {
+      position: absolute; top: -8px; right: -6px; z-index: 2;
+      min-width: 30px; height: 26px; padding: 0 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      border: 2px solid #fff; border-radius: var(--r-pill); color: #fff;
+      font-size: 14px; font-weight: 900; font-variant-numeric: tabular-nums;
+    }
+    .pos-free-badge.is-drink { background: var(--color-staff-drink); }
+    .pos-free-badge.is-waste { background: var(--color-danger); }
+    /* กล่องบันทึกวันนี้ใต้ออเดอร์ ยาวได้ไม่เกินราวสองในห้าของคอลัมน์ ที่เหลือเลื่อนในกล่อง */
+    #cart-free-box { max-height: 40%; overflow-y: auto; }
+    .cart-free { border: 1px solid var(--color-sand); background: var(--color-cream); border-radius: var(--r-md); padding: 10px 12px; }
+    .cart-free-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+    .cart-free-h b { font-size: 14px; color: var(--color-secondary); }
+    .cart-free-h span { font-size: 12px; font-weight: 700; color: var(--color-mute); }
+    .cart-free-row { display: flex; align-items: center; gap: 10px; padding: 6px 0; border-top: 1px dashed var(--color-fill-2); }
+    .cart-free-row:first-of-type { border-top: none; }
+    .cart-free-tag { flex: none; padding: 1px 8px; border-radius: var(--r-pill); color: #fff; font-size: 11px; font-weight: 800; }
+    .cart-free-tag.is-drink { background: var(--color-staff-drink); }
+    .cart-free-tag.is-waste { background: var(--color-danger); }
+    .cart-free-name { flex: 1; min-width: 0; font-weight: 700; color: var(--color-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cart-free-qty { font-weight: 900; color: var(--color-secondary); font-variant-numeric: tabular-nums; }
+    .cart-free-minus { flex: none; width: 40px; height: 40px; border: 1px solid var(--color-sand); border-radius: var(--r-sm); background: #fff; color: var(--color-danger); font-family: inherit; font-size: 22px; font-weight: 800; }
+    .cart-free-minus:active { transform: scale(.94); }
+    .cart-free-sum { display: flex; justify-content: space-between; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--color-sand); font-size: 13px; font-weight: 800; color: var(--color-secondary); }
     .pos-price-staff { color: var(--color-mustard); text-align: right; }
     #menu-grid.staff-mode-drink .pos-price-staff { color: var(--color-staff-drink); }
     #menu-grid.staff-mode-waste .pos-price-staff { color: var(--color-danger); }
