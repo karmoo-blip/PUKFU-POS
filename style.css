@@ -465,6 +465,11 @@
     .cart-free-qty { font-weight: 900; color: var(--color-secondary); font-variant-numeric: tabular-nums; }
     .cart-free-minus { flex: none; width: 40px; height: 40px; border: 1px solid var(--color-sand); border-radius: var(--r-sm); background: #fff; color: var(--color-danger); font-family: inherit; font-size: 22px; font-weight: 800; }
     .cart-free-minus:active { transform: scale(.94); }
+    .cart-free-pill { flex: none; padding: 1px 8px; border-radius: var(--r-pill); font-size: 11px; font-weight: 800; }
+    .cart-free-pill.is-unsent { background: color-mix(in srgb, var(--color-mustard) 18%, #fff); color: #8a4220; border: 1px solid var(--color-mustard); }
+    .cart-free-pill.is-sent { background: var(--color-accent); color: var(--color-primary); border: 1px solid var(--color-sand); }
+    .cart-free-send { width: 100%; margin-top: 8px; min-height: 46px; border: none; border-radius: var(--r-sm); background: var(--color-primary); color: #fff; font-family: inherit; font-size: 15px; font-weight: 800; }
+    .cart-free-send:active { transform: scale(.98); }
     .cart-free-sum { display: flex; justify-content: space-between; margin-top: 4px; padding-top: 6px; border-top: 1px solid var(--color-sand); font-size: 13px; font-weight: 800; color: var(--color-secondary); }
     .pos-price-staff { color: var(--color-mustard); text-align: right; }
     #menu-grid.staff-mode-drink .pos-price-staff { color: var(--color-staff-drink); }
