@@ -321,6 +321,7 @@ test('the order panel lists today\'s free cups and the cards show the count, wit
   C.cart = [{ sku: 'LAT', name: 'ลาเต้เย็น', price: 65, qty: 2, note: 'ความหวาน: ปกติ' }];
   C.history = [serverFree('W1', 'ของเสีย'), serverFree('W2', 'ของเสีย'), serverFree('D1', 'พนักงานดื่ม', 'WTR'),
     { invoice: 'OLD', timestamp: new Date().toISOString(), total: 0, status: 'waste', items: [{ sku: 'LAT', name: 'ลาเต้เย็น', qty: 1, price: 65, note: 'ความหวาน: ปกติ' }] }];
+  C.activeCategory = '__staff__';
   C.renderFreeList();
   const box = el('cart-free-box');
   assert.ok(!box.classList.contains('hidden'));
@@ -389,4 +390,18 @@ test('ยกเลิกบิล in bill history really cancels a free cup (the
   await C.updateOrderStatus('OLD', 'cancelled');
   assert.equal(prompted, false);
   assert.equal(oldWaste.status, 'waste');
+});
+
+test('the free-cup box only shows on the staff tab, and the cups are still there', () => {
+  const { C, el } = setupModes();
+  C.history = [serverFree('W1', 'ของเสีย')];
+  const box = el('cart-free-box');
+  C.selectCategory('All');
+  assert.ok(box.classList.contains('hidden'), 'แท็บอื่นต้องไม่เห็นกล่อง');
+  C.selectCategory('__staff__');
+  assert.ok(!box.classList.contains('hidden'), 'กลับมาแท็บพนักงานต้องเห็นอีก');
+  assert.match(box.innerHTML, /×1/);
+  C.leaveStaffTab();
+  assert.ok(box.classList.contains('hidden'), 'กลับหน้าทั้งหมดเองก็ต้องซ่อน');
+  assert.equal(C.freeCupGroups().length, 1, 'ซ่อนอย่างเดียว ข้อมูลยังอยู่');
 });
