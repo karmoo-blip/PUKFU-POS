@@ -730,7 +730,7 @@
         if (queueStr) R.text(doc, queueStr, { size: Math.round(S * 1.8), bold: true, align: 'center' });
         R.rule(doc);
 
-        order.items.forEach(item => {
+        Controller.slipItems(order).forEach(item => {
           // ใช้ขนาดตัวอักษรเดียวกับรายการสินค้าในใบเสร็จ (S * 0.86) ให้สม่ำเสมอกัน
           R.text(doc, '- ' + item.qty + 'x ' + Controller.itemName(item), { size: Math.round(S * 0.86), bold: true });
           if (item.note) R.text(doc, '    ' + item.note, { size: Math.round(S * 0.8) });
@@ -767,7 +767,7 @@
       // ถ้าไม่ได้เชื่อมต่อ หรือไม่ได้ส่งมา จะ fallback มาออกเครื่องเดียวกับใบเสร็จเหมือนเดิม
       async printReceipt(order, queueStr, settings, kitchenPeer) {
         await this.sendData(await this.buildReceipt(order, queueStr, settings));
-        if (settings.printOrderSlip) {
+        if (settings.printOrderSlip && Controller.slipItems(order).length) {
           const target = (kitchenPeer && kitchenPeer.isConnected) ? kitchenPeer : this;
           await new Promise(r => setTimeout(r, 50));
           await target.sendData(await target.buildOrderSlip(order, queueStr, settings));
@@ -802,6 +802,9 @@
     const STAFF_NOTE = 'ราคาพนักงาน';
     const STAFF_PRICE_DEFAULT = 50;
     const STAFF_TAB_IDLE_DEFAULT = 60; // วินาที
+    // บิลกลุ่ม: แต่ละแก้วต่อท้าย note ด้วย "ของ <ชื่อ>" ชื่อจึงพิมพ์ติดไปทั้งใบสั่งและใบเสร็จ
+    // ต่อท้าย ไม่ใช่นำหน้า เพราะป้ายราคาพนักงานต้องอยู่หน้าสุดของ note (staffKindOf อ่านจากหน้าสุด)
+    const PERSON_NOTE = 'ของ ';
     // แท็บพนักงานมีสามโหมด: ขายราคาพนักงาน (เข้าออเดอร์ จ่ายเงินตามปกติ)
     // พนักงานดื่มกับของเสีย (฿0 กดแล้วบันทึกเลย ไม่ผ่านบิล) ป้ายต้องตรงกับ STAFF_KIND_NOTES ใน pure-helpers.js
     const STAFF_MODES = {
@@ -915,6 +918,9 @@
       cupCount: 0,
       serverCupCount: 0,    // ยอดรวมแก้วจากส่วนกลาง
       heldOrders: [], // ระบบพักบิล
+      groupBills: [], // บิลกลุ่มที่เปิดค้างไว้ { id, name, items, lastPerson, slipRound }
+      activeGroupId: null, // บิลกลุ่มที่อยู่ในออเดอร์ตอนนี้ (this.cart ชี้ไปที่ items ของบิลนั้นตรงๆ)
+      selectedPerson: null, // ของใคร ที่เลือกในหน้าต่างสินค้า
       productSearchQuery: '',
       inventorySearchQuery: '',
       recipes: [], // สูตร: {id, menu_sku, inventory_item_id, qty}
@@ -946,9 +952,11 @@
            if (this.syncQueue.length === 0) {
              this.history = []; // ล้างประวัติในแอป
              this.heldOrders = [];
+             this.groupBills = []; // บิลกลุ่มล้างข้ามวันเหมือนบิลค้างชำระ
              this.queueNumber = 1; // รีเซ็ตคิว
              localStorage.setItem('pos_history', JSON.stringify([]));
              localStorage.setItem('pos_heldOrders', JSON.stringify([]));
+             localStorage.setItem('pos_groupBills', JSON.stringify([]));
              localStorage.setItem('pos_queueNumber', this.queueNumber);
              
              // จดจำไว้ว่าของวันนี้ถูกล้างไปแล้ว จะได้ไม่ลบซ้ำอีกในวันเดียวกัน
@@ -1032,6 +1040,7 @@
         }
 
         this.heldOrders = JSON.parse(localStorage.getItem('pos_heldOrders')) || [];
+        try { this.groupBills = JSON.parse(localStorage.getItem('pos_groupBills')) || []; } catch (e) { this.groupBills = []; }
         this.updateSyncQueueBadge();
         this.accessLogQueue = JSON.parse(localStorage.getItem('pos_accessLogQueue')) || [];
         this.soldOutItems = JSON.parse(localStorage.getItem('pos_soldOut')) || [];
@@ -6146,6 +6155,10 @@ renderReport(r) {
         document.getElementById('modal-note').value = '';
         this.ensureOrderOptionsLoaded();
         this.updateAddonButtons();
+        // บิลกลุ่ม: เลือกคนล่าสุดไว้ให้ คนเดิมสั่งแก้วต่อไปจะได้ไม่ต้องกดเลือกซ้ำ
+        const grp = this.activeGroup();
+        this.selectedPerson = grp ? grp.lastPerson : null;
+        this.renderPersonPicker();
         // วาดปุ่มความหวานใหม่ทั้งชุด (ยังไม่มีอันไหนถูกเลือก) แล้วเลือกอันที่ขายแก้วนี้ครั้งล่าสุดให้เลย
         this.updateSweetnessButtons();
 
@@ -6271,6 +6284,32 @@ renderReport(r) {
         container.innerHTML = html;
       },
 
+      // แถว "ของใคร" ในหน้าต่างสินค้า โผล่เฉพาะตอนอยู่ในบิลกลุ่ม
+      renderPersonPicker() {
+        const wrap = document.getElementById('modal-person-wrap');
+        const box = document.getElementById('modal-person-container');
+        const g = this.activeGroup();
+        if (wrap) wrap.classList.toggle('hidden', !g);
+        if (!g || !box) return;
+        const people = this.groupPersons(g);
+        if (this.selectedPerson && !people.includes(this.selectedPerson)) people.push(this.selectedPerson);
+        box.innerHTML = people.map(p => `<button type="button" data-person="${escAttr(p)}" onclick="Controller.pickPerson(this.dataset.person)" class="person-btn${p === this.selectedPerson ? ' is-on' : ''}" data-no-translate>${escHtml(p)}</button>`).join('')
+          + '<button type="button" onclick="Controller.addPerson()" class="person-btn is-add">+ ชื่อใหม่</button>';
+      },
+
+      pickPerson(name) {
+        this.selectedPerson = name;
+        this.renderPersonPicker();
+      },
+
+      async addPerson() {
+        const raw = await this.showPrompt('ชื่อคนสั่ง', {});
+        if (raw === null) return;
+        const name = raw.trim();
+        if (!name) return;
+        this.pickPerson(name);
+      },
+
       async addToCartFromModal() {
         const selectedSweetnessBtn = document.querySelector('.mod-btn[data-selected="true"]');
         if (!selectedSweetnessBtn) {
@@ -6279,6 +6318,13 @@ renderReport(r) {
         }
 
         const sweetness = selectedSweetnessBtn.innerText.trim();
+        // บิลกลุ่มต้องรู้ว่าแก้วนี้ของใคร ไม่งั้นแยกให้ถูกคนไม่ได้
+        const group = this.activeGroup();
+        const person = group ? this.selectedPerson : null;
+        if (group && !person) {
+          await this.showAlert('กรุณาเลือกว่าแก้วนี้ของใคร', '');
+          return;
+        }
         this.rememberSweetness(this.activeProduct && this.activeProduct.sku, sweetness);
         const textNote = document.getElementById('modal-note').value.trim();
         
@@ -6296,6 +6342,11 @@ renderReport(r) {
         }
         
         if (textNote) finalNote += ` | ${textNote}`;
+        // ชื่อคนอยู่ท้ายสุด แก้วเดียวกันของคนละคนจึงไม่ยุบเป็นแถวเดียว (ยุบด้วย sku + note)
+        if (person) {
+          finalNote += ` | ${PERSON_NOTE}${person}`;
+          group.lastPerson = person;
+        }
 
         // ราคาจะต้องไม่ติดลบ (ถ้าส่วนลดเยอะกว่าค่าสินค้า ให้ราคาเป็น 0)
         const finalPrice = Math.max(0, this.activeProduct.price + additionalPrice);
@@ -6315,7 +6366,8 @@ renderReport(r) {
             note: finalNote,
             sweetness: sweetness,
             addonIds: addonIds,
-            textNote: textNote
+            textNote: textNote,
+            ...(person ? { person } : {})
           };
 
           // ถ้าแก้ไขแล้วไปเหมือนกับอีกรายการในตะกร้า ให้ยุบรวมเป็นรายการเดียว
@@ -6339,7 +6391,8 @@ renderReport(r) {
               note: finalNote,
               sweetness: sweetness,
               addonIds: addonIds,
-              textNote: textNote
+              textNote: textNote,
+              ...(person ? { person } : {})
             });
             changed = { newIdx: this.cart.length - 1, bump: true };
           }
@@ -6457,6 +6510,8 @@ renderReport(r) {
 
         this.editingCartIndex = idx;
         this.selectedAddons = info.addons.slice();
+        this.selectedPerson = item.person || null;
+        this.renderPersonPicker();
 
         document.getElementById('modal-product-name').innerText = this.tf('แก้ไข: {x}', item.name);
         document.getElementById('modal-note').value = info.textNote || '';
@@ -6499,18 +6554,34 @@ renderReport(r) {
            if(btnPrintSlip) btnPrintSlip.classList.add('hidden');
            if(btnCheckout) { btnCheckout.classList.remove('flex-[2]'); btnCheckout.classList.add('flex-1'); }
         } else {
-          container.innerHTML = this.cart.map((item, idx) => {
+          // บิลกลุ่ม: เรียงแถวตามคน หัวแต่ละคนมียอดของคนนั้น ลำดับ idx เดิมไม่เปลี่ยน ปุ่มแก้/ลบยังชี้ถูกแถว
+          const inGroup = !!this.activeGroupId;
+          const order = this.cart.map((item, idx) => idx);
+          if (inGroup) {
+            const people = this.groupPersons({ items: this.cart });
+            order.sort((a, b) => people.indexOf(this.cart[a].person) - people.indexOf(this.cart[b].person) || a - b);
+          }
+          let lastPerson;
+          container.innerHTML = order.map(idx => {
+            const item = this.cart[idx];
             total += item.price * item.qty;
+            let head = '';
+            if (inGroup && item.person !== lastPerson) {
+              lastPerson = item.person;
+              const sub = this.cart.filter(i => i.person === item.person).reduce((s, i) => s + i.price * i.qty, 0);
+              head = `<div class="group-person"><span data-no-translate>${escHtml(item.person || 'ไม่ระบุ')}</span><span>฿${sub.toFixed(0)}</span></div>`;
+            }
+            const shownNote = inGroup ? String(item.note || '').replace(' | ' + PERSON_NOTE + item.person, '') : item.note;
             const enterCls = idx === o.newIdx ? ' cart-line-in' : '';
             const qtyCls = idx === o.popIdx ? ' cart-qty-pop' : '';
-            return `
+            return head + `
               <div data-cart-idx="${idx}" class="pos-line${enterCls}">
                 <div class="pos-line-top">
                   <span class="pos-line-name" data-no-translate>${escHtml(this.itemName(item))}</span>
                   <span class="pos-line-sum">฿${(item.price * item.qty).toFixed(2)}</span>
                 </div>
                 <div class="pos-line-bot">
-                  <span class="pos-line-note">${item.staffPrice ? '<span class="cart-staff-tag">' + STAFF_NOTE + '</span>' + escHtml(String(item.note || '').replace(STAFF_NOTE + ' | ', '')) : escHtml(item.note || '-')}</span>
+                  <span class="pos-line-note">${item.staffPrice ? '<span class="cart-staff-tag">' + STAFF_NOTE + '</span>' + escHtml(String(shownNote || '').replace(STAFF_NOTE + ' | ', '')) : escHtml(shownNote || '-')}</span>
                   <div class="pos-line-acts">
                     <button onclick="Controller.editCartItem(${idx})">แก้ไข</button>
                     <button onclick="Controller.removeFromCart(${idx})" class="is-del">ลบ</button>
@@ -6529,6 +6600,12 @@ renderReport(r) {
           if(btnCheckout) { btnCheckout.classList.remove('flex-1'); btnCheckout.classList.add('flex-[2]'); }
         }
         if (this.cart.length > 0) this.clearQueueChip();
+        // บิลกลุ่ม: ปุ่มบิลค้างชำระกลายเป็นเก็บบิลกลุ่ม และกดได้แม้บิลยังว่าง
+        if (btnHold) {
+          btnHold.innerText = this.activeGroupId ? 'เก็บบิลกลุ่ม' : 'บิลค้างชำระ';
+          if (this.activeGroupId) btnHold.classList.remove('hidden');
+        }
+        this.renderGroupStrip();
 
         // ยอดรวมกระตุกเบาๆ เฉพาะตอนตัวเลขเปลี่ยนจริง
         // ต้องเทียบก่อนเขียน ไม่งั้นทุกครั้งที่ renderCart ถูกเรียกซ้ำด้วยยอดเดิมมันจะเด้งเปล่าๆ
@@ -6570,7 +6647,91 @@ renderReport(r) {
         }
       },
 
+      // ===== บิลกลุ่ม =====
+      activeGroup() {
+        return (this.groupBills || []).find(g => g.id === this.activeGroupId) || null;
+      },
+
+      groupTotal(g) {
+        return (g.items || []).reduce((s, i) => s + i.price * i.qty, 0);
+      },
+
+      // ชื่อคนในบิล เรียงตามที่สั่งก่อน
+      groupPersons(g) {
+        const out = [];
+        (g && g.items || []).forEach(i => { if (i.person && !out.includes(i.person)) out.push(i.person); });
+        return out;
+      },
+
+      // ออเดอร์ปกติที่ค้างอยู่ต้องไปไว้ที่บิลค้างชำระก่อน ไม่งั้นของลูกค้าคนนั้นจะไปปนในบิลกลุ่ม
+      async moveNormalCartAside() {
+        if (this.activeGroupId) { this.parkGroup(); return true; }
+        if (!this.cart.length) return true;
+        const ok = await this.showConfirm('มีสินค้าค้างอยู่ในออเดอร์ ต้องการเก็บเป็นบิลค้างชำระก่อนไหม?', '');
+        if (!ok) return false;
+        this.holdCurrentOrder();
+        return true;
+      },
+
+      async openNewGroup(e) {
+        if (e) e.stopPropagation();
+        const raw = await this.showPrompt('ชื่อบิลกลุ่ม (เช่น โต๊ะ 3, กลุ่มพี่ตูน)', {});
+        if (raw === null) return;
+        const name = raw.trim();
+        if (!name) return this.showAlert('กรุณาใส่ชื่อบิลกลุ่ม', '');
+        if ((this.groupBills || []).some(g => g.name === name)) return this.showAlert('มีบิลกลุ่มชื่อนี้เปิดอยู่แล้ว', '');
+        if (!(await this.moveNormalCartAside())) return;
+        const g = { id: 'G' + Date.now(), name, items: [], lastPerson: null, slipRound: 0, createdAt: new Date().toISOString() };
+        this.groupBills.push(g);
+        this.enterGroup(g);
+      },
+
+      async switchToGroup(id, e) {
+        if (e) e.stopPropagation();
+        if (id === this.activeGroupId) return;
+        const g = (this.groupBills || []).find(x => x.id === id);
+        if (!g) return;
+        if (!(await this.moveNormalCartAside())) return;
+        this.enterGroup(g);
+      },
+
+      // ออเดอร์กับบิลกลุ่มเป็นอาร์เรย์เดียวกัน ทุกปุ่มเดิม (เพิ่ม/ลด/แก้/ลบ/ชำระเงิน) จึงใช้ได้โดยไม่ต้องรู้จักบิลกลุ่ม
+      enterGroup(g) {
+        this.hideUndo();
+        this.activeGroupId = g.id;
+        this.cart = g.items;
+        this.saveLocalState();
+        this.renderCart();
+      },
+
+      // เก็บบิลกลุ่มไว้ก่อน ออเดอร์กลับเป็นออเดอร์ปกติว่างๆ บิลว่างที่ไม่มีอะไรเลยปิดทิ้งไป
+      parkGroup() {
+        const g = this.activeGroup();
+        this.hideUndo();
+        this.activeGroupId = null;
+        this.cart = [];
+        if (g && !g.items.length) this.groupBills = this.groupBills.filter(x => x !== g);
+        this.saveLocalState();
+        this.renderCart();
+      },
+
+      // แถบชิปบิลกลุ่มที่เปิดอยู่ + หัวบิลกลุ่มที่กำลังดู
+      renderGroupStrip() {
+        const strip = document.getElementById('group-strip');
+        if (!strip) return;
+        const groups = this.groupBills || [];
+        const g = this.activeGroup();
+        if (!groups.length) { strip.innerHTML = ''; strip.classList.add('hidden'); return; }
+        strip.classList.remove('hidden');
+        const chips = groups.map(x => `<button type="button" data-id="${escAttr(x.id)}" onclick="Controller.switchToGroup(this.dataset.id, event)" class="group-chip${x.id === this.activeGroupId ? ' is-on' : ''}"><span data-no-translate>${escHtml(x.name)}</span><small>฿${this.groupTotal(x).toFixed(0)}</small></button>`).join('');
+        const people = g ? this.groupPersons(g).length : 0;
+        const cups = g ? g.items.reduce((n, i) => n + i.qty, 0) : 0;
+        const bar = g ? `<div class="group-bar"><b data-no-translate>${escHtml(this.tf('บิลกลุ่ม: {x}', g.name))}</b><span>${people} คน · ${cups} แก้ว</span></div>` : '';
+        strip.innerHTML = `<div class="group-chips">${chips}</div>${bar}`;
+      },
+
       holdCurrentOrder() {
+        if (this.activeGroupId) return this.parkGroup();
         if (this.cart.length === 0) return;
         const total = this.cart.reduce((s, i) => s + (i.price * i.qty), 0);
         const name = this.cart.map(i => i.name).join(', ').substring(0, 30) + '...';
@@ -6610,6 +6771,7 @@ renderReport(r) {
       },
 
       async restoreHeldOrder(idx) {
+        if (this.activeGroupId) this.parkGroup();
         if (this.cart.length > 0) {
           const ok = await this.showConfirm('มีสินค้าค้างอยู่ในออเดอร์ ต้องการ "พักเป็นบิลค้างชำระ" แล้วดึงบิลนี้มาแทนที่ไหม?', '');
           if (!ok) return;
@@ -7165,6 +7327,8 @@ renderReport(r) {
           queue: qStr,
           cashier: this.loggedInEmployee ? this.loggedInEmployee.name : ''
         };
+        const group = this.activeGroup();
+        if (group) orderData.note = this.tf('บิลกลุ่ม: {x}', group.name);
 
         this.syncQueue.push(orderData);
         
@@ -7181,6 +7345,12 @@ renderReport(r) {
         // ห้าม await ตรงนี้ ปุ่มกับหน้าต่างถามพิมพ์บิลต้องมาทันในจังหวะเดียวกัน
         this.setSubmitButtonState('paid');
 
+        // บิลกลุ่มที่จ่ายแล้วปิดทิ้ง ออเดอร์กลับเป็นออเดอร์ปกติ
+        if (this.activeGroupId) {
+          this.groupBills = this.groupBills.filter(g => g.id !== this.activeGroupId);
+          this.activeGroupId = null;
+          this.saveLocalState();
+        }
         this.cart = [];
         this.hideUndo(); // บิลปิดไปแล้ว ของที่ลบก่อนหน้าเอากลับเข้าบิลใหม่ไม่ได้
         if (this.reducedMotion()) this.renderCart();
@@ -7282,6 +7452,8 @@ renderReport(r) {
       // (บิลจริงยังสร้างตอน Checkout ตามปกติ เลขคิวจริงก็ยังผูกกับตอนนั้น ไม่ใช่ตอนนี้)
       async printOrderSlipNow() {
         if (this.cart.length === 0) return this.showAlert('ออเดอร์ว่าง ไม่มีอะไรให้พิมพ์', '');
+        const group = this.activeGroup();
+        if (group && !this.slipItems({ items: this.cart }).length) return this.showAlert('พิมพ์ใบสั่งครบทุกแก้วแล้ว', '');
 
         const fakeOrder = {
           items: this.cart,
@@ -7297,8 +7469,15 @@ renderReport(r) {
         }
 
         try {
-          const bytes = await target.buildOrderSlip(fakeOrder, null, this.receiptSettings);
+          const title = group ? this.tf('{x} · รอบที่ {x}', group.name, (group.slipRound || 0) + 1) : null;
+          const bytes = await target.buildOrderSlip(fakeOrder, title, this.receiptSettings);
           await target.sendData(bytes);
+          // พิมพ์ออกแล้วค่อยจำ ถ้าพิมพ์พังรอบหน้าต้องได้แก้วชุดเดิมอีก
+          if (group) {
+            this.cart.forEach(i => { i.slipPrintedQty = i.qty; });
+            group.slipRound = (group.slipRound || 0) + 1;
+            this.saveLocalState();
+          }
         } catch (e) {
           console.warn('BT Print Error:', e.message);
           this.showAlert('พิมพ์ไม่สำเร็จ: ' + e.message, '');
@@ -7345,7 +7524,16 @@ renderReport(r) {
       // ใบสั่งทำเครื่องดื่มใบเดียว ไม่พ่วงใบเสร็จ ใช้ตอนปิดบิลที่ยังไม่รู้ว่าลูกค้าจะเอาใบเสร็จไหม
       // ออกที่เครื่องพิมพ์ครัวถ้าต่ออยู่ ไม่งั้น fallback ไปเครื่องใบเสร็จ เหมือนปุ่มพิมพ์ใบสั่งก่อนจ่ายเงิน
       // ไม่มีเครื่องพิมพ์ก็เงียบไว้ ไม่เด้งเตือนคาหน้าคนจ่ายเงิน ทางใบเสร็จเตือนให้อยู่แล้ว
+      // แก้วที่ยังไม่เคยพิมพ์ใบสั่ง บิลกลุ่มพิมพ์ทีละรอบ บาริสต้าจะได้ไม่ทำแก้วเดิมซ้ำ (slipPrintedQty)
+      // ออเดอร์ปกติไม่เคยตั้งค่านี้ ได้ทุกแก้วเหมือนเดิม
+      slipItems(order) {
+        return (order.items || [])
+          .map(i => ({ ...i, qty: i.qty - (i.slipPrintedQty || 0) }))
+          .filter(i => i.qty > 0);
+      },
+
       async printOrderSlipFor(order, queueStr) {
+        if (!this.slipItems(order).length) return;
         const target = KitchenPrinter.isConnected ? KitchenPrinter : ReceiptPrinter;
         if (!target.isConnected) return;
 
@@ -9234,6 +9422,7 @@ renderReport(r) {
         localStorage.setItem('pos_syncQueue', JSON.stringify(this.syncQueue));
         localStorage.setItem('pos_history', JSON.stringify(this.history));
         localStorage.setItem('pos_heldOrders', JSON.stringify(this.heldOrders));
+        localStorage.setItem('pos_groupBills', JSON.stringify(this.groupBills || []));
       }
     };
 
