@@ -475,6 +475,39 @@
     #menu-grid.staff-mode-drink .pos-price-staff { color: var(--color-staff-drink); }
     #menu-grid.staff-mode-waste .pos-price-staff { color: var(--color-danger); }
     .pos-price-staff s { display: block; font-size: 12.5px; font-weight: 700; color: var(--color-mute); }
+    /* ---- บิลกลุ่ม: สีม่วงพลัม แยกจากพนักงาน (ดินเผา) พนักงานดื่ม (ฟ้า) ของเสีย (แดง) ---- */
+    :root { --color-group: #5b4b8a; }
+    .group-new {
+      padding: 4px 10px; border: 1px dashed var(--color-group); border-radius: var(--r-pill);
+      background: #fff; color: var(--color-group); font-family: inherit; font-size: 12px; font-weight: 800; white-space: nowrap;
+    }
+    .group-chips { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
+    .group-chip {
+      flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 12px;
+      border: 1px solid color-mix(in srgb, var(--color-group) 40%, #fff); border-radius: var(--r-pill);
+      background: color-mix(in srgb, var(--color-group) 8%, #fff); color: var(--color-group);
+      font-family: inherit; font-size: 13px; font-weight: 800; white-space: nowrap;
+    }
+    .group-chip small { font-weight: 700; opacity: .85; font-variant-numeric: tabular-nums; }
+    .group-chip.is-on { background: var(--color-group); border-color: var(--color-group); color: #fff; }
+    .group-bar {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 6px; padding: 8px 12px;
+      border: 1px solid color-mix(in srgb, var(--color-group) 35%, #fff); border-radius: var(--r-sm);
+      background: color-mix(in srgb, var(--color-group) 10%, #fff);
+    }
+    .group-bar b { color: var(--color-group); font-size: 14px; }
+    .group-bar span { font-size: 12px; font-weight: 700; color: var(--color-mute); }
+    .group-person {
+      display: flex; justify-content: space-between; padding-top: 10px; margin-top: 4px;
+      border-top: 1px solid var(--color-sand); color: var(--color-group); font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums;
+    }
+    #cart-items .group-person:first-child { border-top: none; margin-top: 0; }
+    .person-btn {
+      min-height: 44px; padding: 0 14px; border: 1px solid var(--color-sand); border-radius: var(--r-sm);
+      background: #fff; color: var(--color-secondary); font-family: inherit; font-size: 14px; font-weight: 700;
+    }
+    .person-btn.is-on { background: var(--color-group); border-color: var(--color-group); color: #fff; }
+    .person-btn.is-add { border-style: dashed; border-color: var(--color-group); color: var(--color-group); }
     /* ตารางพนักงานและของเสียในหน้ายอดขาย */
     .staff-sum-wrap { overflow-x: auto; }
     .staff-sum { width: 100%; min-width: 380px; border-collapse: collapse; font-variant-numeric: tabular-nums; }
