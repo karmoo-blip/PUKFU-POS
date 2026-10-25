@@ -1912,6 +1912,7 @@
         this.renderCategories(); // อัปเดตสีปุ่ม
         this.renderMenu();       // อัปเดตตารางสินค้า
         this.resetStaffTabTimer(); // เข้าแท็บพนักงานเริ่มนับ ออกจากแท็บก็หยุดนับ
+        this.renderFreeList();
         // เดิมหาปุ่มด้วย .bg-primary ซึ่งไม่เคยตรงเลย (ปุ่มที่เลือกใช้ไล่สี from-primary)
         // activeBtn จึงเป็น null ตลอด และ scrollIntoView ไม่เคยทำงาน
         const activeBtn = document.querySelector('#menu-categories-track button.is-active-cat');
@@ -6918,7 +6919,8 @@ renderReport(r) {
       renderFreeList() {
         const box = document.getElementById('cart-free-box');
         if (!box) return;
-        const html = this.freeListHtml();
+        // โชว์เฉพาะตอนอยู่แท็บพนักงาน แท็บอื่นเป็นหน้าขายปกติ ไม่ต้องเห็น (ข้อมูลยังอยู่ครบ)
+        const html = this.activeCategory === STAFF_TAB ? this.freeListHtml() : '';
         if (html === this._freeListHtml) return;
         this._freeListHtml = html;
         box.innerHTML = html;
