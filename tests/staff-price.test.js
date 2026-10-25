@@ -216,23 +216,28 @@ test('staff drink and waste modes save one ฿0 cup straight away, without touch
   assert.equal(C.freeRecordKind(drink), 'drink');
   assert.equal(C.freeRecordKind(waste), 'waste');
   assert.equal(C.syncQueue.length, 0, 'ยังอยู่ในช่วงกดยกเลิกได้ ห้ามเข้าคิวซิงก์');
-  C.hideFreeUndo();
+  C.flushFreeCups();
   assert.equal(C.syncQueue.length, 2, 'หมดเวลาเอากลับแล้วต้องเข้าคิวซิงก์');
   assert.equal(C.freePending.length, 0);
   C.leaveStaffTab();
 });
 
-test('undo removes the latest free cup one at a time, for a double tap', () => {
+test('− removes the latest just-tapped cup one at a time, with no PIN', async () => {
   const { C } = setupModes();
+  let pinAsked = false;
+  C.requireActionPin = async () => { pinAsked = true; return null; };
   C.selectCategory('__staff__');
   C.setStaffMode('waste');
   C.selectProduct(0);
   C.selectProduct(0);
-  C.undoFreeCup();
+  assert.equal(C.freeCupGroups()[0].records.length, 2);
+  await C.removeFreeCup('waste|LAT');
   assert.equal(C.freePending.length, 1);
-  C.undoFreeCup();
+  await C.removeFreeCup('waste|LAT');
   assert.equal(C.freePending.length, 0);
-  assert.equal(C.syncQueue.length, 0, 'ยกเลิกหมดแล้วต้องไม่มีอะไรไปถึงเซิร์ฟเวอร์');
+  assert.equal(pinAsked, false, 'ยังไม่พ้นห้าวินาที ไม่ต้องใส่ PIN');
+  C.flushFreeCups();
+  assert.equal(C.syncQueue.length, 0, 'ลบหมดแล้วต้องไม่มีอะไรไปถึงเซิร์ฟเวอร์');
   C.leaveStaffTab();
 });
 
@@ -303,4 +308,85 @@ test('the server adds up the staff and waste table the same way as the app', asy
   }), { DB: db, API_TOKEN: 'staff-token' });
   const r = (await res.json()).result;
   assert.deepEqual(r.staffBreakdown, staffBreakdown(BREAKDOWN_LINES));
+});
+
+// ---- รายการบันทึกวันนี้ในออเดอร์ + ยกเลิกของที่ถึงเซิร์ฟเวอร์แล้ว ----
+function serverFree(invoice, note, sku) {
+  return { invoice, timestamp: new Date().toISOString(), total: 0, paymentType: note, status: 'waste', cancelReason: '',
+    items: [{ sku: sku || 'LAT', name: 'ลาเต้เย็น', qty: 1, price: 0, note }] };
+}
+
+test('the order panel lists today\'s free cups and the cards show the count, without touching the bill', () => {
+  const { C, el } = setupModes();
+  C.cart = [{ sku: 'LAT', name: 'ลาเต้เย็น', price: 65, qty: 2, note: 'ความหวาน: ปกติ' }];
+  C.history = [serverFree('W1', 'ของเสีย'), serverFree('W2', 'ของเสีย'), serverFree('D1', 'พนักงานดื่ม', 'WTR'),
+    { invoice: 'OLD', timestamp: new Date().toISOString(), total: 0, status: 'waste', items: [{ sku: 'LAT', name: 'ลาเต้เย็น', qty: 1, price: 65, note: 'ความหวาน: ปกติ' }] }];
+  C.renderFreeList();
+  const box = el('cart-free-box');
+  assert.ok(!box.classList.contains('hidden'));
+  assert.match(box.innerHTML, /×2/);
+  assert.match(box.innerHTML, /ของเสีย 2 · พนักงานดื่ม 1/);
+  assert.match(box.innerHTML, /3 แก้ว/, 'บิลที่กดของเสียจากประวัติไม่ใช่รายการจากหน้าขาย ไม่อยู่ในกล่องนี้');
+  assert.equal(C.getCartSubtotal(), 130, 'ยอดบิลของลูกค้าต้องไม่เปลี่ยน');
+  C.history = [];
+  C.renderFreeList();
+  assert.ok(box.classList.contains('hidden'), 'ไม่มีแก้วฟรีวันนี้ต้องไม่แสดงกล่อง');
+});
+
+test('the waste-mode cards show today\'s count for that drink', () => {
+  const { loadController } = require('./helpers/load-controller');
+  const { C, el } = loadController({});
+  C.menuData = [{ sku: 'LAT', name: 'ลาเต้เย็น', price: 65 }, { sku: 'WTR', name: 'น้ำเปล่า', price: 15 }];
+  C.soldOutItems = []; C.syncQueue = []; C.freePending = [];
+  C.history = [serverFree('W1', 'ของเสีย'), serverFree('W2', 'ของเสีย'), serverFree('D1', 'พนักงานดื่ม')];
+  C.activeCategory = '__staff__';
+  C.staffMode = 'waste';
+  C.renderMenu({ noStagger: true });
+  const html = el('menu-grid').innerHTML;
+  assert.equal((html.match(/pos-free-badge/g) || []).length, 1, 'ป้ายเฉพาะเมนูที่มีของเสีย');
+  assert.match(html, /pos-free-badge is-waste">×2/);
+  C.staffMode = 'sale';
+  C.renderMenu({ noStagger: true });
+  assert.ok(!el('menu-grid').innerHTML.includes('pos-free-badge'), 'โหมดขายไม่มีป้าย');
+});
+
+test('− on a cup already on the server asks for a PIN only, then cancels it', async () => {
+  const { C, calls } = setupModes();
+  let prompted = false;
+  C.showPrompt = async () => { prompted = true; return 'x'; };
+  C.requireActionPin = async () => ({ employee: { name: 'บอน' }, employeeId: 'E1', pin: '1234' });
+  C.statusQueue = [];
+  const rec = serverFree('W1', 'ของเสีย');
+  C.history = [rec];
+  C.serverCupCount = 10;
+  await C.removeFreeCup('waste|LAT');
+  assert.equal(prompted, false, 'ไม่ต้องพิมพ์เหตุผล');
+  assert.equal(rec.status, 'cancelled');
+  assert.equal(C.serverCupCount, 10, 'ของเสียไม่เคยนับเป็นแก้วที่ขาย ห้ามหักยอดแก้ว');
+  const sent = calls.filter(c => c.fn === 'updateOrderStatus');
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].args[0].status, 'cancelled');
+  assert.equal(sent[0].args[0].reason, 'ลบจากหน้าขาย');
+  assert.equal(C.freeCupGroups().length, 0);
+});
+
+test('ยกเลิกบิล in bill history really cancels a free cup (the version of the function that actually runs)', async () => {
+  const { C, calls } = setupModes();
+  let prompted = false;
+  C.showPrompt = async () => { prompted = true; return 'กดผิด'; };
+  C.requireActionPin = async () => ({ employee: { name: 'บอน' }, employeeId: 'E1', pin: '1234' });
+  C.statusQueue = [];
+  const rec = serverFree('W1', 'พนักงานดื่ม');
+  C.history = [rec];
+  await C.updateOrderStatus('W1', 'cancelled');
+  assert.equal(prompted, true, 'ต้องถามเหตุผลเหมือนยกเลิกบิลปกติ');
+  assert.equal(rec.status, 'cancelled');
+  assert.equal(calls.filter(c => c.fn === 'updateOrderStatus').length, 1);
+  // บิลที่กดของเสียจากประวัติ ยังเปลี่ยนอะไรไม่ได้เหมือนเดิม
+  prompted = false;
+  const oldWaste = { invoice: 'OLD', timestamp: new Date().toISOString(), status: 'waste', items: [{ sku: 'LAT', qty: 1, price: 65, note: 'ความหวาน: ปกติ' }] };
+  C.history = [oldWaste];
+  await C.updateOrderStatus('OLD', 'cancelled');
+  assert.equal(prompted, false);
+  assert.equal(oldWaste.status, 'waste');
 });

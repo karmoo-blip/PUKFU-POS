@@ -190,12 +190,6 @@
         </div>
 
         <div id="menu-staff-banner" class="hidden menu-staff-banner"></div>
-        <!-- พนักงานดื่ม/ของเสีย บันทึกทันทีที่กด ให้เวลาห้าวินาทีกดยกเลิก (กดซ้ำได้ทีละแก้ว) -->
-        <div id="free-undo-bar" class="undo-bar free-undo-bar hidden" role="status" aria-live="polite">
-          <span id="free-undo-text" class="undo-bar-t" data-no-translate></span>
-          <button type="button" onclick="Controller.undoFreeCup()" class="undo-bar-b">ยกเลิก</button>
-          <span class="undo-bar-line" aria-hidden="true"></span>
-        </div>
         <div id="menu-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
           </div>
       </div>
@@ -225,6 +219,9 @@
         <!-- Cart Items -->
         <div id="cart-items" class="flex-1 overflow-y-auto px-5 py-1 flex flex-col bg-white">
         </div>
+
+        <!-- พนักงานดื่ม/ของเสียของวันนี้ แยกจากบิลของลูกค้า ไม่ถูกคิดเงิน ปุ่ม − ลบทีละแก้ว (Controller.renderFreeList) -->
+        <div id="cart-free-box" class="hidden px-5 pb-2 bg-white shrink-0"></div>
 
         <!-- เครื่องหมายถูกตอนปิดบิล วางทับกลางคอลัมน์ตะกร้า ไม่ใช่กลางจอ เพราะหน้าต่างถามพิมพ์บิลเด้งทับกลางจอทันที -->
         <div id="cart-paid-mark" class="hidden absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-20 h-20 rounded-full bg-emerald-100 text-emerald-500 flex items-center justify-center z-40 pointer-events-none">

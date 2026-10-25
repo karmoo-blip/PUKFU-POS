@@ -6058,6 +6058,9 @@ renderReport(r) {
           }
         }
 
+        const freeCounts = {};
+        if (mode === 'drink' || mode === 'waste') this.freeCupGroups().forEach(g => { freeCounts[g.key] = g.records.length; });
+
         grid.innerHTML = filteredItems.map((item, gridIdx) => {
           const originalIdx = this.menuData.indexOf(item);
           // หน่วงเวลาไล่ทีละใบ แต่หยุดเพิ่มที่ใบที่ 12
@@ -6081,6 +6084,9 @@ renderReport(r) {
             </div>`;
 
           const right = isSoldOut ? '' : '<span class="pos-add">+</span>';
+          // โหมดพนักงานดื่ม/ของเสีย: จำนวนที่บันทึกไปแล้ววันนี้ของเมนูนี้ กดแล้วเลขขึ้นทันที
+          const freeCount = (mode === 'drink' || mode === 'waste') ? (freeCounts[mode + '|' + item.sku] || 0) : 0;
+          const badge = freeCount ? `<span class="pos-free-badge is-${mode}">×${freeCount}</span>` : '';
           // แท็บพนักงาน: ราคาพนักงานตัวใหญ่ ราคาปกติขีดฆ่าไว้ข้างใต้ (ถ้าราคาไม่ได้ลดก็ไม่ต้องขีด)
           const staffPrice = isStaff ? (mode === 'sale' ? this.staffPriceFor(item) : 0) : null;
           const priceHtml = isStaff && staffPrice < item.price
@@ -6089,7 +6095,7 @@ renderReport(r) {
 
           return `
             <div onclick="Controller.selectProduct(${originalIdx})" class="${cls}" style="--i:${staggerIdx}" data-menu-idx="${originalIdx}">
-              ${thumb}
+              ${badge}${thumb}
               <div class="pos-body">
                 <p class="pos-name" data-no-translate>${escHtml(this.itemName(item))}</p>
                 <p class="pos-sub">${escHtml(item.lang2 || '')}&nbsp;</p>
@@ -6825,44 +6831,105 @@ renderReport(r) {
         };
         this.freePending = this.freePending || [];
         this.freePending.push(rec);
-        this.showFreeUndo();
+        // กดซ้ำนับเวลาห้าวินาทีใหม่ทั้งชุด ระหว่างนี้กด − ลบได้เลยไม่ต้องใส่ PIN
+        clearTimeout(this.freeFlushTimer);
+        this.freeFlushTimer = setTimeout(() => this.flushFreeCups(), FREE_UNDO_MS);
+        // ป้ายจำนวนบนการ์ดกับรายการในออเดอร์ขึ้นทันที คนกดต้องเห็นว่ากดติดแล้ว
+        this.renderMenu({ noStagger: true });
+        this.renderFreeList();
         const srcIdx = this.menuData.findIndex(m => m.sku === item.sku);
         if (srcIdx !== -1) this.replayClass(document.querySelector(`#menu-grid [data-menu-idx="${srcIdx}"]`), 'card-added');
       },
 
-      // แถบยกเลิกของแก้วฟรีอยู่ใต้ปุ่มโหมด ไม่ใช้แถบของตะกร้า เพราะบนมือถือตะกร้าพับอยู่ มองไม่เห็น
-      showFreeUndo() {
-        const last = this.freePending[this.freePending.length - 1];
-        const bar = document.getElementById('free-undo-bar');
-        const text = document.getElementById('free-undo-text');
-        const more = this.freePending.length > 1 ? ` (${this.freePending.length} แก้ว)` : '';
-        if (text) text.innerText = this.tf('บันทึก{x}แล้ว: {x}', last.items[0].note, this.itemName(last.items[0])) + more;
-        if (bar) {
-          bar.classList.remove('hidden');
-          this.replayClass(bar, 'is-running');
+      // พนักงานดื่ม/ของเสียของวันนี้ทั้งหมด: ที่ยังถือไว้ห้าวินาที + ที่รอซิงก์ + ที่ถึงเซิร์ฟเวอร์แล้ว (ไม่รวมที่ยกเลิกแล้ว)
+      todayFreeRecords() {
+        const today = new Date().toLocaleDateString();
+        const seen = new Set();
+        const out = [];
+        const add = (o, pending) => {
+          if (!o || seen.has(o.invoice) || !this.freeRecordKind(o)) return;
+          if (new Date(o.timestamp).toLocaleDateString() !== today) return;
+          seen.add(o.invoice);
+          out.push({ order: o, pending, kind: this.freeRecordKind(o) });
+        };
+        (this.freePending || []).forEach(o => add(o, true));
+        (this.syncQueue || []).forEach(o => add(o, false));
+        (this.history || []).forEach(o => add(o, false));
+        return out.sort((a, b) => new Date(a.order.timestamp) - new Date(b.order.timestamp));
+      },
+
+      // รวมเป็นแถวละเมนูต่อประเภท เรียงตามที่กดก่อน แถวเก็บรายการเรียงเก่าไปใหม่ ปุ่ม − ลบอันใหม่สุด
+      freeCupGroups() {
+        const groups = [];
+        const byKey = {};
+        this.todayFreeRecords().forEach(r => {
+          const it = r.order.items[0];
+          const key = r.kind + '|' + it.sku;
+          if (!byKey[key]) {
+            byKey[key] = { key, kind: r.kind, sku: it.sku, name: this.itemName(it), records: [] };
+            groups.push(byKey[key]);
+          }
+          byKey[key].records.push(r);
+        });
+        return groups;
+      },
+
+      // กล่องใต้ออเดอร์ ไม่ใช่ส่วนหนึ่งของบิล ไม่มีวันถูกคิดเงิน ไม่มีแก้วฟรีวันนี้ก็ไม่แสดงเลย
+      freeListHtml() {
+        const groups = this.freeCupGroups();
+        if (!groups.length) return '';
+        const count = k => groups.filter(g => g.kind === k).reduce((n, g) => n + g.records.length, 0);
+        const parts = ['waste', 'drink'].filter(k => count(k) > 0).map(k => `${STAFF_MODES[k].note} ${count(k)}`);
+        const total = groups.reduce((n, g) => n + g.records.length, 0);
+        return `<div id="cart-free" class="cart-free">
+            <div class="cart-free-h"><b>บันทึกวันนี้ (ไม่ได้เก็บเงิน)</b><span>กด − เพื่อลบทีละแก้ว</span></div>
+            ${groups.map(g => `<div class="cart-free-row">
+              <span class="cart-free-tag is-${g.kind}">${STAFF_MODES[g.kind].note}</span>
+              <span class="cart-free-name" data-no-translate>${escHtml(g.name)}</span>
+              <span class="cart-free-qty">×${g.records.length}</span>
+              <button type="button" data-key="${escAttr(g.key)}" onclick="Controller.removeFreeCup(this.dataset.key)" class="cart-free-minus" aria-label="${escAttr(this.tf('ลบ{x}หนึ่งแก้ว', g.name))}">−</button>
+            </div>`).join('')}
+            <div class="cart-free-sum"><span>${parts.join(' · ')}</span><span>${total} แก้ว</span></div>
+          </div>`;
+      },
+
+      // ลบแก้วล่าสุดของแถวนั้นหนึ่งแก้ว ยังไม่พ้นห้าวินาทีลบทิ้งได้เลย พ้นแล้วต้องใส่ PIN (เหตุผลเติมให้เอง)
+      // กันคนดื่มแล้วมาลบรายการตัวเองทิ้งเงียบๆ
+      async removeFreeCup(key) {
+        const g = this.freeCupGroups().find(x => x.key === key);
+        if (!g) return;
+        const last = g.records[g.records.length - 1];
+        if (last.pending) {
+          this.freePending = this.freePending.filter(o => o !== last.order);
+          if (!this.freePending.length) clearTimeout(this.freeFlushTimer);
+        } else {
+          const label = STAFF_MODES[g.kind].note;
+          const auth = await this.requireActionPin(this.tf('ใส่รหัส PIN เพื่อยืนยันลบ{x}: {x} 1 แก้ว', label, g.name));
+          if (!auth) return;
+          // ระหว่างรอ PIN อาจถูกเครื่องอื่นยกเลิกไปแล้ว
+          if (last.order.status !== 'waste') return;
+          this.applyOrderStatus(last.order, 'cancelled', 'ลบจากหน้าขาย', auth, false);
         }
-        clearTimeout(this.freeUndoTimer);
-        this.freeUndoTimer = setTimeout(() => this.hideFreeUndo(), FREE_UNDO_MS);
+        this.renderMenu({ noStagger: true });
+        this.renderFreeList();
       },
 
-      // แถบหายแปลว่าหมดเวลาเอากลับ แก้วที่ยังถืออยู่ส่งเข้าคิวได้แล้ว
-      hideFreeUndo() {
-        clearTimeout(this.freeUndoTimer);
-        this.flushFreeCups();
-        const bar = document.getElementById('free-undo-bar');
-        if (bar) bar.classList.add('hidden');
-      },
-
-      // กดหนึ่งครั้งเอาแก้วล่าสุดออกหนึ่งแก้ว กดซ้ำได้จนหมด เผื่อกดเบิ้ล
-      undoFreeCup() {
-        if (!this.freePending || !this.freePending.length) return;
-        this.freePending.pop();
-        if (this.freePending.length) this.showFreeUndo();
-        else this.hideFreeUndo();
+      // วาดเฉพาะตอนเนื้อหาเปลี่ยน renderHistory เรียกตัวนี้ทุกรอบที่ดึงข้อมูล (ทุกไม่กี่วินาที)
+      renderFreeList() {
+        const box = document.getElementById('cart-free-box');
+        if (!box) return;
+        const html = this.freeListHtml();
+        if (html === this._freeListHtml) return;
+        this._freeListHtml = html;
+        box.innerHTML = html;
+        box.classList.toggle('hidden', !html);
+        // เครื่องอื่นยกเลิกหรือเพิ่มมา ป้ายบนการ์ดต้องตรงกับรายการ
+        if (this.activeCategory === STAFF_TAB && (this.staffMode === 'drink' || this.staffMode === 'waste')) this.renderMenu({ noStagger: true });
       },
 
       // ส่งแก้วที่พ้นเวลาเอากลับแล้วเข้าคิวซิงก์ เรียกตอนแถบหาย ตอนสลับแอป และตอนล็อกจอ
       flushFreeCups() {
+        clearTimeout(this.freeFlushTimer);
         const pending = this.freePending || [];
         if (!pending.length) return;
         this.freePending = [];
@@ -8134,7 +8201,7 @@ renderReport(r) {
         // พอกลับมาเปิดแอปอีกครั้ง (visibilitychange) เลยต้องเช็คเวลาที่หายไปเองอีกที ไม่ต้องรอ event อื่น
         document.addEventListener('visibilitychange', () => {
           // สลับแอปไปทั้งที่แก้วฟรียังรอเวลาเอากลับ ส่งเข้าคิวเลย ไม่งั้นถ้าแอปถูกปิดทิ้งแก้วนั้นจะหาย
-          if (document.visibilityState === 'hidden') this.hideFreeUndo();
+          if (document.visibilityState === 'hidden') this.flushFreeCups();
           if (document.visibilityState === 'visible') {
             this.checkAutoLockOnResume();
             this.checkStaffTabOnResume();
@@ -8194,7 +8261,7 @@ renderReport(r) {
       resetViewForNextUser() {
         this.closeUserMenu();
         // คนถัดไปที่ปลดล็อกต้องเจอราคาปกติ ไม่ใช่แท็บพนักงานที่คนก่อนเปิดค้างไว้
-        this.hideFreeUndo();
+        this.flushFreeCups();
         this.leaveStaffTab();
 
         // ปิดโมดัลที่ค้างอยู่ทั้งหมดก่อนล็อก กันหน้าจอซ้อนกัน
@@ -8367,6 +8434,7 @@ renderReport(r) {
       },
 
       renderHistory() {
+        this.renderFreeList();
         const list = document.getElementById('history-list');
         if (this.historyViewData) {
           this.renderHistoryReadOnly(this.historyViewData);
@@ -8582,10 +8650,7 @@ renderReport(r) {
       async updateOrderStatus(invoiceId, status) {
         // หาข้อมูลบิลจาก combined history
         const order = this.history.find(o => o.invoice === invoiceId) || this.syncQueue.find(o => o.invoice === invoiceId);
-        if (!order || order.status === 'cancelled') return;
-        // ของเสีย/พนักงานดื่มที่บันทึกจากหน้าขาย ยกเลิกได้ (เผื่อกดผิด) แต่บิลที่เป็นของเสียแล้วห้ามเปลี่ยนเป็นอย่างอื่น
-        const wasWaste = order.status === 'waste';
-        if (wasWaste && !(status === 'cancelled' && this.freeRecordKind(order))) return;
+        if (!order || order.status === 'cancelled' || order.status === 'waste') return;
 
         const actionText = status === 'waste' ? 'บันทึกของเสีย' : 'ยกเลิกบิล';
         const icon = status === 'waste' ? '' : '';
@@ -8622,8 +8687,8 @@ renderReport(r) {
               order.cancelUser = userName;
               order.cancelTimestamp = new Date().toISOString();
               
-              // ลดยอดแก้วทันทีเพื่อให้ UI เปลี่ยนแปลงไวที่สุด (ของเสียไม่เคยถูกนับเป็นแก้วที่ขาย ไม่ต้องลด)
-              const removedCups = wasWaste ? 0 : order.items.reduce((s, i) => s + i.qty, 0);
+              // ลดยอดแก้วทันทีเพื่อให้ UI เปลี่ยนแปลงไวที่สุด
+              const removedCups = order.items.reduce((s, i) => s + i.qty, 0);
               this.serverCupCount = Math.max(0, this.serverCupCount - removedCups);
               localStorage.setItem('pos_serverCupCount', this.serverCupCount);
               
@@ -9220,7 +9285,9 @@ renderReport(r) {
           Controller.updateOrderStatus = async function (invoiceId, status) {
                     const isPastDay = !this.history.some(o => o.invoice === invoiceId) && !this.syncQueue.some(o => o.invoice === invoiceId);
                     const order = this.history.find(o => o.invoice === invoiceId) || this.syncQueue.find(o => o.invoice === invoiceId) || (this.historyViewData || []).find(o => o.invoice === invoiceId);
-                    if (!order || order.status === 'cancelled' || order.status === 'waste') return;
+                    if (!order || order.status === 'cancelled') return;
+                    // บิลที่เป็นของเสียแล้วห้ามเปลี่ยนเป็นอย่างอื่น ยกเว้นพนักงานดื่ม/ของเสียที่บันทึกจากหน้าขาย ยกเลิกได้เผื่อกดผิด
+                    if (order.status === 'waste' && !(status === 'cancelled' && this.freeRecordKind(order))) return;
 
                     const actionText = status === 'waste' ? 'บันทึกของเสีย' : 'ยกเลิกบิล';
 
@@ -9230,12 +9297,19 @@ renderReport(r) {
 
                     const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยัน${actionText} ${order.invoice}:`);
                     if (!auth) return;
+                    this.applyOrderStatus(order, status, reason.trim(), auth, isPastDay);
+          };
+
+          // ส่วนที่ทำหลังได้เหตุผลกับ PIN แล้ว แยกออกมาให้ปุ่ม − ในรายการพนักงานดื่ม/ของเสียใช้ด้วย
+          Controller.applyOrderStatus = function (order, status, reason, auth, isPastDay) {
                     const userName = auth.employee.name;
+                    // ของเสียไม่เคยถูกนับเป็นแก้วที่ขาย ยกเลิกแล้วไม่ต้องไปหักยอดแก้ว
+                    const wasWaste = order.status === 'waste';
 
                     const queueEntry = this.syncQueue.find(o => o.invoice === order.invoice);
                     if (queueEntry) {
                                 queueEntry.status = status;
-                                queueEntry.cancelReason = `${reason.trim()} (โดย ${userName})`;
+                                queueEntry.cancelReason = `${reason} (โดย ${userName})`;
                                 queueEntry.cancelUser = userName;
                                 queueEntry.cancelTimestamp = new Date().toISOString();
                                 this.saveLocalState();
@@ -9244,7 +9318,7 @@ renderReport(r) {
                                 // บิลใบนี้ถูกส่งขึ้นเซิร์ฟเวอร์ไปแล้วและกำลังรอผลอยู่ เนื้อความที่ส่งเป็นสถานะเดิม
                                 // แก้ค่าในคิวอย่างเดียวไม่พอ ของที่ส่งไปแล้วไม่เปลี่ยนตาม ต้องสั่งเปลี่ยนสถานะตามไปอีกที
                                 if (this.syncingInvoices && this.syncingInvoices.has(order.invoice)) {
-                                              this.statusQueue.push({ type: 'updateOrderStatus', invoice: order.invoice, status: status, reason: reason.trim(), employeeId: auth.employeeId, pin: auth.pin, ts: Date.now() });
+                                              this.statusQueue.push({ type: 'updateOrderStatus', invoice: order.invoice, status: status, reason: reason, employeeId: auth.employeeId, pin: auth.pin, ts: Date.now() });
                                               localStorage.setItem('pos_statusQueue', JSON.stringify(this.statusQueue));
                                               this.updateSyncQueueBadge();
                                               this.processStatusQueue();
@@ -9255,11 +9329,11 @@ renderReport(r) {
                     }
 
                     order.status = status;
-                    order.cancelReason = `${reason.trim()} (โดย ${userName})`;
+                    order.cancelReason = `${reason} (โดย ${userName})`;
                     order.cancelUser = userName;
                     order.cancelTimestamp = new Date().toISOString();
                     // บิลของวันอื่น (ไม่ใช่วันนี้) ยอดแก้วของวันนั้นถูกสรุปปิดไปแล้ว ไม่ต้องไปหักยอดแก้ววันนี้
-                    if (!isPastDay) {
+                    if (!isPastDay && !wasWaste) {
                               const removedCups = order.items.reduce((s, i) => s + i.qty, 0);
                               this.serverCupCount = Math.max(0, this.serverCupCount - removedCups);
                               localStorage.setItem('pos_serverCupCount', this.serverCupCount);
@@ -9269,7 +9343,7 @@ renderReport(r) {
                     this.renderHistory();
                     this.setIndicator('syncing');
 
-                    this.statusQueue.push({ type: 'updateOrderStatus', invoice: order.invoice, status: status, reason: reason.trim(), employeeId: auth.employeeId, pin: auth.pin, ts: Date.now() });
+                    this.statusQueue.push({ type: 'updateOrderStatus', invoice: order.invoice, status: status, reason: reason, employeeId: auth.employeeId, pin: auth.pin, ts: Date.now() });
                     localStorage.setItem('pos_statusQueue', JSON.stringify(this.statusQueue));
                     this.updateSyncQueueBadge();
                     this.processStatusQueue();
