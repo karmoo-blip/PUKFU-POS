@@ -1234,6 +1234,30 @@ async function menuCostMap(env) {
 
 handlers.getMenuCostMap = async (env) => menuCostMap(env);
 
+// พนักงานและของเสีย: ต้องคิดแบบเดียวกับ staffKindOf + staffBreakdown ใน pure-helpers.js
+// (tests/staff-price.test.js เทียบสองฝั่งไว้) ป้ายคือข้อความหน้าสุดของ note ก่อนเครื่องหมาย |
+const STAFF_KIND_NOTES = { sale: "ราคาพนักงาน", drink: "พนักงานดื่ม", waste: "ของเสีย" };
+
+function staffKindOf(note, isWasteBill) {
+  const head = String(note || "").split("|")[0].trim();
+  if (isWasteBill) return head === STAFF_KIND_NOTES.drink ? "drink" : "waste";
+  return head === STAFF_KIND_NOTES.sale ? "sale" : null;
+}
+
+function staffBreakdown(lines) {
+  const out = { sale: { cups: 0, amount: 0, cost: 0 }, drink: { cups: 0, amount: 0, cost: 0 }, waste: { cups: 0, amount: 0, cost: 0 } };
+  for (const l of lines) {
+    const kind = staffKindOf(l.note, l.isWasteBill);
+    if (!kind) continue;
+    const qty = Number(l.qty) || 0;
+    const row = out[kind];
+    row.cups += qty;
+    if (kind === "sale") row.amount += (Number(l.price) || 0) * qty;
+    row.cost += (Number(l.cost) || 0) * qty;
+  }
+  return out;
+}
+
 async function summaryByRange(env, start, end) {
   const startDay = dayStr(start);
   const endDay = dayStr(end, startDay);
@@ -1340,6 +1364,10 @@ async function summaryByRange(env, start, end) {
   for (const s of wasteSales.results) {
     wasteCost += (costMap[s.sku] || 0) * Number(s.qty || 0);
   }
+  const staffRows = staffBreakdown([
+    ...sales.results.map((s) => ({ note: s.note, qty: s.qty, price: s.price, cost: costMap[s.sku] || 0, isWasteBill: false })),
+    ...wasteSales.results.map((s) => ({ note: s.note, qty: s.qty, price: s.price, cost: costMap[s.sku] || 0, isWasteBill: true })),
+  ]);
 
   const refundR = await env.DB.prepare(
     "SELECT IFNULL(SUM(amount), 0) AS t FROM refunds WHERE date(created_at, '+7 hours') BETWEEN ? AND ?"
@@ -1352,7 +1380,7 @@ async function summaryByRange(env, start, end) {
   return {
     success: true, total, totalProfit, billCount, cupCount, totalCost, wasteCost, refundedTotal,
     avgPerBill, cash, other, qr: other, byType, topSellers, daily: dailyList, byWeekday, byHour, floatCash,
-    closedInRange,
+    closedInRange, staffBreakdown: staffRows,
   };
 }
 

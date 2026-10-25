@@ -140,6 +140,7 @@ function loadController(options) {
     unitCost: () => null,
     recipeCost: () => ({ total: null, lines: [], missingPrice: [] }),
     parseCostExtras: () => [],
+    staffBreakdown: require('../../pure-helpers.js').staffBreakdown,
     COST_EXTRA_PREFIX: 'extra:',
     hashPinWithSalt: async () => '',
     sha256Hex: async () => '',

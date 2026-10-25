@@ -190,6 +190,12 @@
         </div>
 
         <div id="menu-staff-banner" class="hidden menu-staff-banner"></div>
+        <!-- พนักงานดื่ม/ของเสีย บันทึกทันทีที่กด ให้เวลาห้าวินาทีกดยกเลิก (กดซ้ำได้ทีละแก้ว) -->
+        <div id="free-undo-bar" class="undo-bar free-undo-bar hidden" role="status" aria-live="polite">
+          <span id="free-undo-text" class="undo-bar-t" data-no-translate></span>
+          <button type="button" onclick="Controller.undoFreeCup()" class="undo-bar-b">ยกเลิก</button>
+          <span class="undo-bar-line" aria-hidden="true"></span>
+        </div>
         <div id="menu-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
           </div>
       </div>
@@ -337,7 +343,7 @@
             <div class="sales-box sales-wide-box"><p class="sales-box-l">อัตรากำไร</p><p id="sales-margin" class="sales-box-v">-</p></div>
           </div>
           <div class="sales-facts">
-            <span id="sales-waste-wrap" class="sales-fact hidden" style="color:#f97316">ของเสีย <b id="sales-waste" style="color:#f97316">฿0.00</b></span>
+            <span id="sales-waste-wrap" class="sales-fact hidden" style="color:#f97316">ของเสีย/พนักงานดื่ม <b id="sales-waste" style="color:#f97316">฿0.00</b></span>
             <span id="sales-refund-wrap" class="sales-fact hidden" style="color:#0284c7">คืนเงิน <b id="sales-refund" style="color:#0284c7">฿0.00</b></span>
           </div>
           <p id="sales-cost-note" class="sales-note hidden">มีสินค้าที่ยังไม่ระบุต้นทุน ตัวเลขกำไรจึงเป็นค่าประมาณ</p>
@@ -371,6 +377,11 @@
         <div id="sales-top-sec" class="sales-sec">
           <p class="sales-sec-t">เมนูขายดี</p>
           <div id="sales-top"></div>
+        </div>
+
+        <div id="sales-staff-sec" class="sales-sec sales-sec-full">
+          <p class="sales-sec-t">พนักงานและของเสีย</p>
+          <div id="sales-staff"></div>
         </div>
 
         <div id="sales-weekday-sec" class="sales-sec">

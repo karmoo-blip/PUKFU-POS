@@ -802,6 +802,14 @@
     const STAFF_NOTE = 'ราคาพนักงาน';
     const STAFF_PRICE_DEFAULT = 50;
     const STAFF_TAB_IDLE_DEFAULT = 60; // วินาที
+    // แท็บพนักงานมีสามโหมด: ขายราคาพนักงาน (เข้าออเดอร์ จ่ายเงินตามปกติ)
+    // พนักงานดื่มกับของเสีย (฿0 กดแล้วบันทึกเลย ไม่ผ่านบิล) ป้ายต้องตรงกับ STAFF_KIND_NOTES ใน pure-helpers.js
+    const STAFF_MODES = {
+      sale: { note: STAFF_NOTE, label: 'ขายราคาพนักงาน' },
+      drink: { note: 'พนักงานดื่ม', label: 'พนักงานดื่ม' },
+      waste: { note: 'ของเสีย', label: 'ของเสีย' },
+    };
+    const FREE_UNDO_MS = 5000;
 
 
     const Controller = {
@@ -1898,6 +1906,8 @@
 
       //  ฟังก์ชันเมื่อคลิกเลือกหมวดหมู่
       selectCategory(catName) {
+        // เข้าแท็บพนักงานทุกครั้งเริ่มที่โหมดขาย กันกดของเสียค้างไว้จากรอบก่อน
+        if (catName === STAFF_TAB && this.activeCategory !== STAFF_TAB) this.staffMode = 'sale';
         this.activeCategory = catName;
         this.renderCategories(); // อัปเดตสีปุ่ม
         this.renderMenu();       // อัปเดตตารางสินค้า
@@ -4682,7 +4692,7 @@
             ['ยอดขายรวม', money(r.total)],
             ['กำไร', money(r.totalProfit)],
             ['ต้นทุนรวม', money(r.totalCost)],
-            ['ต้นทุนของเสีย', money(r.wasteCost)],
+            ['ต้นทุนของเสีย/พนักงานดื่ม', money(r.wasteCost)],
             ['คืนเงินลูกค้า', money(r.refundedTotal)],
             ['จำนวนบิล', String(r.billCount || 0)],
             ['จำนวนแก้ว', String(r.cupCount || 0)],
@@ -5533,6 +5543,7 @@ renderReport(r) {
           display: fmt(item.amount),
           extra: `${item.qty} แก้ว` + (item.hasCost ? ` · กำไร ${item.marginPct.toFixed(0)}%` : '')
         }))));
+        this.renderStaffBreakdown(r.staffBreakdown);
 
         html('sales-weekday', this.salesBarRows((r.byWeekday || []).map(w => ({
           label: w.label,
@@ -6034,10 +6045,17 @@ renderReport(r) {
         grid.classList.toggle('is-staff', isStaff);
         const catInd = document.getElementById('menu-cat-indicator');
         if (catInd) catInd.classList.toggle('is-staff', isStaff);
+        const mode = isStaff ? (this.staffMode || 'sale') : null;
+        ['sale', 'drink', 'waste'].forEach(m => grid.classList.toggle('staff-mode-' + m, mode === m));
         const banner = document.getElementById('menu-staff-banner');
         if (banner) {
           banner.classList.toggle('hidden', !isStaff);
-          if (isStaff) banner.innerText = `ราคาพนักงาน · ทุกแก้ว ฿${this.staffPriceSetting()}`;
+          if (isStaff) {
+            const sub = { sale: `฿${this.staffPriceSetting()} / แก้ว`, drink: '฿0 · กดแล้วบันทึกเลย', waste: '฿0 · กดแล้วบันทึกเลย' };
+            banner.innerHTML = ['sale', 'drink', 'waste'].map(m =>
+              `<button type="button" onclick="Controller.setStaffMode('${m}')" class="staff-mode staff-mode-${m}${m === mode ? ' is-on' : ''}" aria-pressed="${m === mode}">${STAFF_MODES[m].label}<small>${sub[m]}</small></button>`
+            ).join('');
+          }
         }
 
         grid.innerHTML = filteredItems.map((item, gridIdx) => {
@@ -6064,7 +6082,7 @@ renderReport(r) {
 
           const right = isSoldOut ? '' : '<span class="pos-add">+</span>';
           // แท็บพนักงาน: ราคาพนักงานตัวใหญ่ ราคาปกติขีดฆ่าไว้ข้างใต้ (ถ้าราคาไม่ได้ลดก็ไม่ต้องขีด)
-          const staffPrice = isStaff ? this.staffPriceFor(item) : null;
+          const staffPrice = isStaff ? (mode === 'sale' ? this.staffPriceFor(item) : 0) : null;
           const priceHtml = isStaff && staffPrice < item.price
             ? `<span class="pos-price pos-price-staff${isSoldOut ? ' is-out' : ''}">฿${staffPrice}<s>฿${item.price}</s></span>`
             : `<span class="pos-price${isSoldOut ? ' is-out' : ''}">฿${item.price}</span>`;
@@ -6094,6 +6112,12 @@ renderReport(r) {
         const item = this.menuData[idx];
 
         if (this.soldOutItems.includes(item.name)) return;
+
+        // พนักงานดื่มกับของเสียไม่ถามความหวาน ต้นทุนเท่ากัน กดทีเดียวบันทึกเลย
+        if (this.activeCategory === STAFF_TAB && (this.staffMode === 'drink' || this.staffMode === 'waste')) {
+          this.recordFreeCup(item, this.staffMode);
+          return;
+        }
 
         this.activeProduct = this.activeCategory === STAFF_TAB ? this.staffProduct(item) : item;
         this.selectedAddons = [];
@@ -6762,7 +6786,91 @@ renderReport(r) {
       leaveStaffTab() {
         if (this.staffTabTimer) clearTimeout(this.staffTabTimer);
         this.staffTabTimer = null;
+        this.staffMode = 'sale';
         if (this.activeCategory === STAFF_TAB) this.selectCategory('All');
+      },
+
+      // บิลที่หน้าขายสร้างจากโหมดพนักงานดื่ม/ของเสีย ทุกแก้วมีป้ายเดียวกัน คืน 'drink' / 'waste' หรือ null
+      freeRecordKind(order) {
+        if (!order || order.status !== 'waste' || !order.items || !order.items.length) return null;
+        const kinds = ['drink', 'waste'].filter(k => order.items.every(it => String(it.note || '').split('|')[0].trim() === STAFF_MODES[k].note));
+        return kinds[0] || null;
+      },
+
+      setStaffMode(mode) {
+        if (!STAFF_MODES[mode]) return;
+        this.staffMode = mode;
+        this.renderMenu({ noStagger: true });
+        this.resetStaffTabTimer();
+      },
+
+      // พนักงานดื่ม/ของเสีย: หนึ่งแก้วเป็นหนึ่งรายการ ฿0 สถานะ waste ทันที ไม่ผ่านตะกร้า ไม่พิมพ์ ไม่กินเลขคิว
+      // สถานะ waste มีที่ทางอยู่แล้วทั้งระบบ: ไม่นับเป็นยอดขาย/แก้ว/บิล แต่ต้นทุนไปลงช่องของเสียแล้วหักกำไร
+      // ถือไว้ในเครื่องห้าวินาทีก่อนเข้าคิวซิงก์ กดยกเลิกในห้าวินาทีนี้จะไม่มีอะไรถึงเซิร์ฟเวอร์เลย
+      recordFreeCup(item, kind) {
+        const note = STAFF_MODES[kind].note;
+        const who = this.loggedInEmployee ? this.loggedInEmployee.name : '';
+        const rec = {
+          timestamp: new Date().toISOString(),
+          invoice: this.makeInvoiceId(),
+          items: [{ ...item, price: 0, qty: 1, note, sweetness: '', addonIds: [], textNote: '' }],
+          subtotal: 0, discount: 0, total: 0,
+          paymentType: note,
+          cashReceived: 0, changeAmount: 0,
+          status: 'waste',
+          cancelReason: note + (who ? ` (โดย ${who})` : ''),
+          cancelUser: who,
+          queue: '',
+          cashier: who
+        };
+        this.freePending = this.freePending || [];
+        this.freePending.push(rec);
+        this.showFreeUndo();
+        const srcIdx = this.menuData.findIndex(m => m.sku === item.sku);
+        if (srcIdx !== -1) this.replayClass(document.querySelector(`#menu-grid [data-menu-idx="${srcIdx}"]`), 'card-added');
+      },
+
+      // แถบยกเลิกของแก้วฟรีอยู่ใต้ปุ่มโหมด ไม่ใช้แถบของตะกร้า เพราะบนมือถือตะกร้าพับอยู่ มองไม่เห็น
+      showFreeUndo() {
+        const last = this.freePending[this.freePending.length - 1];
+        const bar = document.getElementById('free-undo-bar');
+        const text = document.getElementById('free-undo-text');
+        const more = this.freePending.length > 1 ? ` (${this.freePending.length} แก้ว)` : '';
+        if (text) text.innerText = this.tf('บันทึก{x}แล้ว: {x}', last.items[0].note, this.itemName(last.items[0])) + more;
+        if (bar) {
+          bar.classList.remove('hidden');
+          this.replayClass(bar, 'is-running');
+        }
+        clearTimeout(this.freeUndoTimer);
+        this.freeUndoTimer = setTimeout(() => this.hideFreeUndo(), FREE_UNDO_MS);
+      },
+
+      // แถบหายแปลว่าหมดเวลาเอากลับ แก้วที่ยังถืออยู่ส่งเข้าคิวได้แล้ว
+      hideFreeUndo() {
+        clearTimeout(this.freeUndoTimer);
+        this.flushFreeCups();
+        const bar = document.getElementById('free-undo-bar');
+        if (bar) bar.classList.add('hidden');
+      },
+
+      // กดหนึ่งครั้งเอาแก้วล่าสุดออกหนึ่งแก้ว กดซ้ำได้จนหมด เผื่อกดเบิ้ล
+      undoFreeCup() {
+        if (!this.freePending || !this.freePending.length) return;
+        this.freePending.pop();
+        if (this.freePending.length) this.showFreeUndo();
+        else this.hideFreeUndo();
+      },
+
+      // ส่งแก้วที่พ้นเวลาเอากลับแล้วเข้าคิวซิงก์ เรียกตอนแถบหาย ตอนสลับแอป และตอนล็อกจอ
+      flushFreeCups() {
+        const pending = this.freePending || [];
+        if (!pending.length) return;
+        this.freePending = [];
+        this.syncQueue.push(...pending);
+        this.saveLocalState();
+        this.updateSyncQueueBadge();
+        this.renderHistory();
+        this.processSyncQueue();
       },
 
       // มือถือพัก setTimeout ตอนจอดับ ตื่นมาต้องเช็คเวลาที่หายไปเอง เหมือน checkAutoLockOnResume
@@ -6916,6 +7024,19 @@ renderReport(r) {
         this.updateCashUI();
       },
 
+        // สร้างเลขบิลจากหน้าเว็บเองเลย เช่น INV-20231026-143025-X9A
+        makeInvoiceId() {
+        const now = new Date();
+        const dateStr = now.getFullYear().toString() + 
+                        (now.getMonth()+1).toString().padStart(2, '0') + 
+                        now.getDate().toString().padStart(2, '0');
+        const timeStr = now.getHours().toString().padStart(2, '0') + 
+                        now.getMinutes().toString().padStart(2, '0') + 
+                        now.getSeconds().toString().padStart(2, '0');
+        const randomStr = Math.random().toString(36).substring(2, 5).toUpperCase();
+        return `INV-${dateStr}-${timeStr}-${randomStr}`;
+        },
+
         async submitOrder() {
         const btn = document.getElementById('btn-submit-order');
         if(btn.disabled) return;
@@ -6925,17 +7046,7 @@ renderReport(r) {
         btn.disabled = true;
         this.setSubmitButtonState('working');
         
-        // สร้างเลขบิลจากหน้าเว็บเองเลย เช่น INV-20231026-143025-X9A
-        const now = new Date();
-        const dateStr = now.getFullYear().toString() + 
-                        (now.getMonth()+1).toString().padStart(2, '0') + 
-                        now.getDate().toString().padStart(2, '0');
-        const timeStr = now.getHours().toString().padStart(2, '0') + 
-                        now.getMinutes().toString().padStart(2, '0') + 
-                        now.getSeconds().toString().padStart(2, '0');
-        const randomStr = Math.random().toString(36).substring(2, 5).toUpperCase();
-        
-        const newInvoiceId = `INV-${dateStr}-${timeStr}-${randomStr}`;
+        const newInvoiceId = this.makeInvoiceId();
         
         // จบงานทันที ไม่ต้องรอเซิร์ฟเวอร์ (ระบบจะจับเข้า Sync Queue ไปเซฟหลังบ้านให้เอง)
         await this.finalizeOrder(newInvoiceId);
@@ -8022,6 +8133,8 @@ renderReport(r) {
         // มือถือ (Android/iOS) มักหยุด/หน่วง setTimeout ตอนสลับแอปไปพักหน้าจอ โดยไม่ปิดหน้าเว็บทิ้ง
         // พอกลับมาเปิดแอปอีกครั้ง (visibilitychange) เลยต้องเช็คเวลาที่หายไปเองอีกที ไม่ต้องรอ event อื่น
         document.addEventListener('visibilitychange', () => {
+          // สลับแอปไปทั้งที่แก้วฟรียังรอเวลาเอากลับ ส่งเข้าคิวเลย ไม่งั้นถ้าแอปถูกปิดทิ้งแก้วนั้นจะหาย
+          if (document.visibilityState === 'hidden') this.hideFreeUndo();
           if (document.visibilityState === 'visible') {
             this.checkAutoLockOnResume();
             this.checkStaffTabOnResume();
@@ -8081,6 +8194,7 @@ renderReport(r) {
       resetViewForNextUser() {
         this.closeUserMenu();
         // คนถัดไปที่ปลดล็อกต้องเจอราคาปกติ ไม่ใช่แท็บพนักงานที่คนก่อนเปิดค้างไว้
+        this.hideFreeUndo();
         this.leaveStaffTab();
 
         // ปิดโมดัลที่ค้างอยู่ทั้งหมดก่อนล็อก กันหน้าจอซ้อนกัน
@@ -8316,6 +8430,11 @@ renderReport(r) {
             ${h.refundedTotal > 0 ? `<div class="mt-2 bg-sky-50 text-sky-600 text-xs font-bold px-3 py-2 rounded-lg">คืนเงินแล้ว ฿${Number(h.refundedTotal).toFixed(2)} จาก ฿${Number(h.total).toFixed(2)}${h.refundedBy ? ' (โดย ' + escHtml(h.refundedBy) + ')' : ''}</div>` : ''}
             ${isCancelled
               ? `<div class="mt-2 bg-red-50 text-red-500 text-xs font-bold px-3 py-2 rounded-lg"> ยกเลิกแล้ว: ${escHtml(h.cancelReason)}${h.cancelledBy ? ' (โดย ' + escHtml(h.cancelledBy) + ')' : ''}</div>`
+              : isWaste && this.freeRecordKind(h)
+              ? `<div class="mt-2 flex flex-wrap items-center justify-between gap-2">
+                   <span class="text-xs font-bold text-slate-500"><span class="history-free-tag is-${this.freeRecordKind(h)}">${STAFF_MODES[this.freeRecordKind(h)].note}</span>บันทึกจากหน้าขาย ไม่ได้เก็บเงิน</span>
+                   <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.cancelOrder(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-red-500 bg-red-50 rounded-full active:scale-95 transition-all whitespace-nowrap">ยกเลิกบิล</button>
+                 </div>`
               : isWaste
               ? `<div class="mt-2 bg-orange-50 text-orange-500 text-xs font-bold px-3 py-2 rounded-lg"> ของเสีย: ${escHtml(h.cancelReason)}${h.cancelledBy ? ' (โดย ' + escHtml(h.cancelledBy) + ')' : ''}</div>`
               : `<div class="mt-2 flex flex-wrap justify-end gap-2">
@@ -8463,7 +8582,10 @@ renderReport(r) {
       async updateOrderStatus(invoiceId, status) {
         // หาข้อมูลบิลจาก combined history
         const order = this.history.find(o => o.invoice === invoiceId) || this.syncQueue.find(o => o.invoice === invoiceId);
-        if (!order || order.status === 'cancelled' || order.status === 'waste') return;
+        if (!order || order.status === 'cancelled') return;
+        // ของเสีย/พนักงานดื่มที่บันทึกจากหน้าขาย ยกเลิกได้ (เผื่อกดผิด) แต่บิลที่เป็นของเสียแล้วห้ามเปลี่ยนเป็นอย่างอื่น
+        const wasWaste = order.status === 'waste';
+        if (wasWaste && !(status === 'cancelled' && this.freeRecordKind(order))) return;
 
         const actionText = status === 'waste' ? 'บันทึกของเสีย' : 'ยกเลิกบิล';
         const icon = status === 'waste' ? '' : '';
@@ -8500,8 +8622,8 @@ renderReport(r) {
               order.cancelUser = userName;
               order.cancelTimestamp = new Date().toISOString();
               
-              // ลดยอดแก้วทันทีเพื่อให้ UI เปลี่ยนแปลงไวที่สุด
-              const removedCups = order.items.reduce((s, i) => s + i.qty, 0);
+              // ลดยอดแก้วทันทีเพื่อให้ UI เปลี่ยนแปลงไวที่สุด (ของเสียไม่เคยถูกนับเป็นแก้วที่ขาย ไม่ต้องลด)
+              const removedCups = wasWaste ? 0 : order.items.reduce((s, i) => s + i.qty, 0);
               this.serverCupCount = Math.max(0, this.serverCupCount - removedCups);
               localStorage.setItem('pos_serverCupCount', this.serverCupCount);
               
@@ -8650,6 +8772,7 @@ renderReport(r) {
             let totalProfit = 0;
             let wasteCost = 0;
             const costInfo = this.menuCostInfo();
+            const staffLines = [];
 
             combined.forEach(order => {
               const orderDateStr = new Date(order.timestamp).toLocaleDateString();
@@ -8660,6 +8783,7 @@ renderReport(r) {
                  //  หาต้นทุนจาก menuData โดยใช้ SKU (เพราะประวัติที่ดึงจากเซิร์ฟเวอร์ไม่ได้เก็บต้นทุนไว้)
                  const c = costInfo[item.sku];
                  const itemCost = c ? c.cost : (item.cost || 0);
+                 staffLines.push({ note: item.note, qty: item.qty, price: item.price, cost: itemCost, isWasteBill: isWaste });
 
                  if (isWaste) {
                    wasteCost += itemCost * item.qty;
@@ -8714,6 +8838,7 @@ renderReport(r) {
               display: fmtMoney(item.amount),
               extra: `${item.qty} แก้ว`
             }))));
+            this.renderStaffBreakdown(staffBreakdown(staffLines));
 
             this.setIndicator('synced');
           })
@@ -8723,6 +8848,29 @@ renderReport(r) {
             this.setIndicator('error');
           })
           .getTodaySummary();
+      },
+
+      // ตารางพนักงานและของเสีย ใช้ทั้งช่วงวันนี้ (คิดจากบิลในเครื่อง) และช่วงอื่น (worker คิดมาให้)
+      renderStaffBreakdown(b) {
+        const el = document.getElementById('sales-staff');
+        if (!el) return;
+        const rows = [
+          { key: 'sale', label: 'ขายราคาพนักงาน', color: 'var(--color-mustard)' },
+          { key: 'drink', label: 'พนักงานดื่ม', color: 'var(--color-staff-drink)' },
+          { key: 'waste', label: 'ของเสีย', color: 'var(--color-danger)' },
+        ].map(r => ({ ...r, ...((b && b[r.key]) || { cups: 0, amount: 0, cost: 0 }) }));
+        const sum = rows.reduce((a, r) => ({ cups: a.cups + r.cups, amount: a.amount + r.amount, cost: a.cost + r.cost }), { cups: 0, amount: 0, cost: 0 });
+        if (!sum.cups) {
+          el.innerHTML = '<p class="sales-note">ยังไม่มีแก้วราคาพนักงาน พนักงานดื่ม หรือของเสียในช่วงนี้</p>';
+          return;
+        }
+        const money = n => '฿' + (Number(n) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        const tr = (label, r, cls) => `<tr${cls ? ` class="${cls}"` : ''}><td>${label}</td><td>${r.cups.toLocaleString()}</td><td>${money(r.amount)}</td><td>${money(r.cost)}</td></tr>`;
+        el.innerHTML = '<div class="staff-sum-wrap"><table class="staff-sum"><thead><tr><th>ประเภท</th><th>แก้ว</th><th>เงินที่รับ</th><th>ต้นทุน</th></tr></thead><tbody>'
+          + rows.map(r => tr(`<span class="staff-sum-kind"><span class="staff-sum-dot" style="background:${r.color}"></span>${r.label}</span>`, r)).join('')
+          + tr('รวม', sum, 'is-sum')
+          + '</tbody></table></div>'
+          + '<p class="sales-note">ต้นทุนคิดจากสูตรเมนู (เหมือนช่องต้นทุนด้านบน) · เมนูที่ยังไม่ได้ตั้งต้นทุนนับเป็น ฿0</p>';
       },
 
       // ปุ่มปิดยอดกดได้วันละครั้ง กดแล้วต้องเห็นเลยว่าเงินขายสดย้ายเข้าเงินทอนแล้ว

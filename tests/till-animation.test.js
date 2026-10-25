@@ -84,7 +84,7 @@ function loadController(options) {
     location: { search: '', pathname: '/', origin: 'http://x', href: 'http://x/' },
     escAttr: (v) => String(v), escHtml: (v) => String(v),
     calcVatBreakdown: () => ({ exVat: 0, vatAmount: 0, rate: 0 }),
-    unitCost: () => null, recipeCost: () => ({ total: null, lines: [], missingPrice: [] }),
+    unitCost: () => null, recipeCost: () => ({ total: null, lines: [], missingPrice: [] }), staffBreakdown: require('../pure-helpers.js').staffBreakdown,
     parseCostExtras: () => [], COST_EXTRA_PREFIX: 'extra:',
     hashPinWithSalt: async () => '', sha256Hex: async () => '', bufToHex: () => '',
     qrcode: () => ({ addData(){}, make(){}, createDataURL: () => '' }),
