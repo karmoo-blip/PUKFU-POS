@@ -17,6 +17,7 @@ function setup(shopInfo) {
   C.soldOutItems = [];
   C.cart = [];
   C.shopInfo = shopInfo || {};
+  C.loggedInEmployee = { name: 'บอน', role: 'Owner' };
   C.ensureOrderOptionsLoaded = () => {};
   C.updateAddonButtons = () => {};
   C.updateSweetnessButtons = () => {};
@@ -192,7 +193,7 @@ function setupModes() {
   h.C.renderHistory = () => {};
   h.C.updateSyncQueueBadge = () => {};
   h.C.saveLocalState = () => {};
-  h.C.loggedInEmployee = { name: 'บอน' };
+  h.C.loggedInEmployee = { name: 'บอน', role: 'Owner' };
   return h;
 }
 
@@ -455,4 +456,93 @@ test('the free-cup box only shows on the staff tab, and the cups are still there
   C.leaveStaffTab();
   assert.ok(box.classList.contains('hidden'), 'กลับหน้าทั้งหมดเองก็ต้องซ่อน');
   assert.equal(C.freeCupGroups().length, 1, 'ซ่อนอย่างเดียว ข้อมูลยังอยู่');
+});
+
+// ---- ขายราคาพนักงานย้ายไปเมนูชื่อผู้ใช้ + สิทธิ์ + แยกตามคนขาย ----
+const { staffSellers } = require('../pure-helpers.js');
+
+test('the staff price screen is not in the category bar, and opens only for allowed people', () => {
+  const { C, el } = setup();
+  C.renderCategories = () => {};
+  C.extractCategories();
+  assert.ok(!C.categories.includes('__staff__'), 'แถบหมวดต้องไม่มีแท็บพนักงานแล้ว');
+  C.renderMenu = () => {};
+  C.loggedInEmployee = { name: 'มิ้นท์', role: 'Staff', permissions: 'history' };
+  C.updateLoggedInUserLabel();
+  assert.ok(el('menu-staff-sale').classList.contains('hidden'), 'ไม่มีสิทธิ์ ไม่เห็นเมนู');
+  C.selectCategory('__staff__');
+  assert.notEqual(C.activeCategory, '__staff__', 'เรียกตรงๆ ก็ต้องเข้าไม่ได้');
+  C.loggedInEmployee = { name: 'แพร', role: 'Manager', permissions: 'history,staffsale' };
+  C.updateLoggedInUserLabel();
+  assert.ok(!el('menu-staff-sale').classList.contains('hidden'));
+  assert.equal(el('menu-staff-sale-price').innerText, '฿50 / แก้ว');
+  C.openStaffSale();
+  assert.equal(C.activeCategory, '__staff__');
+  C.leaveStaffTab();
+  assert.equal(C.activeCategory, 'All');
+  assert.equal(C.canStaffSale({ role: 'Owner' }), true);
+  assert.equal(C.canStaffSale({ role: 'Admin', permissions: '' }), true);
+  assert.equal(C.canStaffSale(null), false);
+});
+
+test('the staff screen has a way back to normal selling', () => {
+  const { loadController } = require('./helpers/load-controller');
+  const { C, el } = loadController({});
+  C.menuData = [{ sku: 'LAT', name: 'ลาเต้เย็น', price: 65 }];
+  C.soldOutItems = []; C.syncQueue = []; C.history = [];
+  C.activeCategory = '__staff__';
+  C.staffMode = 'sale';
+  C.renderMenu({ noStagger: true });
+  assert.match(el('menu-staff-banner').innerHTML, /Controller\.leaveStaffTab\(\)[^>]*>กลับหน้าขายปกติ/);
+});
+
+const SELLER_LINES = [
+  { note: 'ราคาพนักงาน | ความหวาน: ปกติ', qty: 3, price: 50, fullPrice: 65, seller: 'แพร' },
+  { note: 'ราคาพนักงาน | ความหวาน: ปกติ', qty: 1, price: 50, fullPrice: 60, seller: 'บอน' },
+  { note: 'ราคาพนักงาน', qty: 12, price: 50, fullPrice: 65, seller: 'เจ' },
+  { note: 'ความหวาน: ปกติ', qty: 5, price: 65, fullPrice: 65, seller: 'เจ' }, // ขายปกติ ไม่นับ
+];
+
+test('staff-price sales add up per cashier, and an unusually high one is flagged', () => {
+  const rows = staffSellers(SELLER_LINES);
+  assert.deepEqual(rows.map(r => [r.seller, r.cups, r.amount, r.discount, r.flag]),
+    [['เจ', 12, 600, 180, true], ['แพร', 3, 150, 45, false], ['บอน', 1, 50, 10, false]]);
+  assert.equal(staffSellers([{ note: 'ราคาพนักงาน', qty: 30, price: 50, fullPrice: 65, seller: 'คนเดียว' }])[0].flag, false, 'คนเดียวไม่มีอะไรให้เทียบ');
+  const small = staffSellers([
+    { note: 'ราคาพนักงาน', qty: 9, price: 50, fullPrice: 65, seller: 'ก' },
+    { note: 'ราคาพนักงาน', qty: 1, price: 50, fullPrice: 65, seller: 'ข' },
+  ]);
+  assert.equal(small[0].flag, false, 'ไม่ถึง 10 แก้วไม่ขึ้นป้าย');
+});
+
+test('the server adds up staff sales per cashier the same way as the app', async () => {
+  const sales = SELLER_LINES.map((l, i) => ({ sku: 'LAT', note: l.note, qty: l.qty, price: l.price, invoice: 'I' + l.seller, bkk_date: '2026-10-25' }));
+  const payments = [...new Set(sales.map(s => s.invoice))].map(inv => ({ invoice: inv, total: 0, created_by: inv.slice(1), bkk_date: '2026-10-25', bkk_hour: '10' }));
+  const db = {
+    prepare(text) {
+      const stmt = {
+        bind() { return stmt; },
+        async run() { return { success: true }; },
+        async first() { return /schema_version/.test(text) ? { value: '999' } : null; },
+        async all() {
+          if (/SELECT sku, price FROM menu/.test(text)) return { results: [{ sku: 'LAT', price: 65 }] };
+          if (/FROM menu/.test(text)) return { results: [{ sku: 'LAT', cost: 18 }] };
+          if (/FROM sales WHERE/.test(text) && /NOT IN/.test(text)) return { results: sales };
+          if (/FROM payments WHERE/.test(text)) return { results: payments };
+          return { results: [] };
+        },
+      };
+      return stmt;
+    },
+    async batch() { return []; },
+  };
+  const mod = await import('../worker/worker.js?sellers=' + Date.now());
+  const res = await mod.default.fetch(new Request('https://example.com/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: 't', fn: 'getSummaryByRange', args: ['2026-10-25', '2026-10-25'] }),
+  }), { DB: db, API_TOKEN: 't' });
+  const r = (await res.json()).result;
+  const expected = staffSellers(SELLER_LINES.map(l => ({ ...l, fullPrice: 65 })));
+  assert.deepEqual(r.staffSellers, expected);
 });
