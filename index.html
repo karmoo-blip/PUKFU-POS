@@ -85,6 +85,8 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" class="w-5 h-5 shrink-0"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/></svg>
     <p class="text-sm flex-1">มีอัปเดตใหม่พร้อมใช้งาน</p>
     <button onclick="Controller.applyAppUpdate()" class="shrink-0 bg-white text-emerald-700 text-sm font-bold px-3 py-1.5 rounded-xl hover:bg-emerald-50 transition">รีเฟรชตอนนี้</button>
+    <!-- ปิดไว้ก่อน อัปเดตทีหลังได้จากกระดิ่งหรือการ์ดในตั้งค่า (ปุ่มนี้ต้องอยู่หลังปุ่มอัปเดต showNativeUpdateBanner หาปุ่มแรก) -->
+    <button onclick="Controller.dismissUpdateBanner()" aria-label="ปิดแถบอัปเดต" class="shrink-0 w-11 h-11 -mr-2 inline-flex items-center justify-center rounded-xl text-white/90 hover:bg-white/15 text-2xl font-bold leading-none transition">&times;</button>
   </div>
 
   <!--  หน้าจอล็อก PIN (แสดงทับทุกอย่างจนกว่าจะใส่ PIN ถูก) -->

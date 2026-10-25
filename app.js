@@ -1426,8 +1426,7 @@
           }
           if (tag !== this._appVersionTag) {
             this._updateAvailable = true;
-            const banner = document.getElementById('app-update-banner');
-            if (banner) banner.classList.remove('hidden');
+            this.showUpdateBanner('tag:' + tag);
             this.updateBellBadge();
           }
         } catch (e) {
@@ -1468,8 +1467,7 @@
         if (current && latest.build > current.build) {
           u.state = 'ready';
           this._updateAvailable = true;
-          const banner = document.getElementById('app-update-banner');
-          if (banner) banner.classList.remove('hidden');
+          this.showUpdateBanner('web:' + latest.build, manual);
           this.updateBellBadge();
         } else {
           u.state = 'idle';
@@ -1621,7 +1619,7 @@
           await this.updaterCall('next', { id: bundle.id }); // ถ้าไม่กดอัปเดต จะสลับให้เองตอนเปิดแอปครั้งหน้า
           u.bundle = bundle;
           u.state = 'ready';
-          this.showNativeUpdateBanner();
+          this.showNativeUpdateBanner('native:' + latest.version);
         } catch (e) {
           u.state = 'error';
           u.message = 'ดาวน์โหลดไม่สำเร็จ (' + ((e && e.message) || 'ไม่ทราบสาเหตุ') + ')';
@@ -1629,15 +1627,30 @@
         this.renderUpdateCard();
       },
 
-      showNativeUpdateBanner() {
+      showNativeUpdateBanner(key) {
         this._updateAvailable = true;
         const banner = document.getElementById('app-update-banner');
         if (banner) {
           const btn = banner.querySelector('button');
           if (btn) btn.innerText = 'อัปเดตตอนนี้';
-          banner.classList.remove('hidden');
         }
+        this.showUpdateBanner(key);
         this.updateBellBadge();
+      },
+
+      // แถบเขียวเช็คซ้ำทุกไม่กี่นาที กด × แล้วต้องไม่เด้งกลับมาเรื่อยๆ จำไว้ว่าปิดของเวอร์ชันไหน (จำแค่รอบที่เปิดแอปอยู่)
+      // เวอร์ชันใหม่กว่านั้น หรือกดตรวจหาอัปเดตเอง (force) ค่อยขึ้นอีก กระดิ่งกับการ์ดในตั้งค่ายังบอกว่ามีอัปเดตเสมอ
+      showUpdateBanner(key, force) {
+        if (!force && key && key === this._dismissedUpdateKey) return;
+        this._shownUpdateKey = key;
+        const banner = document.getElementById('app-update-banner');
+        if (banner) banner.classList.remove('hidden');
+      },
+
+      dismissUpdateBanner() {
+        this._dismissedUpdateKey = this._shownUpdateKey;
+        const banner = document.getElementById('app-update-banner');
+        if (banner) banner.classList.add('hidden');
       },
 
       async applyNativeUpdate() {
