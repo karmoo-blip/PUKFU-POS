@@ -196,48 +196,99 @@ function setupModes() {
   return h;
 }
 
-test('staff drink and waste modes save one ฿0 cup straight away, without touching the order', () => {
-  const { C } = setupModes();
+test('staff drink and waste taps wait on the till, then go as one bill per kind with one line per cup', () => {
+  const { C, store } = setupModes();
   C.cart = [{ sku: 'LAT', name: 'ลาเต้เย็น', price: 65, qty: 1, note: 'ความหวาน: ปกติ' }];
   C.selectCategory('__staff__');
+  C.setStaffMode('waste');
+  C.selectProduct(0);
+  C.selectProduct(0);
+  C.selectProduct(1);
   C.setStaffMode('drink');
   C.selectProduct(0);
-  C.setStaffMode('waste');
-  C.selectProduct(1);
   assert.equal(C.cart.length, 1, 'ออเดอร์ของลูกค้าต้องไม่ถูกแตะ');
-  assert.equal(C.freePending.length, 2);
-  const [drink, waste] = C.freePending;
-  assert.equal(drink.status, 'waste');
-  assert.equal(drink.total, 0);
-  assert.equal(drink.items[0].price, 0);
-  assert.equal(drink.items[0].note, 'พนักงานดื่ม');
-  assert.equal(waste.items[0].note, 'ของเสีย');
-  assert.equal(waste.items[0].sku, 'WTR');
-  assert.equal(C.freeRecordKind(drink), 'drink');
+  assert.equal(C.syncQueue.length, 0, 'ยังไม่กดส่ง ห้ามไปถึงคิวซิงก์');
+  assert.equal(JSON.parse(store.get('pos_freeUnsent')).length, 4, 'ต้องเก็บลงเครื่อง ปิดแอปแล้วไม่หาย');
+  assert.equal(C.sendFreeCups(), 4);
+  assert.equal(C.syncQueue.length, 2, 'ส่งทีเดียวได้บิลละประเภท');
+  const waste = C.syncQueue.find(o => o.paymentType === 'ของเสีย');
+  const drink = C.syncQueue.find(o => o.paymentType === 'พนักงานดื่ม');
+  assert.equal(waste.status, 'waste');
+  assert.equal(waste.total, 0);
+  assert.deepEqual(JSON.parse(JSON.stringify(waste.items.map(i => [i.sku, i.qty, i.price, i.note]))), [['LAT', 1, 0, 'ของเสีย'], ['LAT', 1, 0, 'ของเสีย'], ['WTR', 1, 0, 'ของเสีย']]);
+  assert.equal(drink.items.length, 1);
   assert.equal(C.freeRecordKind(waste), 'waste');
-  assert.equal(C.syncQueue.length, 0, 'ยังอยู่ในช่วงกดยกเลิกได้ ห้ามเข้าคิวซิงก์');
-  C.flushFreeCups();
-  assert.equal(C.syncQueue.length, 2, 'หมดเวลาเอากลับแล้วต้องเข้าคิวซิงก์');
-  assert.equal(C.freePending.length, 0);
+  assert.equal(C.freeUnsent.length, 0);
+  assert.equal(C.freeCupGroups().find(g => g.key === 'waste|LAT').records.length, 2, 'ส่งแล้วยังเห็นในรายการวันนี้');
   C.leaveStaffTab();
 });
 
-test('− removes the latest just-tapped cup one at a time, with no PIN', async () => {
+test('− removes a just-tapped cup with no PIN, and an older unsent cup only after a PIN', async () => {
   const { C } = setupModes();
-  let pinAsked = false;
-  C.requireActionPin = async () => { pinAsked = true; return null; };
+  let pins = 0;
+  C.requireActionPin = async () => { pins++; return { employee: { name: 'บอน' }, employeeId: 'E1', pin: '1' }; };
   C.selectCategory('__staff__');
   C.setStaffMode('waste');
   C.selectProduct(0);
   C.selectProduct(0);
-  assert.equal(C.freeCupGroups()[0].records.length, 2);
   await C.removeFreeCup('waste|LAT');
-  assert.equal(C.freePending.length, 1);
+  assert.equal(C.freeUnsent.length, 1);
+  assert.equal(pins, 0, 'เพิ่งกด ไม่ต้องใส่ PIN');
+  C.freeUnsent[0].at = new Date(Date.now() - 60000).toISOString(); // กดไปนานแล้ว
   await C.removeFreeCup('waste|LAT');
-  assert.equal(C.freePending.length, 0);
-  assert.equal(pinAsked, false, 'ยังไม่พ้นห้าวินาที ไม่ต้องใส่ PIN');
-  C.flushFreeCups();
-  assert.equal(C.syncQueue.length, 0, 'ลบหมดแล้วต้องไม่มีอะไรไปถึงเซิร์ฟเวอร์');
+  assert.equal(pins, 1, 'เกินห้าวินาทีต้องใส่ PIN');
+  assert.equal(C.freeUnsent.length, 0);
+  assert.equal(C.sendFreeCups(), 0, 'ลบหมดแล้วไม่มีอะไรให้ส่ง');
+  C.leaveStaffTab();
+});
+
+test('− on a cup that was sent in the day bill cancels just that one line', async () => {
+  const { C, calls } = setupModes();
+  C.requireActionPin = async () => ({ employee: { name: 'บอน' }, employeeId: 'E1', pin: '1' });
+  C.statusQueue = [];
+  const bill = { invoice: 'DAY1', timestamp: new Date().toISOString(), total: 0, paymentType: 'ของเสีย', status: 'waste',
+    items: [{ sku: 'LAT', name: 'ลาเต้เย็น', qty: 1, price: 0, note: 'ของเสีย' }, { sku: 'LAT', name: 'ลาเต้เย็น', qty: 1, price: 0, note: 'ของเสีย' }] };
+  C.history = [bill];
+  await C.removeFreeCup('waste|LAT');
+  assert.equal(bill.status, 'waste', 'บิลทั้งวันต้องยังอยู่');
+  assert.deepEqual(bill.items.map(i => !!i.cancelled), [false, true]);
+  const sent = calls.filter(c => c.fn === 'cancelSalesItems');
+  assert.equal(sent.length, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(sent[0].args[0].items)), [{ sku: 'LAT', note: 'ของเสีย' }]);
+  assert.equal(C.freeCupGroups()[0].records.length, 1);
+});
+
+test('closing the day sends unsent cups, and cups left from an earlier day go out under that day', () => {
+  const { C } = setupModes();
+  C.setBtnLoading = () => {};
+  const yesterday = new Date(Date.now() - 86400000);
+  C.freeUnsent = [
+    { id: 'a', kind: 'waste', at: yesterday.toISOString(), day: yesterday.toLocaleDateString(), item: { sku: 'LAT', name: 'ลาเต้เย็น' }, by: 'บอน' },
+    { id: 'b', kind: 'drink', at: new Date().toISOString(), day: new Date().toLocaleDateString(), item: { sku: 'WTR', name: 'น้ำเปล่า' }, by: 'บอน' },
+  ];
+  assert.equal(C.sendOldFreeCups(), 1, 'เปิดแอปส่งเฉพาะของวันก่อน');
+  assert.equal(C.syncQueue[0].timestamp, yesterday.toISOString(), 'ลงวันที่กดจริง');
+  assert.equal(C.freeUnsent.length, 1);
+  C.closeDayCashManual({ dataset: {} });
+  assert.equal(C.freeUnsent.length, 0, 'ปิดยอดแล้วต้องส่งของวันนี้ด้วย');
+  assert.equal(C.syncQueue.length, 2);
+});
+
+test('the send button asks first, and the list says what is unsent and what is sent', async () => {
+  const { C, el } = setupModes();
+  let asked = '';
+  C.showConfirm = async (msg) => { asked = msg; return true; };
+  C.selectCategory('__staff__');
+  C.setStaffMode('waste');
+  C.selectProduct(0);
+  C.renderFreeList();
+  assert.match(el('cart-free-box').innerHTML, /ยังไม่ส่ง 1 แก้ว/);
+  assert.match(el('cart-free-box').innerHTML, /ส่งยอดวันนี้ \(1 แก้ว\)/);
+  await C.confirmSendFreeCups();
+  assert.match(asked, /ของเสีย 1 แก้ว/);
+  assert.equal(C.syncQueue.length, 1);
+  assert.match(el('cart-free-box').innerHTML, /ส่งแล้ว/);
+  assert.ok(!el('cart-free-box').innerHTML.includes('ส่งยอดวันนี้'), 'ส่งหมดแล้วไม่ต้องมีปุ่ม');
   C.leaveStaffTab();
 });
 
