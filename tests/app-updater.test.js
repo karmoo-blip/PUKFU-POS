@@ -259,3 +259,20 @@ test('update files are signed the way the updater plugin checks them', () => {
   const other = crypto.generateKeyPairSync('rsa', { modulusLength: 2048, publicKeyEncoding: { type: 'pkcs1', format: 'pem' }, privateKeyEncoding: { type: 'pkcs1', format: 'pem' } });
   assert.throws(() => crypto.publicDecrypt({ key: other.publicKey, padding: crypto.constants.RSA_PKCS1_PADDING }, Buffer.from(keyB64, 'base64')), 'กุญแจอื่นต้องถอดไม่ได้');
 });
+
+test('the × hides the green bar, and it stays hidden for the same version but comes back for a newer one', async () => {
+  const { C, el } = loadWeb();
+  await C.checkForAppUpdate();
+  const bar = el('app-update-banner');
+  assert.ok(!bar.classList.contains('hidden'));
+  C.dismissUpdateBanner();
+  assert.ok(bar.classList.contains('hidden'));
+  await C.checkForAppUpdate();
+  assert.ok(bar.classList.contains('hidden'), 'รอบเช็คอัตโนมัติต้องไม่เปิดแถบที่เพิ่งปิดไป');
+  assert.equal(C._updateAvailable, true, 'ปิดแถบแล้วยังต้องรู้ว่ามีอัปเดต (กระดิ่ง/การ์ด)');
+  await C.checkAppUpdateNow();
+  assert.ok(!bar.classList.contains('hidden'), 'กดตรวจหาอัปเดตเองต้องเห็นแถบอีก');
+  C.dismissUpdateBanner();
+  C.showUpdateBanner('web:999');
+  assert.ok(!bar.classList.contains('hidden'), 'เวอร์ชันใหม่กว่าที่ปิดไปต้องขึ้นอีก');
+});
