@@ -1032,11 +1032,21 @@
     <div id="paid-overlay-total" class="text-sm font-bold text-ink"></div>
   </div>
 
+  <!-- บิลกลุ่ม: จ่ายทั้งบิลหรือแยกจ่ายรายคน เนื้อหาวาดโดย Controller.renderGroupPayChoice / renderSplitPicker -->
+  <div id="modal-group-pay" class="modal-sheet-mobile hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-50 flex items-end lg:items-center justify-center lg:p-4" onclick="if(event.target===this) Controller.closeModal('modal-group-pay')">
+    <div class="bg-white rounded-t-3xl lg:rounded-2xl shadow-xl w-full lg:max-w-md max-h-[85vh] overflow-y-auto">
+      <div id="group-pay-body" class="p-5 flex flex-col gap-3"></div>
+      <div class="px-5 pb-5"><button type="button" onclick="Controller.closeModal('modal-group-pay')" class="w-full min-h-[2.75rem] border border-sand rounded-xl font-bold text-slate-500 bg-white">ยกเลิก</button></div>
+    </div>
+  </div>
+
   <div id="modal-checkout" class="modal-sheet-mobile hidden fixed inset-0 bg-secondary/40 backdrop-blur-sm z-50 flex items-end lg:items-center justify-center lg:p-4">
     <div class="relative bg-white rounded-t-3xl lg:rounded-2xl shadow-xl w-full lg:max-w-md flex flex-col overflow-hidden max-h-[90vh]">
       <div class="lg:hidden absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1.5 rounded-full bg-white/50 z-10" aria-hidden="true"></div>
       <div class="p-5 bg-gradient-to-b from-primary to-secondary text-white font-bold text-xl text-center rounded-t-3xl lg:rounded-t-2xl shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> ชำระเงิน</div>
       <div class="p-6 overflow-y-auto flex-1">
+        <!-- บิลกลุ่ม: ชื่อบิลและคนที่กำลังจ่าย (Controller.startCheckout) -->
+        <p id="checkout-for" class="hidden text-center text-sm font-black mb-2" style="color:var(--color-group)" data-no-translate></p>
         <p class="text-center text-sm font-bold text-slate-400 mb-1">ยอดรวมที่ต้องชำระ</p>
         <h3 class="text-4xl font-black text-center mb-2 text-secondary" id="checkout-total">฿0.00</h3>
         
