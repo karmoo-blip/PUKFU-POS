@@ -821,6 +821,7 @@
       categories: ['All'],    // เก็บรายชื่อหมวดหมู่
       activeCategory: 'All',  // หมวดหมู่ที่กำลังเลือกอยู่
       cart: [],
+      editingBill: null,    // บิลย้อนหลังที่ย้ายกลับมาแก้ในหน้าขาย (openEditBill) ว่าง = ออเดอร์ปกติ
       syncQueue: [],
       isSyncing: false,
       accessLogQueue: [],
@@ -1039,6 +1040,10 @@
 
         this.heldOrders = JSON.parse(localStorage.getItem('pos_heldOrders')) || [];
         try { this.groupBills = JSON.parse(localStorage.getItem('pos_groupBills')) || []; } catch (e) { this.groupBills = []; }
+        try {
+          const eb = JSON.parse(localStorage.getItem('pos_editingBill'));
+          if (eb && eb.bill && Array.isArray(eb.cart)) { this.editingBill = eb.bill; this.cart = eb.cart; }
+        } catch (e) { /* ไม่มีบิลที่แก้ค้างไว้ */ }
         this.updateSyncQueueBadge();
         this.accessLogQueue = JSON.parse(localStorage.getItem('pos_accessLogQueue')) || [];
         this.soldOutItems = JSON.parse(localStorage.getItem('pos_soldOut')) || [];
@@ -3655,7 +3660,7 @@
         if (!wrap) return;
         const checked = new Set(checkedTabs || []);
         // สิทธิ์ที่ไม่ใช่แท็บในตั้งค่า แยกเป็นกลุ่มของตัวเอง ไม่งั้นจะไปโผล่เป็นเมนูในหน้าตั้งค่า
-        const groups = [...this.SETTINGS_GROUPS, { title: 'หน้าขาย', items: [{ tab: 'staffsale', label: 'ขายราคาพนักงาน' }] }];
+        const groups = [...this.SETTINGS_GROUPS, { title: 'หน้าขาย', items: [{ tab: 'staffsale', label: 'ขายราคาพนักงาน' }, { tab: 'editbill', label: 'แก้ไขบิล' }] }];
         wrap.innerHTML = groups.map(group => `
           <div class="emp-perm-group">
             <p class="emp-perm-group-t">${escHtml(group.title)}</p>
@@ -5455,81 +5460,145 @@
             .deleteNotification(id);
         },
 
-        openEditBill(invoice) {
+        // แก้ไขบิลย้อนหลัง: ย้ายรายการของบิลกลับไปที่หน้าขาย เพิ่ม/ลด/ลบได้ด้วยเมนูกับปุ่มเดิมทั้งหมด
+        // ระหว่างแก้ this.editingBill ค้างอยู่ ปุ่มชำระเงินกลายเป็นบันทึกการแก้ไข บิลจะได้ไม่ถูกขายซ้ำเป็นบิลใหม่
+        async openEditBill(invoice) {
+          if (!this.canEditBill(this.loggedInEmployee)) return this.showAlert('คุณไม่มีสิทธิ์แก้ไขบิล', '');
+          if (this.syncQueue.some(o => o.invoice === invoice)) return this.showAlert('บิลนี้ยังไม่ขึ้นเซิร์ฟเวอร์ รอซิงค์ก่อนแล้วค่อยแก้', '');
           const order = this.findOrderByInvoice(invoice);
           if (!order) return this.showAlert('ไม่พบบิลนี้', '');
           const items = (order.items || []).filter(it => !it.cancelled);
-          const noId = items.some(it => it.id === undefined || it.id === null);
-          this.editBillData = { invoice: order.invoice, note: order.note || '', paymentType: order.paymentType || '', expectedTotal: Number(order.total) || 0, items: items.map(it => ({ id: it.id, name: it.name, qty: it.qty, price: it.price, note: it.note || '' })) };
-          const q = s => String(s == null ? '' : s).replace(/"/g, '&quot;');
+          if (items.some(it => !it.sku)) return this.showAlert('บิลนี้เป็นข้อมูลเก่าที่ไม่มีรหัสสินค้า แก้ในหน้าขายไม่ได้', '');
+          if (this.editingBill && this.editingBill.invoice !== invoice) {
+            const ok = await this.showConfirm('กำลังแก้บิล ' + (this.editingBill.queue || this.editingBill.invoice) + ' อยู่ ทิ้งการแก้ไขนั้นแล้วเปิดบิลนี้แทนไหม?', '');
+            if (!ok) return;
+            this.cart = [];
+          } else if (!this.editingBill && (this.cart.length > 0 || this.activeGroupId)) {
+            const ok = await this.showConfirm('มีสินค้าค้างอยู่ในออเดอร์ ต้องการ "พักเป็นบิลค้างชำระ" แล้วเปิดบิลนี้มาแก้ไหม?', '');
+            if (!ok) return;
+            if (this.activeGroupId) this.parkGroup();
+            else this.holdCurrentOrder();
+          }
+          this.hideUndo();
+          this.cart = items.map(it => {
+            const menu = (this.menuData || []).find(m => m.sku === it.sku) || {};
+            const note = it.note || '';
+            return { ...menu, sku: it.sku, name: it.name || menu.name || '', price: Number(it.price) || 0, qty: Number(it.qty) || 0, note, ...(note.indexOf(STAFF_NOTE) === 0 ? { staffPrice: true } : {}) };
+          });
+          const lineSum = items.reduce((s, it) => s + (Number(it.price) || 0) * (Number(it.qty) || 0), 0);
+          this.editingBill = {
+            invoice: order.invoice,
+            queue: order.queue || '',
+            timestamp: order.timestamp || '',
+            expectedTotal: Number(order.total) || 0,
+            lineSum,
+            paymentType: order.paymentType || '',
+            note: order.note || '',
+            refundedTotal: Number(order.refundedTotal) || 0,
+          };
+          this.saveLocalState();
+          this.switchView('pos');
+          this.renderCart();
+          this.toggleMobileCart(true);
+        },
+
+        async cancelBillEdit() {
+          if (!this.editingBill) return;
+          const ok = await this.showConfirm('ยกเลิกการแก้ไข บิลจะคงเดิมทุกอย่าง', '');
+          if (!ok) return;
+          this.endBillEdit();
+        },
+
+        endBillEdit() {
+          this.editingBill = null;
+          this.cart = [];
+          this.hideUndo();
+          this.saveLocalState();
+          this.renderCart();
+        },
+
+        // หน้าต่างบันทึก: ยอดเดิม ยอดใหม่ ส่วนต่างที่ต้องเก็บเพิ่มหรือคืน วิธีชำระเงิน และหมายเหตุบิล
+        openBillEditSave() {
+          const eb = this.editingBill;
+          if (!eb) return;
+          if (this.cart.length === 0) return this.showAlert('บิลต้องมีอย่างน้อยหนึ่งรายการ ถ้าจะยกเลิกทั้งบิลให้ใช้ปุ่มยกเลิกบิลในประวัติ', '');
+          const newTotal = this.cart.reduce((s, i) => s + i.price * i.qty, 0);
+          const diff = newTotal - eb.expectedTotal;
+          const money = n => '฿' + Number(n).toFixed(2);
+          const pm = (this.paymentMethods || []).map(m => '<option value="' + escAttr(m.name) + '"' + (m.name === eb.paymentType ? ' selected' : '') + '>' + escHtml(m.name) + '</option>').join('');
+          // วิธีชำระเงินที่ถูกลบไปแล้วยังต้องเลือกค้างไว้ได้ ไม่งั้นบันทึกแล้วบิลจะเปลี่ยนวิธีจ่ายเอง
+          const pmOld = eb.paymentType && !(this.paymentMethods || []).some(m => m.name === eb.paymentType) ? '<option value="' + escAttr(eb.paymentType) + '" selected>' + escHtml(eb.paymentType) + '</option>' : '';
+          const diffBox = Math.abs(diff) < 0.005
+            ? '<div class="bill-edit-diff is-same"><span>ยอดเท่าเดิม</span><b>' + money(0) + '</b></div>'
+            : diff > 0
+            ? '<div class="bill-edit-diff is-more"><span>เก็บเงินเพิ่ม</span><b>' + money(diff) + '</b></div>'
+            : '<div class="bill-edit-diff is-back"><span>คืนเงินลูกค้า</span><b>' + money(-diff) + '</b></div>';
+          const warns = [];
+          if (Math.abs(eb.lineSum - eb.expectedTotal) > 0.01) warns.push('บิลนี้เคยมีส่วนลด ' + money(eb.lineSum - eb.expectedTotal) + ' ยอดใหม่คิดจากราคาของรายการ ส่วนลดเดิมจะหายไป');
+          if (eb.refundedTotal > 0 && newTotal < eb.refundedTotal) warns.push('บิลนี้คืนเงินไปแล้ว ' + money(eb.refundedTotal) + ' มากกว่ายอดใหม่');
           const old = document.getElementById('modal-edit-bill');
           if (old) old.remove();
-          const pm = (this.paymentMethods || []).map(m => '<option value="' + q(m.name) + '"' + (m.name === order.paymentType ? ' selected' : '') + '>' + m.name + '</option>').join('');
-          const rows = this.editBillData.items.map((it, i) => '<div class="flex items-center gap-2 py-2 border-b border-slate-100">'
-            + '<div class="flex-1 min-w-0"><p class="font-bold text-sm truncate">' + it.name + '</p>' + (it.note ? '<p class="text-xs text-slate-400 truncate">' + it.note + '</p>' : '') + '</div>'
-            + '<input type="number" min="0" id="eb-qty-' + i + '" value="' + (it.qty || 0) + '" class="w-16 border border-slate-200 rounded-lg p-1.5 text-center font-bold">'
-            + '<input type="number" min="0" step="0.01" id="eb-price-' + i + '" value="' + (it.price || 0) + '" class="w-20 border border-slate-200 rounded-lg p-1.5 text-center font-bold">'
-            + '</div>').join('');
           const wrap = document.createElement('div');
           wrap.id = 'modal-edit-bill';
-          wrap.className = 'modal-opening fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-center justify-center p-4';
-          wrap.innerHTML = '<div class="bg-white rounded-3xl w-full max-w-md p-6 shadow-xl max-h-[85vh] overflow-y-auto">'
-            + '<h3 class="font-bold text-lg text-secondary mb-1">แก้ไขบิลย้อนหลัง</h3>'
-            + '<p class="text-xs text-slate-400 mb-4">' + q(order.invoice) + '</p>'
-            + (noId ? '<p class="text-xs text-red-500 font-bold mb-3">บิลนี้เป็นข้อมูลเก่าที่ไม่มีรหัสรายการ จะแก้ได้เฉพาะวิธีชำระเงินและหมายเหตุ</p>' : '')
-            + '<div class="flex items-center gap-2 text-[11px] font-bold text-slate-400 mb-1"><div class="flex-1">รายการ</div><div class="w-16 text-center">จำนวน</div><div class="w-20 text-center">ราคา</div></div>'
-            + '<div class="mb-4">' + (rows || '<p class="text-sm text-slate-400 py-3">ไม่มีรายการสินค้า</p>') + '</div>'
-            + '<label class="text-sm font-bold text-slate-500 mb-1 block">วิธีชำระเงิน</label>'
-            + '<select id="eb-payment" class="w-full border border-sand rounded-xl p-2.5 mb-3">' + pm + '</select>'
-            + '<label class="text-sm font-bold text-slate-500 mb-1 block">หมายเหตุบิล</label>'
-            + '<input id="eb-note" class="w-full border border-sand rounded-xl p-2.5 mb-5" value="' + q(order.note) + '">'
-            + '<div class="flex gap-2">'
-            + '<button onclick="Controller.closeEditBill()" class="flex-1 border border-slate-200 rounded-2xl py-2.5 font-bold text-slate-500">ยกเลิก</button>'
-            + '<button onclick="Controller.saveEditBill()" class="flex-1 bg-gradient-to-b from-primary to-secondary text-white rounded-2xl py-2.5 font-bold hover:brightness-110 transition">บันทึกการแก้ไข</button>'
-            + '</div>'
-            + '<p class="text-[10px] text-slate-400 mt-3">ใส่จำนวนเป็น 0 เพื่อลบรายการนั้นออกจากบิล ระบบจะคำนวณยอดรวมใหม่ให้อัตโนมัติ</p>'
-            + '</div>';
+          wrap.className = 'modal-opening fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-end sm:items-center justify-center sm:p-4';
+          wrap.innerHTML = '<div class="bill-edit-sheet">'
+            + '<h3>บันทึกการแก้ไขบิล</h3>'
+            + '<p class="bill-edit-sub" data-no-translate>' + escHtml((eb.queue ? 'คิว ' + eb.queue + ' · ' : '') + eb.invoice) + '</p>'
+            + '<div class="bill-edit-cmp"><div><small>ยอดเดิม</small><b>' + money(eb.expectedTotal) + '</b></div><div><small>ยอดใหม่</small><b>' + money(newTotal) + '</b></div></div>'
+            + diffBox
+            + warns.map(w => '<p class="bill-edit-warn">' + escHtml(w) + '</p>').join('')
+            + '<label for="eb-payment">วิธีชำระเงิน</label>'
+            + '<select id="eb-payment">' + pmOld + pm + '</select>'
+            + '<label for="eb-note">หมายเหตุบิล</label>'
+            + '<input id="eb-note" value="' + escAttr(eb.note) + '">'
+            + '<div class="bill-edit-btns">'
+            + '<button type="button" onclick="Controller.closeBillEditSave()" class="btn-till is-ghost">กลับไปแก้</button>'
+            + '<button type="button" onclick="Controller.saveBillEdit()" class="btn-till is-edit">ยืนยันและใส่ PIN</button>'
+            + '</div></div>';
           document.body.appendChild(wrap);
         },
 
-        closeEditBill() {
+        closeBillEditSave() {
           const m = document.getElementById('modal-edit-bill');
           if (m) m.remove();
         },
 
-        async saveEditBill() {
-          const data = this.editBillData;
-          if (!data) return;
-          const items = data.items.map((it, i) => {
-            const qe = document.getElementById('eb-qty-' + i);
-            const pe = document.getElementById('eb-price-' + i);
-            return { id: it.id, qty: qe ? Number(qe.value) || 0 : it.qty, price: pe ? Number(pe.value) || 0 : it.price, note: it.note || '' };
-          }).filter(it => it.id !== undefined && it.id !== null);
+        async saveBillEdit() {
+          const eb = this.editingBill;
+          if (!eb) return;
           const payEl = document.getElementById('eb-payment');
           const noteEl = document.getElementById('eb-note');
-          const paymentType = payEl ? payEl.value : '';
-          const note = noteEl ? noteEl.value : '';
-          const ok = await this.showConfirm('ยืนยันบันทึกการแก้ไขบิล ' + data.invoice + ' หรือไม่?', '');
-          if (!ok) return;
-          this.closeEditBill();
+          const paymentType = payEl ? payEl.value : eb.paymentType;
+          const note = noteEl ? noteEl.value : eb.note;
+          this.closeBillEditSave();
+          const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการแก้ไขบิล ' + (eb.queue || eb.invoice) + ':');
+          if (!auth) return;
+          if (!this.canEditBill(auth.employee)) return this.showAlert('ไม่มีสิทธิ์ทำรายการนี้', '');
+          const items = this.cart.map(i => ({ sku: i.sku, name: i.name, qty: i.qty, price: i.price, note: i.note || '' }));
           this.showLoading();
           google.script.run
             .withSuccessHandler(res => {
               this.hideLoading();
               if (res && res.success) {
-                this.logPinAttempt('แก้ไขบิล: ' + data.invoice, true, this.currentSettingsUser ? this.currentSettingsUser.name : 'Unknown');
+                this.logPinAttempt('แก้ไขบิล: ' + eb.invoice, true, auth.employee.name);
+                this.endBillEdit();
                 this.showToast('บันทึกการแก้ไขแล้ว');
-                if (this.historyViewDate) this.loadHistoryDate(this.historyViewDate);
-                else this.fetchServerData();
+                this.backToHistoryAfterEdit();
               } else {
+                // ออเดอร์ที่แก้ไว้ยังอยู่ครบ แก้ต่อหรือกดยกเลิกการแก้ไขได้
                 this.showAlert((res && res.error) || 'แก้ไขไม่สำเร็จ', '');
-                // ถ้าชนกันเพราะมีคนอื่นแก้บิลนี้ไปก่อน โหลดข้อมูลล่าสุดมาให้ ลองใหม่รอบหน้าจะได้ไม่ชนซ้ำ
-                if (this.historyViewDate) this.loadHistoryDate(this.historyViewDate);
-                else this.fetchServerData();
               }
             })
             .withFailureHandler((err) => { this.hideLoading(); this.showAlert(this.failText(err), ''); })
-            .updateOrderDetails({ invoice: data.invoice, items: items, paymentType: paymentType, note: note, expectedTotal: data.expectedTotal, editedBy: this.currentSettingsUser ? this.currentSettingsUser.name : '' });
+            .replaceOrderItems({ invoice: eb.invoice, items, paymentType, note, expectedTotal: eb.expectedTotal, employeeId: auth.employeeId, pin: auth.pin });
+        },
+
+        // กลับไปหน้าประวัติวันเดิมที่เปิดบิลมา แล้วโหลดใหม่ให้เห็นยอดที่แก้แล้ว
+        async backToHistoryAfterEdit() {
+          await this.openSettings();
+          this.switchSettingsTab('history');
+          if (this.historyViewDate) this.loadHistoryDate(this.historyViewDate);
+          else this.fetchServerData();
         },
 
 renderReport(r) {
@@ -6618,6 +6687,7 @@ renderReport(r) {
           if (this.activeGroupId) btnHold.classList.remove('hidden');
         }
         this.renderGroupStrip();
+        this.renderBillEditBar(total);
 
         // ยอดรวมกระตุกเบาๆ เฉพาะตอนตัวเลขเปลี่ยนจริง
         // ต้องเทียบก่อนเขียน ไม่งั้นทุกครั้งที่ renderCart ถูกเรียกซ้ำด้วยยอดเดิมมันจะเด้งเปล่าๆ
@@ -6659,6 +6729,43 @@ renderReport(r) {
         }
       },
 
+      // แถบส้ม "กำลังแก้บิล" บนออเดอร์ + ยอดเดิมใต้ยอดรวม + ปุ่มชำระเงินกลายเป็นบันทึกการแก้ไข
+      // บิลค้างชำระกับบิลกลุ่มซ่อนระหว่างแก้ ของในบิลที่แก้จะได้ไม่หลุดไปเป็นบิลขายใหม่
+      renderBillEditBar(total) {
+        const eb = this.editingBill;
+        const bar = document.getElementById('edit-bill-bar');
+        const chip = document.getElementById('cart-edit-chip');
+        const was = document.getElementById('cart-edit-was');
+        const btnCheckout = document.getElementById('btn-checkout');
+        const btnHold = document.getElementById('btn-hold-order');
+        const btnGroup = document.getElementById('btn-new-group');
+        const label = eb ? 'กำลังแก้บิล' + (eb.queue ? ' คิว ' + eb.queue : '') : '';
+        if (bar) {
+          bar.classList.toggle('hidden', !eb);
+          const t = document.getElementById('edit-bill-bar-title');
+          const sub = document.getElementById('edit-bill-bar-sub');
+          if (t) t.innerText = label;
+          if (sub) sub.innerText = eb ? eb.invoice + (eb.timestamp ? ' · ' + new Date(eb.timestamp).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '') : '';
+        }
+        if (chip) {
+          chip.classList.toggle('hidden', !eb);
+          chip.innerText = eb ? 'แก้บิล' + (eb.queue ? ' ' + eb.queue : '') : '';
+        }
+        if (was) {
+          was.classList.toggle('hidden', !eb);
+          was.innerText = eb ? 'เดิม ฿' + Number(eb.expectedTotal).toFixed(2) : '';
+        }
+        if (btnCheckout) {
+          btnCheckout.innerText = eb ? 'บันทึกการแก้ไข' : 'ชำระเงิน';
+          btnCheckout.classList.toggle('is-edit', !!eb);
+          btnCheckout.classList.toggle('is-primary', !eb);
+        }
+        if (eb && btnHold) btnHold.classList.add('hidden');
+        if (btnGroup) btnGroup.classList.toggle('hidden', !!eb);
+        if (eb) this.clearQueueChip();
+        return total;
+      },
+
       // ===== บิลกลุ่ม =====
       activeGroup() {
         return (this.groupBills || []).find(g => g.id === this.activeGroupId) || null;
@@ -6677,6 +6784,7 @@ renderReport(r) {
 
       // ออเดอร์ปกติที่ค้างอยู่ต้องไปไว้ที่บิลค้างชำระก่อน ไม่งั้นของลูกค้าคนนั้นจะไปปนในบิลกลุ่ม
       async moveNormalCartAside() {
+        if (this.editingBill) { this.showAlert('กำลังแก้บิลอยู่ บันทึกหรือยกเลิกการแก้ไขก่อน', ''); return false; }
         if (this.activeGroupId) { this.parkGroup(); return true; }
         if (!this.cart.length) return true;
         const ok = await this.showConfirm('มีสินค้าค้างอยู่ในออเดอร์ ต้องการเก็บเป็นบิลค้างชำระก่อนไหม?', '');
@@ -6776,6 +6884,7 @@ renderReport(r) {
       },
 
       holdCurrentOrder() {
+        if (this.editingBill) return this.showAlert('กำลังแก้บิลอยู่ บันทึกหรือยกเลิกการแก้ไขก่อน', '');
         if (this.activeGroupId) return this.parkGroup();
         if (this.cart.length === 0) return;
         const total = this.cart.reduce((s, i) => s + (i.price * i.qty), 0);
@@ -6816,6 +6925,7 @@ renderReport(r) {
       },
 
       async restoreHeldOrder(idx) {
+        if (this.editingBill) return this.showAlert('กำลังแก้บิลอยู่ บันทึกหรือยกเลิกการแก้ไขก่อน', '');
         if (this.activeGroupId) this.parkGroup();
         if (this.cart.length > 0) {
           const ok = await this.showConfirm('มีสินค้าค้างอยู่ในออเดอร์ ต้องการ "พักเป็นบิลค้างชำระ" แล้วดึงบิลนี้มาแทนที่ไหม?', '');
@@ -6910,6 +7020,7 @@ renderReport(r) {
       
       // บิลกลุ่มถามก่อนว่าจ่ายทั้งบิลหรือแยกจ่ายรายคน ออเดอร์ปกติเข้าหน้าชำระเงินเลยเหมือนเดิม
       async openCheckout() {
+        if (this.editingBill) return this.openBillEditSave();
         if (this.cart.length === 0) return this.showAlert('ยังไม่มีสินค้า', '');
         this.splitCheckout = null;
         const g = this.activeGroup();
@@ -7070,6 +7181,13 @@ renderReport(r) {
         if (!user) return false;
         if (user.role === 'Owner' || user.role === 'Admin') return true;
         return String(user.permissions || '').split(',').map(t => t.trim()).includes('staffsale');
+      },
+
+      // ใครแก้บิลย้อนหลังได้: Owner/Admin ได้เสมอ คนอื่นต้องติ๊ก "แก้ไขบิล" ในหน้าพนักงาน
+      canEditBill(user) {
+        if (!user) return false;
+        if (user.role === 'Owner' || user.role === 'Admin') return true;
+        return String(user.permissions || '').split(',').map(t => t.trim()).includes('editbill');
       },
 
       // เปิดจากเมนูชื่อผู้ใช้
@@ -8824,6 +8942,7 @@ renderReport(r) {
         const list = document.getElementById('history-list');
         if (!list) return;
         const sorted = rows.slice().sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+        const canEdit = this.canEditBill(this.loggedInEmployee);
         this._historyRowState = null;
         if (sorted.length === 0) {
           this._historyHtml = null;
@@ -8861,7 +8980,7 @@ renderReport(r) {
           }
           if (!off) {
               html += '<div class="mt-2 flex flex-wrap justify-end gap-2">';
-              html += '<button onclick="Controller.openEditBill(\'' + h.invoice + '\')" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-primary bg-primary/10 rounded-full active:scale-95 transition-all whitespace-nowrap">แก้ไขบิล</button>';
+              if (canEdit) html += '<button onclick="Controller.openEditBill(\'' + h.invoice + '\')" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-primary bg-primary/10 rounded-full active:scale-95 transition-all whitespace-nowrap">แก้ไขบิล</button>';
               if ((Number(h.total || 0) - Number(h.refundedTotal || 0)) > 0) {
                 html += '<button data-invoice="' + escAttr(h.invoice) + '" onclick="Controller.refundOrder(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-sky-600 bg-sky-50 rounded-full active:scale-95 transition-all whitespace-nowrap">คืนเงิน</button>';
               }
@@ -8892,6 +9011,7 @@ renderReport(r) {
           return;
         }
         
+        const canEdit = this.canEditBill(this.loggedInEmployee);
         // นำบิลที่รอซิงค์ (ออฟไลน์) มารวมกับประวัติบิลในเครื่อง/เซิร์ฟเวอร์
         const offlineInvoices = new Set(this.syncQueue.map(o => o.invoice));
         const combined = [
@@ -8957,7 +9077,7 @@ renderReport(r) {
               : isWaste
               ? `<div class="mt-2 bg-orange-50 text-orange-500 text-xs font-bold px-3 py-2 rounded-lg"> ของเสีย: ${escHtml(h.cancelReason)}${h.cancelledBy ? ' (โดย ' + escHtml(h.cancelledBy) + ')' : ''}</div>`
               : `<div class="mt-2 flex flex-wrap justify-end gap-2">
-                   <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.openEditBill(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-primary bg-primary/10 rounded-full active:scale-95 transition-all whitespace-nowrap">แก้ไขบิล</button>
+                   ${canEdit ? `<button data-invoice="${escAttr(h.invoice)}" onclick="Controller.openEditBill(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-primary bg-primary/10 rounded-full active:scale-95 transition-all whitespace-nowrap">แก้ไขบิล</button>` : ''}
                    <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.printReceiptByInvoice(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-slate-500 bg-slate-100 rounded-full active:scale-95 transition-all whitespace-nowrap">พิมพ์</button>
                    ${(Number(h.total || 0) - Number(h.refundedTotal || 0)) > 0 ? `<button data-invoice="${escAttr(h.invoice)}" onclick="Controller.refundOrder(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-sky-600 bg-sky-50 rounded-full active:scale-95 transition-all whitespace-nowrap">คืนเงิน</button>` : ''}
                    <button data-invoice="${escAttr(h.invoice)}" onclick="Controller.markAsWaste(this.dataset.invoice)" class="px-3 min-h-[2.5rem] inline-flex items-center justify-center text-xs font-bold text-orange-500 bg-orange-50 rounded-full active:scale-95 transition-all whitespace-nowrap">บันทึกของเสีย</button>
@@ -9695,6 +9815,9 @@ renderReport(r) {
         localStorage.setItem('pos_history', JSON.stringify(this.history));
         localStorage.setItem('pos_heldOrders', JSON.stringify(this.heldOrders));
         localStorage.setItem('pos_groupBills', JSON.stringify(this.groupBills || []));
+        // บิลที่กำลังแก้ต้องรอดการรีเฟรช ไม่งั้นของในออเดอร์จะถูกคิดเงินเป็นบิลใหม่ซ้ำ
+        if (this.editingBill) localStorage.setItem('pos_editingBill', JSON.stringify({ bill: this.editingBill, cart: this.cart }));
+        else localStorage.removeItem('pos_editingBill');
       }
     };
 

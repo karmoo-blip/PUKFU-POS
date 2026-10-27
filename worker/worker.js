@@ -1921,6 +1921,45 @@ handlers.updateOrderDetails = async (env, args) => {
   return { success: true, total: total };
 };
 
+// แก้บิลย้อนหลังจากหน้าขาย: รายการที่ส่งมาคือบิลทั้งใบหลังแก้ แทนที่รายการเดิมทั้งหมด
+// แถวที่ยกเลิกไปแล้วเก็บไว้ตามเดิมเป็นหลักฐาน แถวใหม่ใช้เวลาของบิลเดิม บิลจะได้ยังอยู่วันเดิม
+// ต้องใส่ PIN ของคนที่มีสิทธิ์ "แก้ไขบิล" (editbill) ไม่งั้นยิง API ตรงๆ ก็ข้ามปุ่มที่ซ่อนไว้ได้
+handlers.replaceOrderItems = async (env, args) => {
+  const a0 = args[0] || {};
+  const invoice = a0.invoice;
+  if (!invoice) return { success: false, error: "missing invoice" };
+  const auth = await authorizeEmployee(env, a0.employeeId, a0.pin, { tabs: ["editbill"] });
+  if (!auth.ok) return { success: false, error: auth.error };
+
+  const items = (Array.isArray(a0.items) ? a0.items : []).filter((it) => Number(it.qty || 0) > 0);
+  if (items.length === 0) return { success: false, error: "บิลต้องมีอย่างน้อยหนึ่งรายการ ถ้าจะยกเลิกทั้งบิลให้ใช้ปุ่มยกเลิกบิล" };
+
+  const cur = await env.DB.prepare("SELECT timestamp, total, payment_type FROM payments WHERE invoice = ?").bind(invoice).first();
+  if (!cur) return { success: false, error: "ไม่พบบิลนี้" };
+  // กันสองเครื่องแก้บิลเดียวกันพร้อมกัน แบบเดียวกับ updateOrderDetails
+  if (a0.expectedTotal !== undefined && a0.expectedTotal !== null && Math.abs(Number(cur.total || 0) - Number(a0.expectedTotal)) > 0.01) {
+    return { success: false, error: "บิลนี้ถูกแก้ไขไปแล้วโดยคนอื่น กรุณาโหลดข้อมูลใหม่แล้วลองอีกครั้ง" };
+  }
+
+  const paymentType = a0.paymentType || cur.payment_type || "";
+  const total = items.reduce((s, it) => s + Number(it.qty || 0) * Number(it.price || 0), 0);
+  const statements = [
+    env.DB.prepare("DELETE FROM sales WHERE invoice = ? AND IFNULL(cancelled, 0) = 0").bind(invoice),
+  ];
+  for (const it of items) {
+    statements.push(
+      env.DB.prepare("INSERT INTO sales (timestamp, invoice, sku, name, qty, price, note, payment_type) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .bind(cur.timestamp, invoice, it.sku || "", it.name || "", Number(it.qty || 0), Number(it.price || 0), it.note || "", paymentType)
+    );
+  }
+  statements.push(
+    env.DB.prepare("UPDATE payments SET total = ?, payment_type = ?, order_note = ?, edited_by = ?, edited_at = ? WHERE invoice = ?")
+      .bind(total, paymentType, a0.note || "", auth.employee.name, nowIso(), invoice)
+  );
+  await env.DB.batch(statements);
+  return { success: true, total: total };
+};
+
 export default {
   async fetch(request, env) {
     const origin = request.headers.get("Origin");

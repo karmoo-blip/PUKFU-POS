@@ -1860,6 +1860,56 @@
       background: #fff; border: 1px solid var(--color-line); color: var(--color-mute);
     }
     .btn-till.is-ghost svg { width: 22px; height: 22px; }
+    .btn-till.is-edit { background: var(--color-edit); color: #fff; box-shadow: var(--sh-2); }
+
+    /* ===== แก้บิลย้อนหลังในหน้าขาย =====
+       สีส้มดินเผาบอกว่าออเดอร์นี้ไม่ใช่บิลใหม่ ปุ่มบันทึกกับแถบบนใช้สีเดียวกัน */
+    :root { --color-edit: #b45e2f; --color-edit-bg: #fdf3e7; --color-edit-line: #e9b58f; --color-edit-ink: #8a3f15; }
+    .edit-bill-bar {
+      margin: 10px 20px 0; padding: 10px 12px;
+      display: flex; align-items: center; gap: 10px; flex-shrink: 0;
+      background: var(--color-edit-bg); border: 1.5px solid var(--color-edit-line); border-radius: 14px;
+    }
+    .edit-bill-bar.hidden { display: none; }
+    .edit-bill-bar-t { flex: 1; min-width: 0; }
+    .edit-bill-bar-t b { display: block; color: var(--color-edit-ink); font-size: 16px; }
+    .edit-bill-bar-t small { display: block; color: #8a5a3c; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .edit-bill-bar button {
+      font: inherit; font-weight: 700; font-size: 14px; min-height: 44px; padding: 0 12px; white-space: nowrap;
+      background: #fff; border: 1px solid var(--color-edit-line); color: var(--color-edit-ink); border-radius: 12px;
+    }
+    .edit-bill-chip {
+      font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: var(--r-pill); white-space: nowrap; flex-shrink: 0;
+      background: var(--color-edit-bg); border: 1px solid var(--color-edit-line); color: var(--color-edit-ink);
+    }
+    .edit-bill-was { text-align: right; margin: -12px 0 12px; font-size: 14px; font-weight: 700; color: var(--color-mute); }
+
+    .bill-edit-sheet {
+      background: #fff; width: 100%; max-width: 440px; max-height: 92vh; overflow-y: auto;
+      border-radius: 24px 24px 0 0; padding: 20px 18px calc(22px + env(safe-area-inset-bottom));
+      display: flex; flex-direction: column; gap: 12px;
+    }
+    @media (min-width: 640px) { .bill-edit-sheet { border-radius: 24px; padding-bottom: 22px; } }
+    .bill-edit-sheet h3 { margin: 0; font-size: 20px; font-weight: 800; color: var(--color-secondary); }
+    .bill-edit-sub { margin: -8px 0 0; font-size: 13px; color: var(--color-mute); }
+    .bill-edit-cmp { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .bill-edit-cmp div { background: var(--color-fill); border-radius: 14px; padding: 10px 12px; }
+    .bill-edit-cmp small { display: block; font-size: 12px; font-weight: 700; color: var(--color-mute); }
+    .bill-edit-cmp b { font-size: 22px; color: var(--color-secondary); font-variant-numeric: tabular-nums; }
+    .bill-edit-diff { display: flex; justify-content: space-between; align-items: center; border-radius: 16px; padding: 12px 14px; font-size: 18px; font-weight: 800; }
+    .bill-edit-diff b { font-size: 28px; font-variant-numeric: tabular-nums; }
+    .bill-edit-diff.is-more { background: #fdecea; color: var(--color-danger); border: 1.5px solid #f2b8b5; }
+    .bill-edit-diff.is-back { background: #e0f2fe; color: #075985; border: 1.5px solid #9ccbe8; }
+    .bill-edit-diff.is-same { background: var(--color-fill); color: var(--color-mute); }
+    .bill-edit-warn { margin: 0; font-size: 13px; line-height: 1.45; background: #fff7ed; color: #9a3412; border-radius: 12px; padding: 10px 12px; }
+    .bill-edit-sheet label { font-size: 13px; font-weight: 700; color: var(--color-mute); margin-bottom: -8px; }
+    .bill-edit-sheet select, .bill-edit-sheet input {
+      font: inherit; font-weight: 700; color: var(--color-secondary);
+      border: 1px solid var(--color-sand); border-radius: 12px; padding: 12px; background: #fff; width: 100%;
+    }
+    .bill-edit-btns { display: flex; gap: 8px; margin-top: 4px; }
+    .bill-edit-btns .is-ghost { flex: .7; }
+    .bill-edit-btns .is-edit { flex: 1.3; }
 
     /* ชิปบนแถบบน: ของเดิม text-slate-400 บน bg-slate-50 อ่านได้ 2.45:1 */
     .nav-chip {

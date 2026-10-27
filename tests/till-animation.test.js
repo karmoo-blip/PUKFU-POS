@@ -488,8 +488,8 @@ test('every settings page can be granted to an employee', () => {
     .map(m => m.replace(/.*value="/, '').replace('"', ''));
   const missing = allTabs.filter(t => !offered.includes(t));
   assert.strictEqual(missing.join(','), '', 'ทุกหน้าที่เข้าได้ต้องติ๊กให้สิทธิ์ได้ ขาด ' + missing.join(','));
-  // ข้อยกเว้นเดียว: สิทธิ์ขายราคาพนักงาน ไม่ใช่หน้าในตั้งค่า แต่เป็นเมนูหน้าขาย (Controller.canStaffSale)
-  const NOT_A_PAGE = ['staffsale'];
+  // ข้อยกเว้น: สิทธิ์ในกลุ่มหน้าขาย ไม่ใช่หน้าในตั้งค่า (Controller.canStaffSale / Controller.canEditBill)
+  const NOT_A_PAGE = ['staffsale', 'editbill'];
   NOT_A_PAGE.forEach(t => assert.ok(offered.includes(t), 'ต้องติ๊กสิทธิ์ ' + t + ' ได้'));
   assert.strictEqual(offered.length, allTabs.length + NOT_A_PAGE.length, 'ห้ามมีช่องติ๊กที่ไม่ตรงกับหน้าไหนเลย');
   C.SETTINGS_GROUPS.forEach(g => assert.ok(html.includes(g.title), 'ต้องจัดกลุ่มตามเมนูซ้าย ขาดกลุ่ม ' + g.title));
