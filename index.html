@@ -188,13 +188,16 @@
     <div id="view-pos" class="view hidden h-full flex flex-col lg:flex-row">
       <div id="pos-content-scroll" class="flex-1 overflow-y-auto p-4 lg:p-6 bg-cream relative">
         
+        <!-- ขายดีวันนี้: แตะแล้วเปิดหน้าต่างเลือกความหวานเหมือนการ์ด (Controller.renderBestSellers) -->
+        <div id="menu-best" class="menu-best hidden"></div>
+
         <div id="menu-categories" class="mb-4 overflow-x-auto pb-2 hide-scroll scroll-fade at-start hidden" style="--fade-color:var(--color-cream)">
           <div id="menu-cat-indicator"></div>
           <div id="menu-categories-track"></div>
         </div>
 
         <div id="menu-staff-banner" class="hidden menu-staff-banner"></div>
-        <div id="menu-grid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2.5">
+        <div id="menu-grid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2.5">
           </div>
       </div>
 
@@ -202,9 +205,9 @@
       <div id="cart-container" class="relative w-full lg:w-[400px] bg-white lg:shadow-sm shadow-[0_-10px_15px_-3px_rgba(0,0,0,0.1)] flex flex-col h-[84px] lg:h-full border-t lg:border-t-0 lg:border-l border-sand shrink-0 transition-all duration-300 z-30">
         
         <!-- Cart Header -->
-        <div id="cart-mobile-header" class="p-4 lg:p-5 bg-white border-b border-sand flex justify-between items-center cursor-pointer lg:cursor-default h-[84px] shrink-0 relative" onclick="Controller.toggleMobileCart()">
-          <div class="lg:hidden absolute top-1.5 left-1/2 -translate-x-1/2 w-10 h-1.5 rounded-full" style="background:var(--color-line)" aria-hidden="true"></div>
-          <div class="font-bold text-lg lg:text-xl text-secondary flex items-center gap-2">
+        <div id="cart-mobile-header" class="p-4 lg:p-5 bg-white border-b border-sand flex justify-between items-center h-[72px] lg:h-[84px] shrink-0 relative">
+          <div class="font-bold text-lg lg:text-xl text-secondary flex items-center gap-2 min-w-0">
+            <button id="btn-cart-back" type="button" onclick="Controller.toggleMobileCart(false)" class="cart-back lg:hidden">‹ เมนู</button>
             ออเดอร์
             <span id="cart-badge-mobile" class="bg-primary text-white text-xs px-2 py-0.5 rounded-full lg:hidden">0</span>
             <button id="btn-new-group" type="button" onclick="Controller.openNewGroup(event)" class="group-new ml-2 shrink-0">+ บิลกลุ่ม</button>
@@ -216,8 +219,6 @@
             <span id="cart-queue-chip" class="hidden ml-2 text-secondary text-xs px-2.5 py-1 rounded-full font-black whitespace-nowrap shrink-0" style="background:color-mix(in srgb, var(--color-mustard) 18%, #fff);border:1px solid var(--color-mustard)"></span>
           </div>
           <div class="flex items-center gap-3">
-            <span id="cart-total-mobile" class="cart-total-bar text-primary lg:hidden">฿0.00</span>
-            <span id="cart-toggle-icon" class="lg:hidden font-bold" style="color:var(--color-mute)">▲</span>
             <div class="hidden lg:flex w-8 h-8 bg-primary/10 rounded-full items-center justify-center text-primary text-xs"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.5 11h10L20 7H6"/></svg></div>
           </div>
         </div>
@@ -266,6 +267,22 @@
             <button id="btn-checkout" onclick="Controller.openCheckout()" class="btn-till is-primary flex-1">ชำระเงิน</button>
           </div>
         </div>
+      </div>
+
+      <!-- จอเล็กเท่านั้น: ม่านหลังแผ่นออเดอร์ แท็บขอบขวา และแถบล่าง (Controller.toggleMobileCart / renderEdgeTab / renderBottomBar) -->
+      <div id="cart-scrim" class="cart-scrim" onclick="Controller.toggleMobileCart(false)"></div>
+      <button id="cart-edge-tab" type="button" class="cart-edge-tab hidden" onclick="Controller.toggleMobileCart(true)" aria-label="ดูออเดอร์">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2l-1 4"/><path d="M5 6h14"/><path d="M6 9h12l-1.5 12h-9z"/></svg>
+        <b id="cart-edge-count">0</b>
+        <i aria-hidden="true">‹</i>
+      </button>
+      <div id="pos-bottom-bar" class="pos-bottom-bar">
+        <div class="pos-bar-sum">
+          <small id="pos-bar-label" data-no-translate>ออเดอร์ว่าง</small>
+          <b id="pos-bar-total" class="cart-total-bar">฿0.00</b>
+        </div>
+        <button id="btn-bar-view" type="button" onclick="Controller.toggleMobileCart(true)" class="btn-till is-ghost hidden">ดูออเดอร์</button>
+        <button id="btn-bar-pay" type="button" onclick="Controller.openCheckout()" class="btn-till is-primary is-off">ชำระเงิน</button>
       </div>
         </div>
       </div>

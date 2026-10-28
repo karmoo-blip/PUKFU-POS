@@ -584,7 +584,7 @@ test('the redesigned menu and cart keep the hooks the rest of the app reads', ()
   assert.ok(menu.includes('--i:0') && menu.includes('--i:1'), 'ต้องคงลำดับหน่วงอนิเมชันไว้');
   assert.ok(menu.includes('Controller.selectProduct(0)'), 'กดการ์ดต้องเปิดหน้าต่างเลือกความหวานเหมือนเดิม');
   assert.ok(menu.includes('หมด'), 'สินค้าหมดต้องเห็นว่าหมด');
-  assert.ok(menu.includes('pos-add'), 'ของที่ยังมีต้องมีปุ่มเพิ่ม');
+  assert.ok(!menu.includes('pos-qty-badge'), 'ออเดอร์ยังว่าง ต้องไม่มีเลขมุมการ์ด');
 
   C.cart = [{ name: 'ลาเต้', price: 55, qty: 2, note: 'หวานน้อย' }];
   C.heldOrders = [];
@@ -1524,7 +1524,7 @@ test('the till keeps its big totals, big change and 44px cart buttons', () => {
   assert.match(css, /\.cash-change-big \{ font-size: 32px;/, 'เงินทอน 32px');
   assert.match(css, /\.pos-step button \{\s*width: 44px; height: 44px;/, 'ปุ่มบวกลบ 44px');
   assert.match(css, /\.pos-line-acts button \{\s*height: 44px;/, 'ปุ่มแก้ไข/ลบ 44px');
-  assert.ok(html.includes('id="cart-total-mobile" class="cart-total-bar'), 'แถบมือถือต้องใช้คลาสตัวใหญ่');
+  assert.ok(html.includes('id="pos-bar-total" class="cart-total-bar'), 'แถบล่างมือถือต้องใช้คลาสตัวใหญ่');
   assert.ok(html.includes('bg-red-50 p-3 rounded-xl mb-3 text-red-500'), 'กล่องเงินทอนยังเป็นสีแดงตามที่เจ้าของร้านขอ');
   for (const n of [20, 50, 100, 500, 1000]) assert.ok(html.includes(`Controller.addCash(${n})`), 'ปุ่มแบงก์ ' + n);
 });
