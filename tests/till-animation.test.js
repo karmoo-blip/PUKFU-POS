@@ -1758,3 +1758,41 @@ test('editing a line and a group bill with nobody picked keep the add button', (
   C.selectProduct(0);
   assert.equal(C.productFastMode, false, 'ยังไม่รู้ว่าแก้วของใคร ห้ามใส่เอง');
 });
+
+// ---- หน้าขายแบบ C ตอนที่สาม: แถวในออเดอร์ ----
+test('an order line puts แก้ไข and − / + on their own row, with ลบ behind the swipe', () => {
+  const { C, el } = loadController({});
+  C.cart = [{ sku: 'TT', name: 'ชาไทย', price: 45, qty: 1, note: 'ความหวาน: หวานน้อย' }];
+  C.heldOrders = [];
+  C.renderCart();
+  const html = el('cart-items').innerHTML;
+  assert.ok(html.includes('class="pos-line-del"'), 'ป้ายลบอยู่ใต้แถว รอปัด');
+  assert.ok(html.includes('class="pos-line-slide"'));
+  assert.ok(!html.includes('Controller.removeFromCart('), 'ปุ่มลบบนแถวย้ายไปอยู่ในหน้าต่างแก้ไข');
+  assert.ok(html.includes('Controller.editCartItem(0)') && html.includes('Controller.updateQty(0, -1)'));
+});
+
+test('ลบรายการนี้ shows only while editing a line, and removes that line with undo', async () => {
+  const { C, el } = loadController({ reducedMotion: true });
+  C.sweetnessLevels = [{ name: 'หวานน้อย' }];
+  C.menuData = [{ sku: 'TT', name: 'ชาไทย', price: 45 }];
+  C.soldOutItems = [];
+  C.heldOrders = [];
+  C.cart = [{ sku: 'TT', name: 'ชาไทย', price: 45, qty: 2, note: 'ความหวาน: หวานน้อย' }];
+  C.selectProduct(0);
+  assert.ok(el('btn-modal-remove').classes.has('hidden'), 'แก้วใหม่ไม่มีอะไรให้ลบ');
+  C.editCartItem(0);
+  assert.ok(!el('btn-modal-remove').classes.has('hidden'));
+  await C.removeEditingLine();
+  assert.equal(C.cart.length, 0);
+  assert.ok(!el('undo-bar').classes.has('hidden'), 'เอากลับได้เหมือนลบทางอื่น');
+});
+
+test('the swipe hint shows on touch screens until three swipe-deletes', () => {
+  const { C, localStorage } = loadController({ reducedMotion: true });
+  assert.equal(C.showSwipeHint(), true);
+  localStorage.setItem('pos_swipeDeletes', '3');
+  assert.equal(C.showSwipeHint(), false);
+  const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
+  assert.match(css, /\.pos-line \{ position: relative; overflow: hidden;/, 'ป้ายลบต้องซ่อนอยู่ใต้แถว');
+});

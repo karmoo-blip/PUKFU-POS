@@ -863,6 +863,7 @@
         </div>
       </div>
       <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0" style="padding-bottom: max(1rem, env(safe-area-inset-bottom))">
+        <button id="btn-modal-remove" type="button" onclick="Controller.removeEditingLine()" class="hidden mr-auto px-5 min-h-[2.75rem] border border-red-200 bg-white text-red-600 rounded-2xl font-bold active:scale-95 transition-all">ลบรายการนี้</button>
         <button onclick="Controller.closeModal('modal-product')" class="px-5 min-h-[2.75rem] border border-sand bg-white text-slate-500 rounded-2xl font-bold hover:bg-accent active:scale-95 transition-all">ยกเลิก</button>
         <button id="btn-modal-add-cart" onclick="Controller.addToCartFromModal()" class="px-5 min-h-[2.75rem] bg-gradient-to-b from-primary to-secondary hover:brightness-110 text-white rounded-2xl font-bold shadow-md shadow-primary/30 active:scale-95 transition-all">ใส่ออเดอร์</button>
       </div>

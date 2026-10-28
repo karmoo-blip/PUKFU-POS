@@ -1030,6 +1030,7 @@
         this.initPinLock();
         this.startAutoLockWatcher();
         this.initCartDrag();
+        this.initLineSwipe();
         this.checkIosInstallBanner();
         this.watchInstallPrompt();
         this.initLang();
@@ -6369,6 +6370,8 @@ renderReport(r) {
 
         const addBtnNew = document.getElementById('btn-modal-add-cart');
         if (addBtnNew) addBtnNew.innerText = 'ใส่ออเดอร์';
+        const rm = document.getElementById('btn-modal-remove');
+        if (rm) rm.classList.add('hidden');
         // แตะความหวานแล้วใส่ออเดอร์เลย ยกเว้นบิลกลุ่มที่ยังไม่ได้เลือกว่าแก้วนี้ของใคร
         this.applyProductMode(!grp || !!this.selectedPerson);
 
@@ -6844,6 +6847,8 @@ renderReport(r) {
         const addBtnEdit = document.getElementById('btn-modal-add-cart');
         if (addBtnEdit) addBtnEdit.innerText = 'บันทึกการแก้ไข';
         this.applyProductMode(false); // แก้รายการเดิม: เห็นทุกช่อง กดบันทึกเอง
+        const rm = document.getElementById('btn-modal-remove');
+        if (rm) rm.classList.remove('hidden');
 
         this.openModal('modal-product');
       },
@@ -6891,25 +6896,28 @@ renderReport(r) {
             const qtyCls = idx === o.popIdx ? ' cart-qty-pop' : '';
             return head + `
               <div data-cart-idx="${idx}" class="pos-line${enterCls}">
-                <div class="pos-line-top">
-                  <span class="pos-line-name" data-no-translate>${escHtml(this.itemName(item))}</span>
-                  <span class="pos-line-sum">฿${(item.price * item.qty).toFixed(2)}</span>
-                </div>
-                <div class="pos-line-bot">
-                  <span class="pos-line-note">${item.staffPrice ? '<span class="cart-staff-tag">' + STAFF_NOTE + '</span>' + escHtml(String(shownNote || '').replace(STAFF_NOTE + ' | ', '')) : escHtml(shownNote || '-')}</span>
-                  <div class="pos-line-acts">
-                    <button onclick="Controller.editCartItem(${idx})">แก้ไข</button>
-                    <button onclick="Controller.removeFromCart(${idx})" class="is-del">ลบ</button>
+                <div class="pos-line-del" aria-hidden="true">ลบ</div>
+                <div class="pos-line-slide">
+                  <div class="pos-line-top">
+                    <span class="pos-line-name" data-no-translate>${escHtml(this.itemName(item))}</span>
+                    <span class="pos-line-sum">฿${(item.price * item.qty).toFixed(2)}</span>
                   </div>
-                  <div class="pos-step">
-                    <button onclick="Controller.updateQty(${idx}, -1)" aria-label="ลดจำนวน">−</button>
-                    <span class="pos-qty"><span class="${qtyCls}">${item.qty}</span></span>
-                    <button onclick="Controller.updateQty(${idx}, 1)" aria-label="เพิ่มจำนวน">+</button>
+                  <p class="pos-line-note">${item.staffPrice ? '<span class="cart-staff-tag">' + STAFF_NOTE + '</span>' + escHtml(String(shownNote || '').replace(STAFF_NOTE + ' | ', '')) : escHtml(shownNote || '-')}</p>
+                  <div class="pos-line-bot">
+                    <div class="pos-line-acts">
+                      <button onclick="Controller.editCartItem(${idx})">แก้ไข</button>
+                    </div>
+                    <div class="pos-step">
+                      <button onclick="Controller.updateQty(${idx}, -1)" aria-label="ลดจำนวน">−</button>
+                      <span class="pos-qty"><span class="${qtyCls}">${item.qty}</span></span>
+                      <button onclick="Controller.updateQty(${idx}, 1)" aria-label="เพิ่มจำนวน">+</button>
+                    </div>
                   </div>
                 </div>
               </div>
             `;
           }).join('');
+          if (this.showSwipeHint()) container.innerHTML += '<p class="swipe-hint">ปัดรายการไปทางซ้ายเพื่อลบ</p>';
           if(btnHold) btnHold.classList.remove('hidden');
           if(btnPrintSlip) btnPrintSlip.classList.remove('hidden');
           if(btnCheckout) { btnCheckout.classList.remove('flex-1'); btnCheckout.classList.add('flex-[2]'); }
@@ -7214,6 +7222,65 @@ renderReport(r) {
 
       async removeFromCart(idx) {
         await this.removeCartLine(idx);
+      },
+
+      // ลบจากหน้าต่างแก้ไข (ปุ่ม ลบ ย้ายเข้าไปอยู่ในนั้นแทนบนแถว เผื่อคนที่ไม่ปัด หรือใช้เมาส์)
+      async removeEditingLine() {
+        const idx = this.editingCartIndex;
+        this.closeModal('modal-product');
+        this.editingCartIndex = null;
+        if (idx === null || idx === undefined) return;
+        await this.removeCartLine(idx);
+      },
+
+      // คำใบ้ "ปัดซ้ายเพื่อลบ" ขึ้นเฉพาะจอสัมผัส และหายไปเองหลังปัดลบได้สามครั้ง
+      showSwipeHint() {
+        const touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+        if (!touch) return false;
+        let n = 0;
+        try { n = Number(localStorage.getItem('pos_swipeDeletes')) || 0; } catch (e) { /* อ่านไม่ได้ก็โชว์ไป */ }
+        return n < 3;
+      },
+
+      // ปัดแถวในออเดอร์ไปทางซ้ายเพื่อลบ เกิน 90px ตอนปล่อย = ลบ (เอากลับได้จากแถบเดิม) ไม่ถึงก็เด้งกลับ
+      // ปัดขวาปล่อยให้แผ่นออเดอร์ (ปิดแผ่น) ปัดขึ้นลงปล่อยให้เลื่อนรายการ
+      initLineSwipe() {
+        const list = document.getElementById('cart-items');
+        if (!list || list.dataset.swipeInit) return;
+        list.dataset.swipeInit = '1';
+        let row = null, slide = null, x0 = 0, y0 = 0, dx = 0, mode = null;
+        list.addEventListener('touchstart', (e) => {
+          row = e.target && e.target.closest ? e.target.closest('.pos-line') : null;
+          slide = row ? row.querySelector('.pos-line-slide') : null;
+          mode = null; dx = 0;
+          if (!slide) return;
+          x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+        }, { passive: true });
+        list.addEventListener('touchmove', (e) => {
+          if (!slide || mode === 'y') return;
+          const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+          if (!mode) {
+            if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
+            mode = (mx < 0 && Math.abs(mx) > Math.abs(my)) ? 'x' : 'y';
+            if (mode !== 'x') return;
+          }
+          dx = Math.max(-140, Math.min(0, mx));
+          slide.style.transition = 'none';
+          slide.style.transform = 'translateX(' + dx + 'px)';
+          row.classList.toggle('is-armed', dx < -90);
+        }, { passive: true });
+        list.addEventListener('touchend', () => {
+          if (!slide || mode !== 'x') { row = slide = null; return; }
+          const doomed = dx < -90;
+          slide.style.transition = '';
+          slide.style.transform = '';
+          const idx = Number(row.dataset.cartIdx);
+          row.classList.remove('is-armed');
+          row = slide = null; mode = null;
+          if (!doomed) return;
+          try { localStorage.setItem('pos_swipeDeletes', String((Number(localStorage.getItem('pos_swipeDeletes')) || 0) + 1)); } catch (e) { /* นับไม่ได้ก็ไม่เป็นไร */ }
+          this.removeCartLine(idx);
+        });
       },
 
       // ลบทันทีไม่ถาม แล้วให้กดเอากลับได้ห้าวินาที เก็บได้ทีละรายการ ลบอันใหม่ก็ทับอันเก่า
