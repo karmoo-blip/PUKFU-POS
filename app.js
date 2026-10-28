@@ -1313,6 +1313,12 @@
         return this.t(text).replace(/\{x\}/g, () => (i < vals.length ? vals[i++] : '{x}'));
       },
 
+      // เหมือน t() แต่ข้อความที่มีตัวเลข (ยอดเงิน) ก็แปลได้ ผ่านกุญแจ {n} ตัวเดียวกับที่ตัววาด DOM ใช้
+      tn(text) {
+        if (this.lang !== 'my') return text;
+        return this.lookup(window.LANG_MY || {}, text) || text;
+      },
+
       lookup(dict, key) {
         if (dict[key]) return dict[key];
         const numbers = [];
@@ -2863,12 +2869,13 @@
       // ส่ง employeeId+pin ไปให้เซิร์ฟเวอร์ตรวจสอบสิทธิ์จริงอีกที (ไม่ใช่แค่เช็คในเครื่อง) ก่อนอนุญาตให้ทำรายการ
       // เจ้าของ/ผู้ดูแลที่ปลดล็อกด้วย PIN มาแล้ว ไม่ต้องพิมพ์ซ้ำ กดยืนยันอย่างเดียว แล้วส่ง PIN ที่จำไว้ให้เซิร์ฟเวอร์ตรวจเหมือนเดิม
       // opts.confirmed = ผู้เรียกถามยืนยันไปแล้ว ไม่ต้องถามซ้ำ / opts.alwaysPin = งานที่ล้างข้อมูลทั้งร้าน (กู้คืน, archive) ต้องพิมพ์ PIN เสมอ
+      // opts.ask = คำถามที่แปลแล้ว สำหรับข้อความที่มีเลขบิลหรือชื่อแทรก ตัดคำจากข้อความ PIN ที่แปลไปแล้วไม่ได้
       async requireActionPin(message, opts) {
         opts = opts || {};
         const quick = !opts.alwaysPin && await this.rememberedTopLevelUser();
         if (quick) {
           if (!opts.confirmed) {
-            const question = String(message).replace(/^ใส่รหัส PIN (ของเจ้าของ\/ผู้ดูแลระบบ)?\s*เพื่อ/, '').replace(/\s*:\s*$/, '') + '?';
+            const question = opts.ask || this.tn(String(message).replace(/^ใส่รหัส PIN (ของเจ้าของ\/ผู้ดูแลระบบ)?\s*เพื่อ/, '').replace(/\s*:\s*$/, '') + '?');
             const ok = await this.showConfirm(question + '\n' + this.tf('ทำในชื่อ: {x}', quick.name + ' (' + quick.role + ')'), '');
             if (!ok) return null;
           }
@@ -5498,7 +5505,7 @@
           const items = (order.items || []).filter(it => !it.cancelled);
           if (items.some(it => !it.sku)) return this.showAlert('บิลนี้เป็นข้อมูลเก่าที่ไม่มีรหัสสินค้า แก้ในหน้าขายไม่ได้', '');
           if (this.editingBill && this.editingBill.invoice !== invoice) {
-            const ok = await this.showConfirm('กำลังแก้บิล ' + (this.editingBill.queue || this.editingBill.invoice) + ' อยู่ ทิ้งการแก้ไขนั้นแล้วเปิดบิลนี้แทนไหม?', '');
+            const ok = await this.showConfirm(this.tf('กำลังแก้บิล {x} อยู่ ทิ้งการแก้ไขนั้นแล้วเปิดบิลนี้แทนไหม?', this.editingBill.queue || this.editingBill.invoice), '');
             if (!ok) return;
             this.cart = [];
           } else if (!this.editingBill && (this.cart.length > 0 || this.activeGroupId)) {
@@ -5571,7 +5578,7 @@
           wrap.className = 'modal-opening fixed inset-0 bg-secondary/40 backdrop-blur-sm z-[90] flex items-end sm:items-center justify-center sm:p-4';
           wrap.innerHTML = '<div class="bill-edit-sheet">'
             + '<h3>บันทึกการแก้ไขบิล</h3>'
-            + '<p class="bill-edit-sub" data-no-translate>' + escHtml((eb.queue ? 'คิว ' + eb.queue + ' · ' : '') + eb.invoice) + '</p>'
+            + '<p class="bill-edit-sub" data-no-translate>' + escHtml((eb.queue ? this.t('คิว') + ' ' + eb.queue + ' · ' : '') + eb.invoice) + '</p>'
             + '<div class="bill-edit-cmp"><div><small>ยอดเดิม</small><b>' + money(eb.expectedTotal) + '</b></div><div><small>ยอดใหม่</small><b>' + money(newTotal) + '</b></div></div>'
             + diffBox
             + warns.map(w => '<p class="bill-edit-warn">' + escHtml(w) + '</p>').join('')
@@ -5599,7 +5606,8 @@
           const paymentType = payEl ? payEl.value : eb.paymentType;
           const note = noteEl ? noteEl.value : eb.note;
           this.closeBillEditSave();
-          const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการแก้ไขบิล ' + (eb.queue || eb.invoice) + ':');
+          const billRef = eb.queue || eb.invoice;
+          const auth = await this.requireActionPin(this.tf('ใส่รหัส PIN เพื่อยืนยันการแก้ไขบิล {x}:', billRef), { ask: this.tf('ยืนยันการแก้ไขบิล {x}?', billRef) });
           if (!auth) return;
           if (!this.canEditBill(auth.employee)) return this.showAlert('ไม่มีสิทธิ์ทำรายการนี้', '');
           const items = this.cart.map(i => ({ sku: i.sku, name: i.name, qty: i.qty, price: i.price, note: i.note || '' }));
@@ -5984,7 +5992,7 @@ renderReport(r) {
 
       async exportBackupToExcel(id) {
         // ก้อน backup มีข้อมูลพนักงานรวมอยู่ด้วย ขอ PIN เจ้าของ/แอดมินก่อนเหมือนตอนกู้คืนและตอนลบ
-        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อดาวน์โหลดไฟล์สำรองข้อมูล:');
+        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อดาวน์โหลดไฟล์สำรองข้อมูล:', { ask: this.t('ดาวน์โหลดไฟล์สำรองข้อมูล?') });
         if (!auth) return;
         google.script.run
           .withSuccessHandler(res => {
@@ -6002,7 +6010,7 @@ renderReport(r) {
 
       // สำรองข้อมูล + ดาวน์โหลดไฟล์ CSV ทันทีในคลิกเดียว (เดิมต้องกดสำรองก่อน แล้วไปหาไฟล์ในลิสต์เพื่อกด Export Excel อีกที)
       async manualBackupNow(btn) {
-        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อสำรองข้อมูล:');
+        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อสำรองข้อมูล:', { ask: this.t('สำรองข้อมูล?') });
         if (!auth) return;
         this.setBtnLoading(btn, true);
         google.script.run
@@ -6767,7 +6775,8 @@ renderReport(r) {
         const btnCheckout = document.getElementById('btn-checkout');
         const btnHold = document.getElementById('btn-hold-order');
         const btnGroup = document.getElementById('btn-new-group');
-        const label = eb ? 'กำลังแก้บิล' + (eb.queue ? ' คิว ' + eb.queue : '') : '';
+        // แถบ ชิป และยอดเดิมมีเลขคิวกับยอดเงินแทรก ตัวแปล DOM เทียบไม่ตรง จึงแปลทั้งประโยคตั้งแต่ตรงนี้
+        const label = !eb ? '' : eb.queue ? this.tf('กำลังแก้บิล คิว {x}', eb.queue) : this.t('กำลังแก้บิล');
         if (bar) {
           bar.classList.toggle('hidden', !eb);
           const t = document.getElementById('edit-bill-bar-title');
@@ -6777,11 +6786,11 @@ renderReport(r) {
         }
         if (chip) {
           chip.classList.toggle('hidden', !eb);
-          chip.innerText = eb ? 'แก้บิล' + (eb.queue ? ' ' + eb.queue : '') : '';
+          chip.innerText = !eb ? '' : eb.queue ? this.tf('แก้บิล {x}', eb.queue) : this.t('แก้บิล');
         }
         if (was) {
           was.classList.toggle('hidden', !eb);
-          was.innerText = eb ? 'เดิม ฿' + Number(eb.expectedTotal).toFixed(2) : '';
+          was.innerText = eb ? this.tf('เดิม ฿{x}', Number(eb.expectedTotal).toFixed(2)) : '';
         }
         if (btnCheckout) {
           btnCheckout.innerText = eb ? 'บันทึกการแก้ไข' : 'ชำระเงิน';
@@ -7443,7 +7452,7 @@ renderReport(r) {
         const fresh = last.entry && (Date.now() - new Date(last.at).getTime() < FREE_UNDO_MS);
         let auth = null;
         if (!fresh) {
-          auth = await this.requireActionPin(this.tf('ใส่รหัส PIN เพื่อยืนยันลบ{x}: {x} 1 แก้ว', STAFF_MODES[g.kind].note, g.name));
+          auth = await this.requireActionPin(this.tf('ใส่รหัส PIN เพื่อยืนยันลบ{x}: {x} 1 แก้ว', STAFF_MODES[g.kind].note, g.name), { ask: this.tf('ยืนยันลบ{x}: {x} 1 แก้ว?', this.t(STAFF_MODES[g.kind].note), g.name) });
           if (!auth) return;
         }
         if (last.entry) {
@@ -9230,7 +9239,7 @@ renderReport(r) {
         if (reason === null) return;
         if (reason.trim() === '') return this.showAlert('กรุณาระบุเหตุผลก่อนคืนเงิน', '');
 
-        const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยันการคืนเงิน ฿${amount.toFixed(2)}:`);
+        const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยันการคืนเงิน ฿${amount.toFixed(2)}:`, { ask: this.tf('ยืนยันการคืนเงิน ฿{x}?', amount.toFixed(2)) });
         if (!auth) return;
         const userName = auth.employee.name;
         this.showLoading();
@@ -9262,7 +9271,7 @@ renderReport(r) {
         if (reason === null) return;
         if (reason.trim() === '') return this.showAlert(`กรุณาระบุเหตุผลก่อน${actionText}`, '');
 
-        const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยัน${actionText} ${order.invoice}:`);
+        const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยัน${actionText} ${order.invoice}:`, { ask: this.tf('ยืนยัน{x} {x}?', this.t(actionText), order.invoice) });
         if (!auth) return;
         const userName = auth.employee.name;
 
@@ -9345,7 +9354,7 @@ renderReport(r) {
         if (reason === null) return;
         if (reason.trim() === '') return this.showAlert('กรุณาระบุเหตุผลก่อนยกเลิกรายการ', '');
 
-        const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยันการยกเลิกรายการ "${item.name}":`);
+        const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยันการยกเลิกรายการ "${item.name}":`, { ask: this.tf('ยืนยันการยกเลิกรายการ "{x}"?', item.name) });
         if (!auth) return;
         const userName = auth.employee.name;
 
@@ -9926,7 +9935,7 @@ renderReport(r) {
                     if (reason === null) return;
                     if (reason.trim() === '') return this.showAlert(`กรุณาระบุเหตุผลก่อน${actionText}`, '');
 
-                    const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยัน${actionText} ${order.invoice}:`);
+                    const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยัน${actionText} ${order.invoice}:`, { ask: this.tf('ยืนยัน{x} {x}?', this.t(actionText), order.invoice) });
                     if (!auth) return;
                     this.applyOrderStatus(order, status, reason.trim(), auth, isPastDay);
           };
@@ -9992,7 +10001,7 @@ renderReport(r) {
                     if (reason === null) return;
                     if (reason.trim() === '') return this.showAlert('กรุณาระบุเหตุผลก่อนยกเลิกรายการ', '');
 
-                    const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยันการยกเลิกรายการ "${item.name}":`);
+                    const auth = await this.requireActionPin(`ใส่รหัส PIN เพื่อยืนยันการยกเลิกรายการ "${item.name}":`, { ask: this.tf('ยืนยันการยกเลิกรายการ "{x}"?', item.name) });
                     if (!auth) return;
                     item.cancelled = true;
                     item.cancelReason = reason.trim();
