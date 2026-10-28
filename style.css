@@ -1882,6 +1882,43 @@
     .undo-bar.is-running .undo-bar-line { animation: undo-drain 5s linear forwards; }
     @keyframes undo-drain { to { transform: scaleX(0); } }
     @media (prefers-reduced-motion: reduce) { .undo-bar.is-running .undo-bar-line { animation: none; } }
+    /* ---- หน้าต่างสินค้าแบบ C: แตะความหวาน = ใส่ออเดอร์ ---- */
+    #modal-sweetness-container { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    #modal-sweetness-container .mod-btn { min-height: 60px; padding: 0 8px; border-radius: var(--r-md); font-size: 17px; line-height: 1.2; text-align: center; }
+    .fast-hint { font-size: 12.5px; font-weight: 700; color: var(--color-mute); margin-left: auto; }
+    .sweet-again {
+      width: 100%; min-height: 60px; margin-bottom: 18px; padding: 8px 16px;
+      display: flex; align-items: center; justify-content: space-between; gap: 10px;
+      border: 2px dashed var(--color-edit-line); border-radius: var(--r-md);
+      background: var(--color-edit-bg); color: var(--color-edit-ink);
+      font-family: inherit; font-size: 18px; font-weight: 800; text-align: left;
+    }
+    .sweet-again small { font-size: 14px; font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .sweet-again:active { transform: scale(.98); }
+    .sweet-again.hidden, .more-opts.hidden { display: none; }
+    .more-opts {
+      width: 100%; min-height: 48px; border-top: 1px solid var(--color-fill-2);
+      font-family: inherit; font-size: 16px; font-weight: 700; color: var(--color-primary);
+    }
+    /* เพิ่งใส่แก้ว: ลอยเหนือแถบล่างบนมือถือ กลางคอลัมน์เมนูบนจอใหญ่ */
+    .added-bar {
+      position: fixed; z-index: 50; left: 50%; transform: translateX(-50%);
+      bottom: calc(24px + env(safe-area-inset-bottom));
+      width: min(calc(100% - 24px), 520px); min-height: 56px; padding: 6px 6px 6px 16px;
+      display: flex; align-items: center; gap: 12px; overflow: hidden;
+      background: var(--color-secondary); color: #fff; border-radius: var(--r-md);
+      box-shadow: 0 10px 24px -8px rgba(22, 56, 40, .5);
+    }
+    .added-bar.hidden { display: none; }
+    .added-bar span:first-child { flex: 1; min-width: 0; font-size: 16px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .added-bar button { min-height: 44px; padding: 0 16px; border: none; border-radius: var(--r-sm); background: #fff; color: var(--color-secondary);
+                        font-family: inherit; font-size: 16px; font-weight: 800; flex: none; }
+    .added-bar-line { position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--color-mustard); transform-origin: 0 50%; }
+    .added-bar.is-running .added-bar-line { animation: undo-drain 4s linear forwards; }
+    @media (prefers-reduced-motion: reduce) { .added-bar.is-running .added-bar-line { animation: none; } }
+    @media (max-width: 1023.98px) { .added-bar { bottom: calc(88px + env(safe-area-inset-bottom)); } }
+    @media (min-width: 1024px) { .added-bar { left: calc((100% - 400px) / 2); } }
+
     /* ---- ข่าวดีที่หายเอง ---- */
     .toast-bar {
       position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 96;
