@@ -914,6 +914,7 @@
       pinErrorActive: false,
       pinKeysBound: false,
       loggedInEmployee: null,
+      actionPin: null, // PIN ของคนที่ปลดล็อกอยู่ เก็บในหน่วยความจำเท่านั้น ห้ามลง localStorage
       autoLockTimer: null,
       autoLockMinutes: 10, // ล็อกอัตโนมัติเมื่อไม่มีการใช้งานกี่นาที (ตั้งค่าได้ในหน้า Settings)
       cupCount: 0,
@@ -2860,7 +2861,19 @@
 
       // ใช้ก่อนทำรายการที่มีความเสี่ยงสูง (คืนเงิน/ยกเลิกบิล/ลบพนักงาน/ลบข้อมูล) ให้พนักงานใส่ PIN ยืนยันตัวตนอีกครั้ง
       // ส่ง employeeId+pin ไปให้เซิร์ฟเวอร์ตรวจสอบสิทธิ์จริงอีกที (ไม่ใช่แค่เช็คในเครื่อง) ก่อนอนุญาตให้ทำรายการ
-      async requireActionPin(message) {
+      // เจ้าของ/ผู้ดูแลที่ปลดล็อกด้วย PIN มาแล้ว ไม่ต้องพิมพ์ซ้ำ กดยืนยันอย่างเดียว แล้วส่ง PIN ที่จำไว้ให้เซิร์ฟเวอร์ตรวจเหมือนเดิม
+      // opts.confirmed = ผู้เรียกถามยืนยันไปแล้ว ไม่ต้องถามซ้ำ / opts.alwaysPin = งานที่ล้างข้อมูลทั้งร้าน (กู้คืน, archive) ต้องพิมพ์ PIN เสมอ
+      async requireActionPin(message, opts) {
+        opts = opts || {};
+        const quick = !opts.alwaysPin && await this.rememberedTopLevelUser();
+        if (quick) {
+          if (!opts.confirmed) {
+            const question = String(message).replace(/^ใส่รหัส PIN (ของเจ้าของ\/ผู้ดูแลระบบ)?\s*เพื่อ/, '').replace(/\s*:\s*$/, '') + '?';
+            const ok = await this.showConfirm(question + '\n' + this.tf('ทำในชื่อ: {x}', quick.name + ' (' + quick.role + ')'), '');
+            if (!ok) return null;
+          }
+          return { employeeId: quick.id, pin: this.actionPin, employee: quick };
+        }
         const pin = await this.showPrompt(message, { type: 'password', icon: '' });
         if (pin === null) return null;
         const user = await this.checkSettingsAccess(pin);
@@ -2868,7 +2881,22 @@
           this.showAlert('รหัส PIN ไม่ถูกต้อง', '');
           return null;
         }
+        if (this.loggedInEmployee && user.id === this.loggedInEmployee.id) this.actionPin = pin.trim();
         return { employeeId: user.id, pin: pin.trim(), employee: user };
+      },
+
+      // PIN อยู่ในหน่วยความจำเท่านั้น ไม่เคยลงเครื่อง เปิดแอปใหม่จึงต้องพิมพ์ครั้งแรกอีกรอบ
+      // เช็คกับรายชื่อพนักงานล่าสุดทุกครั้ง เผื่อเปลี่ยน PIN หรือถูกลดสิทธิ์ไประหว่างที่ยังล็อกอินอยู่
+      async rememberedTopLevelUser() {
+        const me = this.loggedInEmployee;
+        if (!me || !this.actionPin) return null;
+        const user = this.employees.find(e => e.id === me.id && e.active);
+        if (!user || (user.role !== 'Owner' && user.role !== 'Admin') || !user.pinSalt) return null;
+        if ((await hashPinWithSalt(this.actionPin, user.pinSalt)) !== user.pinHash) {
+          this.actionPin = null;
+          return null;
+        }
+        return user;
       },
 
       getAllowedTabs(user) {
@@ -3846,7 +3874,7 @@
         const ok = await this.showConfirm('ต้องการลบพนักงานคนนี้ใช่หรือไม่?', '');
         if (!ok) return;
 
-        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการลบพนักงาน:');
+        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการลบพนักงาน:', { confirmed: true });
         if (!auth) return;
 
         this.showLoading();
@@ -3969,7 +3997,7 @@
       async clearAccessLog() {
         const ok = await this.showConfirm('ต้องการล้างประวัติการใส่ PIN ทั้งหมดใช่หรือไม่? กู้คืนไม่ได้', '');
         if (!ok) return;
-        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการล้างประวัติ:');
+        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการล้างประวัติ:', { confirmed: true });
         if (!auth) return;
         google.script.run
           .withSuccessHandler(res => {
@@ -3983,7 +4011,7 @@
       async clearErrorLog() {
         const ok = await this.showConfirm('ต้องการล้างประวัติข้อผิดพลาดของระบบทั้งหมดใช่หรือไม่? กู้คืนไม่ได้', '');
         if (!ok) return;
-        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการล้างประวัติ:');
+        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการล้างประวัติ:', { confirmed: true });
         if (!auth) return;
         google.script.run
           .withSuccessHandler(res => {
@@ -3997,7 +4025,7 @@
       async clearChangeLog() {
         const ok = await this.showConfirm('ต้องการล้างประวัติการเปลี่ยนแปลงทั้งหมดใช่หรือไม่? กู้คืนไม่ได้', '');
         if (!ok) return;
-        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการล้างประวัติ:');
+        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการล้างประวัติ:', { confirmed: true });
         if (!auth) return;
         google.script.run
           .withSuccessHandler(res => {
@@ -5123,7 +5151,7 @@
           const item = (this.menuData || []).find(x => String(x.sku) === String(sku));
           const ok = await this.showConfirm(this.tf('ต้องการลบสินค้า "{x}" ออกจากเมนูหรือไม่?', item ? item.name : sku), '');
           if (!ok) return;
-          const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการลบสินค้า:');
+          const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการลบสินค้า:', { confirmed: true });
           if (!auth) return;
           this.showLoading();
           google.script.run
@@ -5783,7 +5811,7 @@ renderReport(r) {
         const ok = await this.showConfirm('ต้องการลบวิธีชำระเงินนี้ใช่หรือไม่?', '');
         if (!ok) return;
 
-        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการลบวิธีชำระเงิน:');
+        const auth = await this.requireActionPin('ใส่รหัส PIN เพื่อยืนยันการลบวิธีชำระเงิน:', { confirmed: true });
         if (!auth) return;
 
         this.setIndicator('syncing');
@@ -5864,7 +5892,7 @@ renderReport(r) {
         const ok = await this.showConfirm('ต้องการลบไฟล์ backup นี้ใช่หรือไม่? กู้คืนไม่ได้หลังจากลบแล้ว', '');
         if (!ok) return;
 
-        const auth = await this.requireActionPin('ใส่รหัส PIN ของเจ้าของ/ผู้ดูแลระบบเพื่อยืนยันการลบ backup:');
+        const auth = await this.requireActionPin('ใส่รหัส PIN ของเจ้าของ/ผู้ดูแลระบบเพื่อยืนยันการลบ backup:', { confirmed: true });
         if (!auth) return;
 
         this.setIndicator('syncing');
@@ -5896,7 +5924,7 @@ renderReport(r) {
         if (typed === null) return;
         if (typed.trim() !== 'กู้คืน') return this.showAlert('ข้อความไม่ตรง ยกเลิกการกู้คืน', '');
 
-        const auth = await this.requireActionPin('ใส่รหัส PIN ของเจ้าของ/ผู้ดูแลระบบเพื่อยืนยันการกู้คืนข้อมูล:');
+        const auth = await this.requireActionPin('ใส่รหัส PIN ของเจ้าของ/ผู้ดูแลระบบเพื่อยืนยันการกู้คืนข้อมูล:', { alwaysPin: true });
         if (!auth) return;
 
         this.showLoading();
@@ -6045,7 +6073,7 @@ renderReport(r) {
         );
         if (!ok) return;
 
-        const auth = await this.requireActionPin('ใส่รหัส PIN ของเจ้าของ/ผู้ดูแลระบบเพื่อยืนยันการ archive ข้อมูล:');
+        const auth = await this.requireActionPin('ใส่รหัส PIN ของเจ้าของ/ผู้ดูแลระบบเพื่อยืนยันการ archive ข้อมูล:', { alwaysPin: true });
         if (!auth) return;
 
         this.setBtnLoading(btn, true);
@@ -6844,7 +6872,7 @@ renderReport(r) {
           const owed = this.groupTotal(g).toFixed(0);
           const ok = await this.showConfirm(this.tf('ลบบิลกลุ่ม {x}? ยังมีแก้วที่ไม่ได้จ่าย ฿{x}', g.name, owed), '');
           if (!ok) return;
-          const auth = await this.requireActionPin(this.tf('ใส่รหัส PIN เพื่อยืนยันลบบิลกลุ่ม {x}', g.name));
+          const auth = await this.requireActionPin(this.tf('ใส่รหัส PIN เพื่อยืนยันลบบิลกลุ่ม {x}', g.name), { confirmed: true });
           if (!auth) return;
           this.logPinAttempt(`ลบบิลกลุ่ม ${g.name} ที่ยังค้างจ่าย ฿${owed}`, true, auth.employee.name);
         }
@@ -8470,6 +8498,7 @@ renderReport(r) {
             localStorage.removeItem('pos_loggedInUserId');
             this.logPinAttempt('ล็อกหน้าจออัตโนมัติ (ไม่มีการใช้งานระหว่างปิดแอป)', true, user.name);
             this.loggedInEmployee = null;
+            this.actionPin = null;
             this.currentSettingsUser = null;
             this.showPinLockScreen();
             return;
@@ -8672,6 +8701,7 @@ renderReport(r) {
         if (user) {
           this.loggedInEmployee = user;
           this.currentSettingsUser = user; //  ใช้คนนี้เป็นผู้ใช้ของทุกการกระทำในระบบ
+          this.actionPin = pin;
           localStorage.setItem('pos_loggedInUserId', user.id);
           this.logPinAttempt('เข้าใช้งานระบบ (Lock Screen)', true, user.name);
           this.pinBuffer = '';
@@ -8808,6 +8838,7 @@ renderReport(r) {
         this.logPinAttempt('ล็อกหน้าจออัตโนมัติ (ไม่มีการใช้งาน)', true, this.loggedInEmployee.name);
         localStorage.removeItem('pos_loggedInUserId');
         this.loggedInEmployee = null;
+        this.actionPin = null;
         this.currentSettingsUser = null;
         this.updateLoggedInUserLabel();
         this.resetViewForNextUser();
@@ -8819,6 +8850,7 @@ renderReport(r) {
         if (!ok) return;
         localStorage.removeItem('pos_loggedInUserId');
         this.loggedInEmployee = null;
+        this.actionPin = null;
         this.currentSettingsUser = null;
         this.updateLoggedInUserLabel();
         this.resetViewForNextUser();
