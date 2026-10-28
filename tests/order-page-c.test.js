@@ -112,3 +112,9 @@ test('on a phone the order slides in from the right, not up from the bottom', ()
   assert.match(phone, /#cart-container\.is-open \{ transform: none; \}/);
   assert.ok(!css.includes('h-[65vh]'), 'แบบเลื่อนขึ้นจากล่างต้องไม่เหลือ');
 });
+
+test('a menu photo shows whole in a 4:3 box, never cropped', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
+  assert.match(css, /\.pos-th \{[^}]*aspect-ratio: 4 \/ 3;/, 'ช่องรูปต้องสูงพอสำหรับรูปแนวตั้ง');
+  assert.match(css, /\.pos-th\.has-photo \{[^}]*background-size: contain;/, 'รูปจริงต้องเห็นทั้งรูป ไม่ถูกตัด');
+});
