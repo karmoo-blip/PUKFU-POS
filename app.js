@@ -934,6 +934,7 @@
       sweetnessLevels: [],
       selectedAddons: [],
       editingCartIndex: null,
+      productFastMode: false, // หน้าต่างสินค้า: แตะความหวานแล้วใส่ออเดอร์ทันที (applyProductMode)
       paymentMethods: [],
       currentPaymentMethodId: null,
       pinBuffer: '',
@@ -6368,6 +6369,8 @@ renderReport(r) {
 
         const addBtnNew = document.getElementById('btn-modal-add-cart');
         if (addBtnNew) addBtnNew.innerText = 'ใส่ออเดอร์';
+        // แตะความหวานแล้วใส่ออเดอร์เลย ยกเว้นบิลกลุ่มที่ยังไม่ได้เลือกว่าแก้วนี้ของใคร
+        this.applyProductMode(!grp || !!this.selectedPerson);
 
         this.openModal('modal-product');
       },
@@ -6404,6 +6407,105 @@ renderReport(r) {
         if (tag) tag.classList.remove('hidden');
       },
 
+      // โหมดเร็ว (แบบ C): แตะความหวาน = ใส่ออเดอร์ทันที ท็อปปิ้งกับหมายเหตุพับไว้ใต้ปุ่ม "+ ท็อปปิ้ง / หมายเหตุ"
+      // กางออกแล้วกลับเป็นแบบเดิม เลือกครบแล้วกดใส่ออเดอร์เอง
+      applyProductMode(fast) {
+        this.productFastMode = !!fast;
+        const toggle = (id, show) => { const el = document.getElementById(id); if (el) el.classList.toggle('hidden', !show); };
+        toggle('modal-more', !fast);
+        toggle('modal-more-btn', fast);
+        toggle('modal-fast-hint', fast);
+        toggle('btn-modal-add-cart', !fast);
+        this.renderSameAsLast();
+      },
+
+      showMoreOptions() {
+        this.applyProductMode(false);
+      },
+
+      tapSweetness(btn) {
+        this.selectSweetness(btn);
+        if (this.productFastMode) this.addToCartFromModal();
+      },
+
+      // สิ่งที่สั่งครั้งล่าสุดของแต่ละเมนู (ความหวาน ท็อปปิ้ง หมายเหตุ) จำไว้ในเครื่องนี้ ไม่ซิงก์ข้ามเครื่อง
+      lastOrderMap() {
+        if (!this._lastOrder) {
+          try { this._lastOrder = JSON.parse(localStorage.getItem('pos_lastOrder') || '{}') || {}; }
+          catch (e) { this._lastOrder = {}; }
+        }
+        return this._lastOrder;
+      },
+
+      rememberLastOrder(sku, combo) {
+        if (!sku || !combo || !combo.sweetness) return;
+        const map = this.lastOrderMap();
+        map[sku] = combo;
+        try { localStorage.setItem('pos_lastOrder', JSON.stringify(map)); } catch (e) { /* จำไม่ได้ก็ขายต่อได้ */ }
+      },
+
+      // ของที่จำไว้ยังใช้ได้ไหม: ความหวานยังมีอยู่ ท็อปปิ้งที่ถูกปิดหรือลบไปแล้วตัดทิ้ง
+      sameAsLastFor(sku) {
+        const combo = this.lastOrderMap()[sku];
+        if (!combo || !this.sweetnessLevels.some(l => l.name === combo.sweetness)) return null;
+        const addons = (combo.addonIds || []).map(id => this.addons.find(a => a.id === id && a.active)).filter(Boolean);
+        return { sweetness: combo.sweetness, addons, textNote: combo.textNote || '' };
+      },
+
+      renderSameAsLast() {
+        const btn = document.getElementById('modal-again');
+        if (!btn) return;
+        const combo = this.productFastMode && this.activeProduct ? this.sameAsLastFor(this.activeProduct.sku) : null;
+        btn.classList.toggle('hidden', !combo);
+        const sub = document.getElementById('modal-again-sub');
+        if (sub && combo) sub.innerText = [combo.sweetness, ...combo.addons.map(a => a.name), combo.textNote].filter(Boolean).join(' · ');
+      },
+
+      addSameAsLast() {
+        const combo = this.activeProduct && this.sameAsLastFor(this.activeProduct.sku);
+        if (!combo) return;
+        this.selectedAddons = combo.addons.slice();
+        const note = document.getElementById('modal-note');
+        if (note) note.value = combo.textNote;
+        const btn = Array.from(document.querySelectorAll('.mod-btn')).find(b => b.innerText.trim() === combo.sweetness);
+        if (!btn) return;
+        this.selectSweetness(btn);
+        this.addToCartFromModal();
+      },
+
+      // แถบ "เพิ่ม ... แล้ว · ย้อนกลับ" หลังใส่แก้วใหม่ ลอยเหนือแถบล่างบนมือถือ / ใต้เมนูบนจอใหญ่
+      showAdded(sku, note, label) {
+        this.lastAdded = { sku, note };
+        const bar = document.getElementById('added-bar');
+        const text = document.getElementById('added-bar-text');
+        if (text) text.innerText = this.tf('เพิ่ม {x} แล้ว', label);
+        if (bar) {
+          bar.classList.remove('hidden');
+          this.replayClass(bar, 'is-running');
+        }
+        clearTimeout(this.addedTimer);
+        this.addedTimer = setTimeout(() => this.hideAdded(), 4000);
+      },
+
+      hideAdded() {
+        clearTimeout(this.addedTimer);
+        this.lastAdded = null;
+        const bar = document.getElementById('added-bar');
+        if (bar) bar.classList.add('hidden');
+      },
+
+      // ย้อนกลับแก้วที่เพิ่งเพิ่ม: ถ้าไปรวมกับแถวเดิมก็ลดหนึ่ง ถ้าเป็นแถวใหม่ก็เอาแถวออก
+      undoAdd() {
+        const last = this.lastAdded;
+        this.hideAdded();
+        if (!last) return;
+        const idx = this.cart.findIndex(i => i.sku === last.sku && i.note === last.note);
+        if (idx === -1) return;
+        if (this.cart[idx].qty > 1) this.cart[idx].qty -= 1;
+        else this.cart.splice(idx, 1);
+        this.renderCart();
+      },
+
       selectSweetness(selectedBtn) {
         // ป้าย "เหมือนครั้งก่อน" ต้องหมายความตามนั้นจริง เลือกระดับอื่นแล้วป้ายต้องหาย
         const tag = document.getElementById('modal-sweetness-remembered');
@@ -6438,11 +6540,12 @@ renderReport(r) {
         }
         let html = '';
         this.sweetnessLevels.forEach(sw => {
-          html += `<button class="mod-btn border border-sand px-4 min-h-[2.75rem] inline-flex items-center justify-center rounded-full text-sm font-bold text-slate-500 hover:bg-accent active:scale-95 transition-all" onclick="Controller.selectSweetness(this)">${escHtml(sw.name)}</button>`;
+          html += `<button class="mod-btn border border-sand px-4 min-h-[2.75rem] inline-flex items-center justify-center rounded-full text-sm font-bold text-slate-500 hover:bg-accent active:scale-95 transition-all" onclick="Controller.tapSweetness(this)">${escHtml(sw.name)}</button>`;
         });
         container.innerHTML = html;
         // รายการความหวานอาจโหลดมาทีหลังตอนหน้าต่างเปิดอยู่แล้ว เลือกให้ตรงนี้จึงครอบทั้งสองกรณี
         this.preselectLastSweetness();
+        this.renderSameAsLast();
       },
 
       // บางครั้งตอนเปิดแอปครั้งแรก (เครื่องใหม่/เน็ตช้าตอน sync รอบแรก) ข้อมูลความหวาน/แอดออนอาจโหลดไม่ทันหรือพลาดไปเงียบๆ
@@ -6531,6 +6634,8 @@ renderReport(r) {
         }
         this.rememberSweetness(this.activeProduct && this.activeProduct.sku, sweetness);
         const textNote = document.getElementById('modal-note').value.trim();
+        const isNewCup = !(this.editingCartIndex !== null && this.editingCartIndex !== undefined && this.cart[this.editingCartIndex]);
+        if (isNewCup) this.rememberLastOrder(this.activeProduct && this.activeProduct.sku, { sweetness, addonIds: this.selectedAddons.map(a => a.id), textNote });
         
         // ป้ายราคาพนักงานนำหน้า note ทำให้แก้วราคาพนักงานไม่ยุบรวมกับแก้วราคาปกติ (ยุบด้วย sku + note)
         // และติดไปบนใบเสร็จ/ประวัติบิลให้เห็นว่าแก้วไหนคิดราคาพนักงาน
@@ -6614,6 +6719,7 @@ renderReport(r) {
 
         this.renderCart(changed);
         this.closeModal('modal-product');
+        if (!isEditing) this.showAdded(this.activeProduct.sku, finalNote, this.itemName(this.activeProduct) + ' ' + sweetness);
       },
 
       // ของลอยจากหน้าต่างสินค้าไปที่ตะกร้า ยืนยันให้เห็นว่ากดติดแล้วโดยไม่ต้องละสายตาไปดูตะกร้า
@@ -6737,6 +6843,7 @@ renderReport(r) {
 
         const addBtnEdit = document.getElementById('btn-modal-add-cart');
         if (addBtnEdit) addBtnEdit.innerText = 'บันทึกการแก้ไข';
+        this.applyProductMode(false); // แก้รายการเดิม: เห็นทุกช่อง กดบันทึกเอง
 
         this.openModal('modal-product');
       },

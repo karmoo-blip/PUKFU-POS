@@ -831,15 +831,23 @@
           <p class="font-bold text-sm text-secondary mb-3">ของใคร <span class="text-red-500">*</span></p>
           <div id="modal-person-container" class="flex flex-wrap gap-2"></div>
         </div>
+        <!-- สั่งเหมือนครั้งก่อน: ความหวาน ท็อปปิ้ง หมายเหตุชุดเดิม แตะทีเดียวใส่ออเดอร์ (Controller.renderSameAsLast) -->
+        <button id="modal-again" type="button" onclick="Controller.addSameAsLast()" class="sweet-again hidden">
+          <span>เหมือนครั้งก่อน</span>
+          <small id="modal-again-sub" data-no-translate></small>
+        </button>
         <div class="mb-5">
-          <p class="font-bold text-sm text-secondary mb-3 flex items-center gap-1">
+          <p class="font-bold text-sm text-secondary mb-3 flex items-center gap-1 flex-wrap">
             ระดับความหวาน <span class="text-red-500">*</span>
             <span id="modal-sweetness-remembered" class="sweet-remembered hidden">เหมือนครั้งก่อน</span>
+            <span id="modal-fast-hint" class="fast-hint hidden">แตะความหวาน = ใส่ออเดอร์ทันที</span>
           </p>
           <div id="modal-sweetness-container" class="flex flex-wrap gap-2">
             <!-- Sweetness levels will be populated here -->
           </div>
         </div>
+        <button id="modal-more-btn" type="button" onclick="Controller.showMoreOptions()" class="more-opts hidden">+ ท็อปปิ้ง / หมายเหตุ</button>
+        <div id="modal-more">
         <hr class="border-slate-100 mb-5">
         <div class="mb-5">
           <p class="font-bold text-sm text-secondary mb-3">ส่วนเสริม <span class="text-slate-400 font-normal">(เลือกกี่อย่างก็ได้)</span></p>
@@ -851,6 +859,7 @@
         <div>
           <p class="font-bold text-sm text-secondary mb-3">หมายเหตุ <span class="text-slate-400 font-normal">(ไม่บังคับ)</span></p>
           <textarea id="modal-note" class="w-full border border-slate-200 rounded-xl p-3 text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary bg-slate-50 transition-all" rows="2" placeholder="เช่น แยกน้ำแข็ง, เพิ่มมุก..."></textarea>
+        </div>
         </div>
       </div>
       <div class="p-4 bg-slate-50 border-t border-slate-100 flex justify-end gap-3 shrink-0" style="padding-bottom: max(1rem, env(safe-area-inset-bottom))">
@@ -1022,6 +1031,13 @@
   </div>
 
   <!-- ข่าวดีที่หายเอง (Controller.showToast) บนหน้าขายลอยเหนือแถบตะกร้า -->
+  <!-- เพิ่งใส่แก้วใหม่: บอกว่าเพิ่มอะไร และย้อนกลับได้สี่วินาที (Controller.showAdded / undoAdd) -->
+  <div id="added-bar" class="added-bar hidden" role="status" aria-live="polite">
+    <span id="added-bar-text" data-no-translate></span>
+    <button type="button" onclick="Controller.undoAdd()">ย้อนกลับ</button>
+    <span class="added-bar-line" aria-hidden="true"></span>
+  </div>
+
   <div id="toast-bar" class="toast-bar hidden" role="status" aria-live="polite">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>
     <span id="toast-text"></span>

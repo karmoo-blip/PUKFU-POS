@@ -1662,3 +1662,99 @@ test('the selling and checkout labels are Thai, and the category value stays All
   assert.ok(app.includes("${cat === 'All' ? 'ทั้งหมด' : cat}"), 'โชว์ทั้งหมด แต่ค่าข้างในยังเป็น All');
   assert.ok(app.includes("activeCategory: 'All'"));
 });
+
+// ---- หน้าขายแบบ C ตอนที่สอง: แตะความหวานแล้วใส่ออเดอร์เลย ----
+function fastSetup(opts) {
+  const ctx = loadController({ reducedMotion: true });
+  const { C, document, FakeEl } = ctx;
+  C.sweetnessLevels = [{ name: 'หวานน้อย' }, { name: 'หวานปกติ' }];
+  C.addons = [{ id: 'W', name: 'วิปครีม', price: 10, active: true }];
+  C.menuData = [{ sku: 'TT', name: 'ชาไทย', price: 45 }];
+  C.soldOutItems = [];
+  C.cart = [];
+  C.heldOrders = [];
+  C.flyToCart = () => {};
+  ctx.btns = sweetButtons(document, FakeEl, ['หวานน้อย', 'หวานปกติ']);
+  ctx.btns.forEach(b => {
+    const attrs = {};
+    b.setAttribute = (k, v) => { attrs[k] = String(v); };
+    b.getAttribute = (k) => (k in attrs ? attrs[k] : null);
+    b.removeAttribute = (k) => { delete attrs[k]; };
+  });
+  // addToCartFromModal หาปุ่มที่เลือกด้วย querySelector ตัวจำลองตอบตามปุ่มที่มี data-selected จริง
+  Object.defineProperty(document.__q, '.mod-btn[data-selected="true"]', { get: () => ctx.btns.find(b => b.getAttribute('data-selected') === 'true') || null, configurable: true });
+  return ctx;
+}
+
+test('a new drink opens in quick mode: tapping a sweetness puts it in the order', () => {
+  const { C, el, btns } = fastSetup();
+  C.selectProduct(0);
+  assert.ok(el('modal-more').classes.has('hidden'), 'ท็อปปิ้ง/หมายเหตุพับไว้');
+  assert.ok(el('btn-modal-add-cart').classes.has('hidden'), 'ไม่ต้องกดใส่ออเดอร์อีกที');
+  assert.ok(!el('modal-fast-hint').classes.has('hidden'));
+  C.tapSweetness(btns[0]);
+  assert.equal(C.cart.length, 1);
+  assert.equal(C.cart[0].note, 'ความหวาน: หวานน้อย');
+  assert.ok(!el('added-bar').classes.has('hidden'), 'ต้องบอกว่าเพิ่มแล้ว');
+  assert.equal(el('added-bar-text').innerText, 'เพิ่ม ชาไทย หวานน้อย แล้ว');
+});
+
+test('ย้อนกลับ takes back only the cup that was just added', () => {
+  const { C, el, btns } = fastSetup();
+  C.selectProduct(0); C.tapSweetness(btns[0]);
+  C.selectProduct(0); C.tapSweetness(btns[0]);
+  assert.equal(C.cart[0].qty, 2);
+  C.undoAdd();
+  assert.equal(C.cart[0].qty, 1, 'แก้วที่รวมเข้าแถวเดิมต้องลดหนึ่ง ไม่ใช่หายทั้งแถว');
+  assert.ok(el('added-bar').classes.has('hidden'));
+  C.selectProduct(0); C.tapSweetness(btns[1]);
+  assert.equal(C.cart.length, 2);
+  C.undoAdd();
+  assert.equal(C.cart.length, 1, 'แถวใหม่ต้องหายไปทั้งแถว');
+  assert.equal(C.cart[0].note, 'ความหวาน: หวานน้อย');
+});
+
+test('opening the toppings switches back to pick-then-add', () => {
+  const { C, el, btns } = fastSetup();
+  C.selectProduct(0);
+  C.showMoreOptions();
+  assert.ok(!el('modal-more').classes.has('hidden'));
+  assert.ok(!el('btn-modal-add-cart').classes.has('hidden'));
+  C.tapSweetness(btns[0]);
+  assert.equal(C.cart.length, 0, 'กางตัวเลือกแล้ว แตะความหวานแค่เลือก ยังไม่ใส่');
+});
+
+test('เหมือนครั้งก่อน repeats sweetness, toppings and note in one tap', () => {
+  const { C, el, btns } = fastSetup();
+  C.selectProduct(0);
+  assert.ok(el('modal-again').classes.has('hidden'), 'ยังไม่เคยขาย ไม่มีปุ่ม');
+  C.showMoreOptions();
+  C.toggleAddon('W');
+  el('modal-note').value = 'น้ำแข็งน้อย';
+  C.selectSweetness(btns[0]);
+  C.addToCartFromModal();
+  const first = C.cart[0].note;
+
+  C.selectProduct(0);
+  assert.ok(!el('modal-again').classes.has('hidden'));
+  assert.equal(el('modal-again-sub').innerText, 'หวานน้อย · วิปครีม · น้ำแข็งน้อย');
+  C.addSameAsLast();
+  assert.equal(C.cart.length, 1, 'ชุดเดิมต้องรวมเข้าแถวเดิม');
+  assert.equal(C.cart[0].qty, 2);
+  assert.equal(C.cart[0].note, first);
+});
+
+test('editing a line and a group bill with nobody picked keep the add button', () => {
+  const { C, el } = fastSetup();
+  C.cart = [{ sku: 'TT', name: 'ชาไทย', price: 45, qty: 1, note: 'ความหวาน: หวานน้อย' }];
+  C.editCartItem(0);
+  assert.ok(!el('btn-modal-add-cart').classes.has('hidden'), 'แก้ไขรายการเดิมต้องกดบันทึกเอง');
+  assert.equal(C.productFastMode, false);
+
+  const g = { id: 'G1', name: 'โต๊ะ 3', items: [], lastPerson: null };
+  C.groupBills = [g];
+  C.activeGroupId = 'G1';
+  C.cart = g.items;
+  C.selectProduct(0);
+  assert.equal(C.productFastMode, false, 'ยังไม่รู้ว่าแก้วของใคร ห้ามใส่เอง');
+});
