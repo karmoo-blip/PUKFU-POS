@@ -6782,7 +6782,7 @@ renderReport(r) {
           const t = document.getElementById('edit-bill-bar-title');
           const sub = document.getElementById('edit-bill-bar-sub');
           if (t) t.innerText = label;
-          if (sub) sub.innerText = eb ? eb.invoice + (eb.timestamp ? ' · ' + new Date(eb.timestamp).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '') : '';
+          if (sub) sub.innerText = eb ? eb.invoice + (eb.timestamp ? ' · ' + new Date(eb.timestamp).toLocaleString(this.lang === 'my' ? 'my-MM-u-nu-latn' : 'th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '') : '';
         }
         if (chip) {
           chip.classList.toggle('hidden', !eb);
