@@ -1746,17 +1746,19 @@
 
     /* ช่องรูป: เมนูที่มีรูปจริงรูปจะทับช่องนี้ ที่เหลือวาดรูปแก้วให้จาก drinkArt ใน app.js */
     .pos-th {
-      width: 100%; height: 92px; flex: none;
+      width: 100%; max-width: 100%; aspect-ratio: 4 / 3; flex: none;
       border-radius: var(--r-sm);
       background: var(--color-accent);
       border: 1px solid var(--color-sand);
-      background-size: cover; background-position: center;
+      background-size: cover; background-position: center; background-repeat: no-repeat;
       display: flex; align-items: center; justify-content: center;
       color: var(--color-mute);
       position: relative; overflow: hidden;
     }
-    /* รูปถ่ายที่พื้นหลังโปร่ง ถ้าปล่อยไว้จะเห็นเขียวทะลุขึ้นมา */
-    .pos-th.has-photo { background-color: #fff; border-color: var(--color-fill-2); }
+    /* รูปถ่ายจริงโชว์ทั้งรูป ไม่ซูมจนตัดฝากับก้นแก้วทิ้ง (เจ้าของร้านขอ: เดิม cover ในกล่องเตี้ย 92px ดูไม่ออกว่าเป็นแก้วอะไร)
+       ช่องเป็น 4:3 ให้รูปแนวตั้งยังใหญ่พอ รูปที่แคบกว่าช่องจะมีขอบขาวสองข้าง
+       รูปถ่ายที่พื้นหลังโปร่ง ถ้าปล่อยไว้จะเห็นเขียวทะลุขึ้นมา จึงรองพื้นขาว */
+    .pos-th.has-photo { background-color: #fff; border-color: var(--color-fill-2); background-size: contain; }
     .pos-th svg { width: 36px; height: 36px; }
     .pos-th svg.pos-art { width: 64px; height: 64px; }
     .pos-card.is-out .pos-art { filter: grayscale(1); opacity: .75; }
