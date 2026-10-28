@@ -834,68 +834,97 @@
 
       isCartOpenMobile: false, // สถานะว่าตะกร้าเปิดอยู่ไหม
 
+      // จอเล็ก: ออเดอร์เป็นแผ่นที่เลื่อนเข้ามาจากขวา กว้างราว 88% ของจอ เมนูจางๆ ยังโผล่ทางซ้าย
+      // ตอนปิด เหลือแถบล่าง (ยอด + ดูออเดอร์ + ชำระเงิน) กับแท็บเล็กที่ขอบขวาบอกจำนวนแก้ว
       toggleMobileCart(forceOpen) {
         if (window.innerWidth >= 1024) return; // ถ้าเป็นจอคอมพิวเตอร์ให้ข้ามฟังก์ชันนี้ไป
 
-        this.isCartOpenMobile = forceOpen !== undefined ? forceOpen : !this.isCartOpenMobile;
+        this.isCartOpenMobile = forceOpen !== undefined ? !!forceOpen : !this.isCartOpenMobile;
         const container = document.getElementById('cart-container');
-        const icon = document.getElementById('cart-toggle-icon');
-        container.style.height = ''; // ล้างความสูงที่ตั้งเองไว้ระหว่างลาก (ถ้ามี) ให้คลาสด้านล่างคุมความสูงแทน
+        if (container) {
+          container.style.transform = ''; // ล้างตำแหน่งที่ตั้งเองไว้ระหว่างปัด ให้คลาสคุมแทน
+          container.style.transition = '';
+          container.classList.toggle('is-open', this.isCartOpenMobile);
+        }
+        const scrim = document.getElementById('cart-scrim');
+        if (scrim) scrim.classList.toggle('is-on', this.isCartOpenMobile);
+        this.renderEdgeTab();
+      },
 
-        if (this.isCartOpenMobile) {
-          container.classList.remove('h-[84px]');
-          container.classList.add('h-[65vh]'); // ดึงตะกร้าขึ้นมา 65% ของหน้าจอ
-          icon.innerText = '▼';
-        } else {
-          container.classList.remove('h-[65vh]');
-          container.classList.add('h-[84px]'); // พับเก็บเหลือ 84px
-          icon.innerText = '▲';
+      // ปัดแผ่นออเดอร์ไปทางขวาเพื่อปิด / ดึงแท็บขอบขวามาทางซ้ายเพื่อเปิด
+      // ปัดซ้ายในแผ่นปล่อยไว้ให้รายการ (ลบรายการ) และปัดขึ้นลงปล่อยให้เลื่อนรายการตามปกติ
+      initCartDrag() {
+        const container = document.getElementById('cart-container');
+        const tab = document.getElementById('cart-edge-tab');
+        if (!container || container.dataset.dragInit) return;
+        container.dataset.dragInit = '1';
+
+        let x0 = 0, y0 = 0, dx = 0, mode = null;
+        container.addEventListener('touchstart', (e) => {
+          mode = null; dx = 0;
+          if (window.innerWidth >= 1024 || !this.isCartOpenMobile) return;
+          // แถบชิปที่เลื่อนข้างได้ (บิลกลุ่ม) ต้องเลื่อนได้ ไม่ใช่ปิดแผ่น
+          if (e.target && e.target.closest && e.target.closest('#group-strip')) { mode = 'skip'; return; }
+          x0 = e.touches[0].clientX; y0 = e.touches[0].clientY;
+        }, { passive: true });
+        container.addEventListener('touchmove', (e) => {
+          if (!this.isCartOpenMobile || mode === 'skip' || mode === 'y') return;
+          const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+          if (!mode) {
+            if (Math.abs(mx) < 10 && Math.abs(my) < 10) return;
+            mode = (mx > 0 && Math.abs(mx) > Math.abs(my)) ? 'x' : 'y';
+            if (mode !== 'x') return;
+          }
+          dx = Math.max(0, mx);
+          container.style.transition = 'none';
+          container.style.transform = 'translateX(' + dx + 'px)';
+        }, { passive: true });
+        container.addEventListener('touchend', () => {
+          if (mode !== 'x') { mode = null; return; }
+          mode = null;
+          this.toggleMobileCart(dx < 80); // ปัดไม่ถึงก็เด้งกลับที่เดิม
+        });
+
+        if (tab && !tab.dataset.dragInit) {
+          tab.dataset.dragInit = '1';
+          let tx = 0, opened = false;
+          tab.addEventListener('touchstart', (e) => { tx = e.touches[0].clientX; opened = false; }, { passive: true });
+          tab.addEventListener('touchmove', (e) => {
+            if (!opened && tx - e.touches[0].clientX > 30) { opened = true; this.toggleMobileCart(true); }
+          }, { passive: true });
         }
       },
 
-      // ลากแถบหัวตะกร้าขึ้น/ลงเพื่อกาง/พับตะกร้าบนมือถือ (แตะเฉยๆ ไม่ลาก ยังคงพับ/กางผ่าน onclick เดิมตามปกติ)
-      initCartDrag() {
-        const header = document.getElementById('cart-mobile-header');
-        const container = document.getElementById('cart-container');
-        if (!header || !container || header.dataset.dragInit) return;
-        header.dataset.dragInit = '1';
+      // แท็บเล็กที่ขอบขวา: โผล่เมื่อมีของในออเดอร์และแผ่นออเดอร์ปิดอยู่ บอกจำนวนแก้ว
+      renderEdgeTab() {
+        const tab = document.getElementById('cart-edge-tab');
+        if (!tab) return;
+        const cups = (this.cart || []).reduce((s, i) => s + (Number(i.qty) || 0), 0);
+        tab.classList.toggle('hidden', cups === 0 || this.isCartOpenMobile);
+        tab.classList.toggle('is-edit', !!this.editingBill);
+        const n = document.getElementById('cart-edge-count');
+        if (n) n.innerText = String(cups);
+      },
 
-        let startY = 0, startHeight = 0, dragging = false, moved = false;
-        const minH = 84;
-        const maxH = () => window.innerHeight * 0.65;
-
-        header.addEventListener('touchstart', (e) => {
-          if (window.innerWidth >= 1024) return;
-          startY = e.touches[0].clientY;
-          startHeight = container.getBoundingClientRect().height;
-          dragging = true;
-          moved = false;
-          container.style.transition = 'none';
-          // เอาคลาส h-[84px]/h-[65vh] ออกชั่วคราว (มี !important ใน style.css) จะได้กำหนดความสูงเองผ่าน inline style ตอนลากได้
-          container.classList.remove('h-[84px]', 'h-[65vh]');
-          container.style.height = startHeight + 'px';
-        }, { passive: true });
-
-        header.addEventListener('touchmove', (e) => {
-          if (!dragging) return;
-          const dy = startY - e.touches[0].clientY; // ลากขึ้น = บวก
-          if (Math.abs(dy) > 8) moved = true;
-          if (!moved) return;
-          e.preventDefault();
-          const h = Math.min(maxH(), Math.max(minH, startHeight + dy));
-          container.style.height = h + 'px';
-        }, { passive: false });
-
-        header.addEventListener('touchend', (e) => {
-          if (!dragging) return;
-          dragging = false;
-          container.style.transition = '';
-          if (!moved) return; // แค่แตะเฉยๆ ปล่อยให้ click ที่ตามมาสลับสถานะตามปกติ
-          e.preventDefault(); // กัน click สังเคราะห์ที่ตามมาสลับสถานะซ้ำ
-          const finalH = container.getBoundingClientRect().height;
-          const mid = (minH + maxH()) / 2;
-          this.toggleMobileCart(finalH > mid);
-        }, { passive: false });
+      // แถบล่างบนจอเล็ก: ยอดรวม + ดูออเดอร์ + ชำระเงิน กดจ่ายได้เลยโดยไม่ต้องเปิดออเดอร์
+      renderBottomBar(cups) {
+        const label = document.getElementById('pos-bar-label');
+        const view = document.getElementById('btn-bar-view');
+        const pay = document.getElementById('btn-bar-pay');
+        const eb = this.editingBill;
+        const g = this.activeGroup();
+        if (label) {
+          label.innerText = eb ? this.tf('แก้บิล {x}', eb.queue || eb.invoice)
+            : cups === 0 ? (g ? g.name : this.t('ออเดอร์ว่าง'))
+            : (g ? g.name + ' · ' : '') + this.tf('ออเดอร์ · {x} แก้ว', cups);
+        }
+        if (view) view.classList.toggle('hidden', cups === 0);
+        if (pay) {
+          pay.innerText = eb ? 'บันทึกการแก้ไข' : 'ชำระเงิน';
+          pay.classList.toggle('is-edit', !!eb);
+          pay.classList.toggle('is-primary', !eb);
+          pay.classList.toggle('is-off', cups === 0);
+        }
       },
 
       paymentMode: 'QR',
@@ -6223,7 +6252,9 @@ renderReport(r) {
               ${isSoldOut ? '<span class="pos-th-out">หมด</span>' : ''}
             </div>`;
 
-          const right = isSoldOut ? '' : '<span class="pos-add">+</span>';
+          // จำนวนที่อยู่ในออเดอร์แล้ว มุมขวาบนของการ์ด (โหมดพนักงานดื่ม/ของเสียใช้ป้ายของตัวเองแทน)
+          const inOrder = (mode === 'drink' || mode === 'waste') ? 0 : this.qtyInOrder(item.sku);
+          const qtyBadge = inOrder ? `<span class="pos-qty-badge">${inOrder}</span>` : '';
           // โหมดพนักงานดื่ม/ของเสีย: จำนวนที่บันทึกไปแล้ววันนี้ของเมนูนี้ กดแล้วเลขขึ้นทันที
           const freeCount = (mode === 'drink' || mode === 'waste') ? (freeCounts[mode + '|' + item.sku] || 0) : 0;
           const badge = freeCount ? `<span class="pos-free-badge is-${mode}">×${freeCount}</span>` : '';
@@ -6235,16 +6266,17 @@ renderReport(r) {
 
           return `
             <div onclick="Controller.selectProduct(${originalIdx})" class="${cls}" style="--i:${staggerIdx}" data-menu-idx="${originalIdx}">
-              ${badge}${thumb}
+              ${badge}${qtyBadge}${thumb}
               <div class="pos-body">
                 <p class="pos-name" data-no-translate>${escHtml(this.itemName(item))}</p>
                 <p class="pos-sub">${escHtml(item.lang2 || '')}&nbsp;</p>
               </div>
               ${priceHtml}
-              ${right}
             </div>
           `;
         }).join('');
+
+        this.renderMenuBest();
 
         // reflow ก่อนใส่คลาสใหม่ ไม่งั้นอนิเมชันเล่นแค่ครั้งแรกครั้งเดียว
         // ข้ามได้เมื่อวาดใหม่เพราะเหตุเล็กๆ เช่นกดสินค้าหมดหนึ่งชิ้น ไม่ใช่เพราะเปลี่ยนหมวด
@@ -6252,6 +6284,61 @@ renderReport(r) {
         if (_o.noStagger) return;
         void grid.offsetWidth;
         grid.classList.add('is-entering');
+      },
+
+      // จำนวนแก้วของเมนูนี้ที่อยู่ในออเดอร์ตอนนี้ (ทุกความหวานรวมกัน)
+      qtyInOrder(sku) {
+        if (!sku) return 0;
+        return (this.cart || []).reduce((s, i) => s + (i.sku === sku ? (Number(i.qty) || 0) : 0), 0);
+      },
+
+      // อัปเดตเลขมุมการ์ดหลังเพิ่ม/ลดของ โดยไม่วาดเมนูใหม่ทั้งหน้า (วาดใหม่จะเล่นอนิเมชันการ์ดซ้ำ)
+      updateMenuQtyBadges() {
+        if (this.activeCategory === STAFF_TAB && (this.staffMode === 'drink' || this.staffMode === 'waste')) return;
+        document.querySelectorAll('#menu-grid [data-menu-idx]').forEach(card => {
+          const item = this.menuData[Number(card.dataset.menuIdx)];
+          const q = item ? this.qtyInOrder(item.sku) : 0;
+          let b = card.querySelector('.pos-qty-badge');
+          if (!q) { if (b) b.remove(); return; }
+          if (!b) {
+            b = document.createElement('span');
+            b.className = 'pos-qty-badge';
+            card.insertBefore(b, card.firstChild);
+          }
+          if (b.innerText !== String(q)) { b.innerText = String(q); this.replayClass(b, 'is-bump'); }
+        });
+      },
+
+      // เมนูที่ขายได้มากที่สุดวันนี้ นับจากบิลวันนี้ในเครื่อง (รวมบิลที่ยังรอซิงก์)
+      // บิลที่ยกเลิก รายการที่ยกเลิก และพนักงานดื่ม/ของเสียไม่นับ
+      todaysBestSellers(limit) {
+        const counts = {};
+        [...(this.history || []), ...(this.syncQueue || [])].forEach(o => {
+          if (!o || o.status === 'cancelled' || o.status === 'waste') return;
+          (o.items || []).forEach(it => {
+            if (!it || it.cancelled || !it.sku) return;
+            counts[it.sku] = (counts[it.sku] || 0) + (Number(it.qty) || 0);
+          });
+        });
+        return Object.keys(counts)
+          .map(sku => ({ sku, qty: counts[sku], idx: (this.menuData || []).findIndex(m => m.sku === sku) }))
+          .filter(x => x.idx !== -1 && x.qty > 0)
+          .sort((a, b) => b.qty - a.qty)
+          .slice(0, limit || 6);
+      },
+
+      // แถว "ขายดีวันนี้" เหนือหมวด จอเล็กโชว์ 4 จอใหญ่ 6 (CSS ซ่อนที่เกิน) ยังไม่มีขายก็ซ่อนทั้งแถว
+      renderMenuBest() {
+        const wrap = document.getElementById('menu-best');
+        if (!wrap) return;
+        const list = this.activeCategory === STAFF_TAB ? [] : this.todaysBestSellers(6);
+        wrap.classList.toggle('hidden', list.length === 0);
+        if (!list.length) { wrap.innerHTML = ''; return; }
+        wrap.innerHTML = '<p class="menu-best-h">ขายดีวันนี้</p><div class="menu-best-grid">' + list.map(x => {
+          const item = this.menuData[x.idx];
+          const out = this.soldOutItems.includes(item.name);
+          return `<button type="button" class="menu-best-b${out ? ' is-out' : ''}" onclick="Controller.selectProduct(${x.idx})" data-best-idx="${x.idx}"><b data-no-translate>${escHtml(this.itemName(item))}</b><span>฿${item.price}</span></button>`;
+        }).join('') + '</div>';
       },
 
       selectProduct(idx) {
@@ -6535,10 +6622,14 @@ renderReport(r) {
         if (!sourceEl) return;
         if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
 
-        // ตะกร้าบนจอเล็กคือตัวเลขบนหัวตะกร้า บนจอใหญ่ตัวเลขนั้นถูกซ่อน ใช้ยอดรวมแทน
-        const badge = document.getElementById('cart-badge-mobile');
-        const totalEl = document.getElementById('cart-total');
-        const pick = [badge, totalEl].find(el => el && el.getBoundingClientRect().width > 0);
+        // จอเล็กบินไปที่แท็บขอบขวา (หรือยอดบนแถบล่างถ้ายังไม่มีแท็บ) จอใหญ่บินไปที่ยอดรวมในออเดอร์
+        // แผ่นออเดอร์ที่ปิดอยู่ยังมีขนาดแต่อยู่นอกจอ จึงต้องเช็คว่าอยู่ในจอจริงด้วย
+        const onScreen = el => {
+          if (!el) return false;
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.left >= 0 && r.right <= window.innerWidth + 1;
+        };
+        const pick = [document.getElementById('cart-edge-tab'), document.getElementById('pos-bar-total'), document.getElementById('cart-total')].find(onScreen);
         if (!pick) return;
 
         const from = sourceEl.getBoundingClientRect();
@@ -6730,7 +6821,7 @@ renderReport(r) {
         const totalText = `฿${total.toFixed(2)}`;
         const totalEls = [
           document.getElementById('cart-total'),
-          document.getElementById('cart-total-mobile'),
+          document.getElementById('pos-bar-total'),
         ];
         totalEls.forEach(el => {
           if (!el) return;
@@ -6744,6 +6835,10 @@ renderReport(r) {
         const totalItems = this.cart.reduce((s, i) => s + i.qty, 0);
         const cups = document.getElementById('cart-cups');
         if (cups) cups.innerText = `${totalItems} แก้ว`;
+        this.renderBottomBar(totalItems);
+        this.renderEdgeTab();
+        this.updateMenuQtyBadges();
+        this.renderMenuBest();
         if (badge) {
           if (totalItems > 0) {
             badge.innerText = totalItems;
@@ -7802,13 +7897,13 @@ renderReport(r) {
         });
 
         const totalEl = document.getElementById('cart-total');
-        const totalMobileEl = document.getElementById('cart-total-mobile');
+        const totalMobileEl = document.getElementById('pos-bar-total');
         this.countTo(totalEl, Number(total) || 0, 0, 420, { money: true });
         this.countTo(totalMobileEl, Number(total) || 0, 0, 420, { money: true });
 
         this.replayClass(document.getElementById('cart-container'), 'is-paid');
 
-        // บนมือถือแถบตะกร้าย่ออยู่แค่ 84px เครื่องหมายถูกจะโดนบีบจนดูไม่ออก โชว์เฉพาะตอนที่เห็นตัวตะกร้าจริงๆ
+        // บนมือถือแผ่นออเดอร์ปิดอยู่ก็ไม่ต้องโชว์ เครื่องหมายจะไปอยู่นอกจอ
         const cartBodyVisible = window.innerWidth >= 1024 || this.isCartOpenMobile;
         const mark = document.getElementById('cart-paid-mark');
         if (mark && cartBodyVisible) {
