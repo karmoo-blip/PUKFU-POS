@@ -60,3 +60,23 @@ test('the owner confirm box has no Thai left', async () => {
   asked.forEach(msg => assert.ok(!THAI.test(msg), 'ยังเป็นไทย: ' + msg));
   assert.equal(asked.length, 3);
 });
+
+test('the date on the edit bar uses Burmese months, with 0-9 digits', () => {
+  const { C, el } = burmese();
+  C.editingBill.timestamp = '2026-10-28T12:54:00.000Z';
+  C.renderBillEditBar(120);
+  const sub = el('edit-bill-bar-sub').innerText;
+  assert.ok(!THAI.test(sub), 'ยังเป็นเดือนไทย: ' + sub);
+  assert.ok(/\d/.test(sub), 'ตัวเลขต้องเป็น 0-9 เหมือนส่วนอื่นของแอป: ' + sub);
+});
+
+test('every Thai error the server can send has a Burmese entry', () => {
+  const { C, sandbox } = burmese();
+  const worker = fs.readFileSync(path.join(__dirname, '..', 'worker', 'worker.js'), 'utf8');
+  const errors = [...worker.matchAll(/(?:error|message): (["`])((?:(?!\1).)*)\1/g)]
+    .map(m => m[2].replace(/\$\{[^}]+\}/g, '{n}'))
+    .filter(t => THAI.test(t));
+  assert.ok(errors.length >= 20, 'ต้องเจอข้อความจากเซิร์ฟเวอร์จริง ได้ ' + errors.length);
+  const missing = [...new Set(errors)].filter(t => !sandbox.LANG_MY[t] && !C.lookup(sandbox.LANG_MY, t));
+  assert.deepEqual(missing, []);
+});

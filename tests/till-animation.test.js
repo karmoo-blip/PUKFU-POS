@@ -700,7 +700,9 @@ const ONLY_IN_OTHER_BUILD = [
 test('every key in the dictionary is a Thai string that exists in the app', () => {
   const dict = langDict();
   const app = fs.readFileSync(path.join(__dirname, '..', 'app.js'), 'utf8')
-    + fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+    + fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8')
+    // ข้อความผิดพลาดจากเซิร์ฟเวอร์ขึ้นในหน้าต่างแจ้งเตือนเหมือนกัน จึงเป็นกุญแจได้
+    + fs.readFileSync(path.join(__dirname, '..', 'worker', 'worker.js'), 'utf8');
   // คีย์ที่มี {n} แทนตัวเลข ไม่มีทางเจอตรงๆ ในโค้ด เพราะโค้ดต่อตัวเลขเข้าไปตอนรัน
   // จึงเช็คว่าชิ้นส่วนภาษาไทยรอบๆ {n} ยังมีอยู่จริง
   // เทียบแบบ "เป็นข้อความทั้งก้อน" ไม่ใช่แค่เป็นส่วนหนึ่งของข้อความอื่น
