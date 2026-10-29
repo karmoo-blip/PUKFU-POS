@@ -8292,7 +8292,7 @@ renderReport(r) {
 
         // จังหวะปิดบิล เล่นแบบยิงแล้วลืม ห้ามมี await ในเส้นทางนี้เด็ดขาด
         // เพราะข้างล่างต้องปลดล็อกปุ่ม Confirm Order ให้ทันและต้องเด้งถามพิมพ์บิลต่อทันที
-        this.playBillDone(total, qStr);
+        this.playBillDone(total, qStr, orderData);
 
         // ปุ่มขึ้นติ๊กถูกค้างไว้จนกว่าบล็อก finally ข้างล่างจะคืนเป็น Confirm Order
         // ห้าม await ตรงนี้ ปุ่มกับหน้าต่างถามพิมพ์บิลต้องมาทันในจังหวะเดียวกัน
@@ -8347,7 +8347,7 @@ renderReport(r) {
 
       // ยืนยันสายตาว่าบิลปิดแล้ว: แถวกวาดออก ยอดนับลงศูนย์ ป้ายเลขคิวโผล่ และเครื่องหมายถูกพร้อมวงแหวน
       // ทุกอย่างอยู่ในคอลัมน์ตะกร้า เพราะหน้าต่างถามพิมพ์ใบเสร็จเด้งทับกลางจอในจังหวะเดียวกัน
-      playBillDone(total, queueStr) {
+      playBillDone(total, queueStr, order) {
         const chip = document.getElementById('cart-queue-chip');
         if (chip && queueStr) {
           chip.innerText = 'คิว ' + queueStr;
@@ -8378,23 +8378,71 @@ renderReport(r) {
           this._paidMarkTimer = setTimeout(() => mark.classList.add('hidden'), 1300);
         }
 
-        this.playPaidOverlay(total, queueStr);
+        this.playPaidOverlay(total, queueStr, order);
       },
 
       // แผ่นล้างทั้งจอ อยู่ใต้หน้าต่างถามพิมพ์ใบเสร็จเสมอ (z-40 ต่อ z-50/z-[92]) และไม่รับคลิก
       // พนักงานจึงกดปุ่มพิมพ์บิลได้ทันทีทั้งที่แสงยังเล่นอยู่
-      playPaidOverlay(total, queueStr) {
+      playPaidOverlay(total, queueStr, order) {
         const overlay = document.getElementById('paid-overlay');
         if (!overlay) return;
 
+        const money = `฿${(Number(total) || 0).toFixed(2)}`;
         const qEl = document.getElementById('paid-overlay-queue');
         const totalEl = document.getElementById('paid-overlay-total');
         if (qEl) qEl.innerText = queueStr ? 'คิว ' + queueStr : '';
-        if (totalEl) totalEl.innerText = `รับเงินแล้ว ฿${(Number(total) || 0).toFixed(2)}`;
+        if (totalEl) totalEl.innerText = `รับเงินแล้ว ${money}`;
+
+        // หน้าคาเฟ่: ใบเสร็จกระดาษ เลขคิวตัวใหญ่ ป้ายทองเฉพาะบิลพิเศษ
+        const cafe = this.cafeMotion();
+        const ribbonText = cafe ? this.paidRibbon(order) : '';
+        if (cafe) {
+          const now = new Date();
+          const hhmm = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+          const shop = (this.receiptSettings && this.receiptSettings.header) || 'PUKFU';
+          const set = (id, v) => { const e = document.getElementById(id); if (e) e.innerText = v; };
+          set('paid-receipt-meta', shop + ' · ' + hhmm);
+          set('paid-receipt-queue', queueStr || '');
+          set('paid-receipt-total', money);
+          const rb = document.getElementById('paid-receipt-ribbon');
+          if (rb) { rb.innerText = ribbonText; rb.classList.toggle('hidden', !ribbonText); }
+        }
+        overlay.classList.toggle('is-cafe', cafe);
+        overlay.classList.toggle('has-ribbon', !!ribbonText);
 
         clearTimeout(this._paidOverlayTimer);
         this.replayClass(overlay, 'is-on');
-        this._paidOverlayTimer = setTimeout(() => overlay.classList.remove('is-on'), 1100);
+        if (cafe) {
+          this.cafeAnim(overlay.querySelector('.paid-paper'), [{ transform: 'translateY(-100%)' }, { transform: 'translateY(4%)', offset: .8 }, { transform: 'translateY(0)' }], 520, { easing: 'cubic-bezier(.3,.6,.4,1)' });
+          this.cafeAnim(overlay.querySelector('.paid-stamp'), [{ transform: 'scale(2.4)', opacity: 0 }, { transform: 'scale(.92)', opacity: 1, offset: .7 }, { transform: 'scale(1)', opacity: 1 }], 240, { delay: 540, fill: 'backwards', easing: 'ease-out' });
+          if (ribbonText) this.cafeAnim(document.getElementById('paid-receipt-ribbon'), [{ transform: 'scale(.4)', opacity: 0 }, { transform: 'scale(1.12)', opacity: 1, offset: .7 }, { transform: 'scale(1)' }], 300, { delay: 760, fill: 'backwards' });
+        }
+        const ms = !cafe ? 1100 : ribbonText ? 2000 : 1400;
+        this._paidOverlayTimer = setTimeout(() => overlay.classList.remove('is-on'), ms);
+      },
+
+      // ป้ายทองบนใบเสร็จ: บิลแรกของวัน หรือบิลที่ทำให้ยอดแก้ววันนี้ข้ามทุกๆ 50 แก้ว ไม่ใช่ก็คืนค่าว่าง
+      // นับจากบิลวันนี้ในเครื่อง (รวมที่รอซิงก์) ไม่นับบิลยกเลิกกับพนักงานดื่ม/ของเสีย
+      paidRibbon(order) {
+        if (!order) return '';
+        const today = new Date().toDateString();
+        const seen = new Set();
+        let bills = 0;
+        let cups = 0;
+        [...(this.syncQueue || []), ...(this.history || [])].forEach(o => {
+          if (!o || seen.has(o.invoice)) return;
+          seen.add(o.invoice);
+          if (o.status === 'cancelled' || o.status === 'waste') return;
+          if (new Date(o.timestamp).toDateString() !== today) return;
+          bills++;
+          (o.items || []).forEach(it => { if (!it.cancelled) cups += Number(it.qty) || 0; });
+        });
+        if (!seen.has(order.invoice)) return '';
+        if (bills === 1) return this.t('บิลแรกของวัน · เปิดร้านแล้ว!');
+        const mine = (order.items || []).reduce((s, it) => s + (it.cancelled ? 0 : Number(it.qty) || 0), 0);
+        const step = 50;
+        if (Math.floor(cups / step) > Math.floor((cups - mine) / step)) return this.tf('แก้วที่ {x} ของวันนี้!', Math.floor(cups / step) * step);
+        return '';
       },
 
       // ป้ายเลขคิวค้างไว้จนกว่าจะเริ่มบิลใหม่ พนักงานจะได้ยังเรียกคิวได้หลังหน้าต่างพิมพ์บิลปิดไปแล้ว
