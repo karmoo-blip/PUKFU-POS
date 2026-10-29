@@ -9601,7 +9601,8 @@ renderReport(r) {
         let html = '';
         for (const h of sorted) {
           const off = h.status === 'cancelled' || h.status === 'waste';
-          html += '<div data-invoice="' + escAttr(h.invoice) + '" class="py-4' + (off ? ' opacity-60' : '') + '">';
+          // is-cancelled ให้หน้าคาเฟ่ประทับตรา "ยกเลิก" บนต้นขั้ว
+          html += '<div data-invoice="' + escAttr(h.invoice) + '" class="py-4' + (off ? ' opacity-60' : '') + (h.status === 'cancelled' ? ' is-cancelled' : '') + '">';
           html += '<div class="flex justify-between items-center gap-2 cursor-pointer lg:cursor-default" onclick="Controller.toggleHistoryDetail(this)">';
           html += '<div class="min-w-0"><p class="history-inv font-bold text-secondary' + (off ? ' line-through' : '') + '">' + h.invoice + '</p>';
           html += '<p class="text-xs text-slate-400 mt-0.5">' + new Date(h.timestamp).toLocaleString() + (h.cashier ? ' · ' + escHtml(h.cashier) : '') + '</p>';
@@ -9682,7 +9683,7 @@ renderReport(r) {
           const isWaste = h.status === 'waste';
           
           return `
-          <div data-invoice="${escAttr(h.invoice)}" class="py-4 ${isCancelled || isWaste ? 'opacity-60' : ''}">
+          <div data-invoice="${escAttr(h.invoice)}" class="py-4 ${isCancelled || isWaste ? 'opacity-60' : ''}${isCancelled ? ' is-cancelled' : ''}">
             <div class="flex justify-between items-center gap-2 cursor-pointer lg:cursor-default" onclick="Controller.toggleHistoryDetail(this)">
               <div class="min-w-0">
                 <p class="history-inv font-bold text-secondary ${isCancelled || isWaste ? 'line-through' : ''}">${h.invoice}</p>
