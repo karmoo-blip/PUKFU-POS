@@ -1379,7 +1379,7 @@
         document.head.appendChild(link);
       },
 
-      // จอเล็กมีปุ่มเดียว กดแล้วสลับไปอีกภาษา
+      // สวิตช์ในเมนูชื่อพนักงาน: เปิด = พม่า ปิด = ไทย
       toggleLang() {
         this.setLang(this.lang === 'my' ? 'th' : 'my');
       },
@@ -1388,11 +1388,12 @@
         document.querySelectorAll('[data-lang-btn]').forEach(btn => {
           btn.classList.toggle('is-on', btn.dataset.langBtn === this.lang);
         });
-        // ปุ่มกลมบนจอเล็กมีปุ่มเดียว ถ้าไม่เปลี่ยนหน้าตาเลยคนกดจะไม่รู้ว่าติดหรือยัง
-        document.querySelectorAll('.lang-toggle').forEach(btn => {
-          btn.classList.toggle('is-on', this.lang === 'my');
-          btn.setAttribute('title', this.lang === 'my' ? 'ဘာသာစကား / ภาษา' : 'ภาษา / ဘာသာစကား');
-        });
+        // สวิตช์ในเมนูชื่อพนักงาน ต้องบอกให้เห็นว่าเปิดอยู่หรือไม่ ไม่งั้นกดแล้วเหมือนไม่มีอะไรเกิดขึ้น
+        const sw = document.getElementById('menu-lang');
+        if (sw) {
+          sw.classList.toggle('is-on', this.lang === 'my');
+          sw.setAttribute('aria-checked', String(this.lang === 'my'));
+        }
       },
 
       // แปลเฉพาะกิ่งที่เพิ่งเปลี่ยน ไม่ใช่ทั้งหน้าทุกครั้ง หน้าขายวาดตะกร้าใหม่ทุกครั้งที่กดบวกลบ
@@ -9414,6 +9415,8 @@ renderReport(r) {
         const backdrop = document.getElementById('user-menu-backdrop');
         const chevron = document.getElementById('user-menu-chevron');
         const opening = dropdown.classList.contains('hidden');
+        // สวิตช์ภาษาในเมนูนี้มีคำพม่าเสมอ เครื่องที่ไม่มีฟอนต์พม่าจะเห็นเป็นกล่องเปล่า โหลดฟอนต์ไว้ตั้งแต่เปิดเมนู
+        if (opening) this.ensureMyanmarFont();
         dropdown.classList.toggle('hidden', !opening);
         backdrop.classList.toggle('hidden', !opening);
         if (chevron) chevron.style.transform = opening ? 'rotate(180deg)' : '';

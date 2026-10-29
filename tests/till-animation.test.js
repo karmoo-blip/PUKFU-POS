@@ -771,32 +771,35 @@ test('text with a number in it still translates, because most of the till screen
     'คำที่ไม่รู้จักต้องคืน null แล้วปล่อยให้เป็นไทยตามเดิม');
 });
 
-test('the one-button switch shows whether it is on, or pressing it looks like nothing happened', () => {
+test('the language switch in the name menu shows whether Burmese is on', () => {
   const { C, document: d, FakeEl } = langController();
-  const toggle = new FakeEl('globe');
-  toggle.dataset = {};
-  d.__qa['.lang-toggle'] = [toggle];
+  const sw = new FakeEl('menu-lang');
+  sw.dataset = {};
+  sw.attrs = {};
+  sw.setAttribute = (k, v) => { sw.attrs[k] = String(v); };
   d.__qa['[data-lang-btn]'] = [];
+  const getById = d.getElementById;
+  d.getElementById = (id) => (id === 'menu-lang' ? sw : getById.call(d, id));
 
   C.lang = 'my';
   C.renderLangSwitch();
-  assert.ok(toggle.classes.has('is-on'), 'เปิดพม่าอยู่ ปุ่มต้องบอกว่าติด');
+  assert.ok(sw.classes.has('is-on'), 'เปิดพม่าอยู่ สวิตช์ต้องเปิด');
+  assert.equal(sw.attrs['aria-checked'], 'true');
 
   C.lang = 'th';
   C.renderLangSwitch();
-  assert.ok(!toggle.classes.has('is-on'));
+  assert.ok(!sw.classes.has('is-on'));
+  assert.equal(sw.attrs['aria-checked'], 'false');
 });
 
-test('the top bar still fits a phone after the language button went in', () => {
-  const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
-  const phone = css.slice(css.indexOf('@media (max-width: 1023px)', css.indexOf('.lang-toggle')));
-  const block = phone.slice(0, phone.indexOf('\n    }'));
-
-  assert.ok(block.includes('.langsw-nav [data-lang-btn] { display: none; }'),
-    'ชิปสองภาษากว้าง 108px แถบบนบนมือถือไม่มีที่พอ ดันทั้งหน้ากว้างเกินจอ');
-  assert.ok(block.includes('.langsw-nav .lang-toggle'), 'จอเล็กต้องเหลือปุ่มกลมปุ่มเดียวแทน');
-  assert.ok(block.includes('.nav-status-word { display: none; }'),
-    'คำว่า STATUS เป็นของประดับ จุดสีบอกสถานะอยู่แล้ว จอเล็กต้องคืนที่ตรงนี้ให้แถบบน');
+test('the language switch lives in the name menu, not the top bar; the lock screen keeps its own', () => {
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const nav = html.slice(html.indexOf('<nav '), html.indexOf('</nav>'));
+  assert.ok(!nav.includes('data-lang-btn') && !nav.includes('toggleLang'), 'แถบบนต้องไม่มีปุ่มภาษาแล้ว');
+  const menu = html.slice(html.indexOf('id="user-menu-dropdown"'));
+  assert.ok(menu.indexOf('id="menu-lang"') !== -1 && menu.indexOf('id="menu-lang"') < menu.indexOf('Controller.lockApp()'), 'สวิตช์อยู่ในเมนูชื่อ เหนือปุ่มล็อก');
+  const lock = html.slice(html.indexOf('id="pin-lock-screen"'), html.indexOf('id="pin-stage"'));
+  assert.ok(lock.includes("data-lang-btn=\"my\"") || lock.includes('data-lang-btn="my"'), 'หน้าล็อกยังสลับภาษาได้ก่อนใส่ PIN');
 });
 
 test('the language switch sits on the lock screen, before anyone can log in', () => {
@@ -804,8 +807,8 @@ test('the language switch sits on the lock screen, before anyone can log in', ()
   const lock = html.slice(html.indexOf('id="pin-lock-screen"'), html.indexOf('id="pin-lock-screen"') + 900);
   assert.ok(lock.includes('data-lang-btn'),
     'คนที่อ่านไทยไม่ออกหาเมนูตั้งค่าไม่เจอ ปุ่มต้องอยู่ตรงที่เห็นก่อนใส่ PIN');
-  assert.equal((html.match(/data-lang-btn="my"/g) || []).length, 2,
-    'มีสองที่: หน้าล็อกกับแถบบนหน้าขาย');
+  assert.equal((html.match(/data-lang-btn="my"/g) || []).length, 1,
+    'ชิปสองภาษาเหลือที่หน้าล็อกที่เดียว หลังเข้าแล้วใช้สวิตช์ในเมนูชื่อพนักงาน');
 });
 
 test('switching language re-measures the category underline, which changes width', () => {
@@ -1795,4 +1798,14 @@ test('the swipe hint shows on touch screens until three swipe-deletes', () => {
   assert.equal(C.showSwipeHint(), false);
   const css = fs.readFileSync(path.join(__dirname, '..', 'style.css'), 'utf8');
   assert.match(css, /\.pos-line \{ position: relative; overflow: hidden;/, 'ป้ายลบต้องซ่อนอยู่ใต้แถว');
+});
+
+test('opening the name menu loads the Burmese font, so the switch label never shows empty boxes', () => {
+  const { C, el } = loadController({});
+  el('user-menu-dropdown').classList.add('hidden'); // เมนูปิดอยู่ กดแล้วคือเปิด
+  let loaded = 0;
+  C.ensureMyanmarFont = () => { loaded++; };
+  C.positionUserMenu = () => {};
+  try { C.toggleUserMenu(); } catch (e) { /* ตัวช่วยทดสอบอาจไม่มีทุกชิ้นของเมนู */ }
+  assert.equal(loaded, 1);
 });
