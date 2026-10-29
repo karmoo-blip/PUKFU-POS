@@ -1104,6 +1104,8 @@
     <div class="relative bg-white rounded-t-3xl lg:rounded-2xl shadow-xl w-full lg:max-w-md flex flex-col overflow-hidden max-h-[90vh]">
       <div class="lg:hidden absolute top-2 left-1/2 -translate-x-1/2 w-10 h-1.5 rounded-full bg-white/50 z-10" aria-hidden="true"></div>
       <div class="p-5 bg-gradient-to-b from-primary to-secondary text-white font-bold text-xl text-center rounded-t-3xl lg:rounded-t-2xl shrink-0"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg> ชำระเงิน</div>
+      <!-- หน้าคาเฟ่: ลิ้นชักเก็บเงินเลื่อนออกมาใต้หัวตอนเลือกเงินสด (ของประดับ หน้าเรียบไม่โชว์) -->
+      <div id="checkout-till" class="checkout-till" aria-hidden="true"><div class="checkout-till-tray"><i></i><i></i><i></i><i></i><i></i></div></div>
       <div class="p-6 overflow-y-auto flex-1">
         <!-- บิลกลุ่ม: ชื่อบิลและคนที่กำลังจ่าย (Controller.startCheckout) -->
         <p id="checkout-for" class="hidden text-center text-sm font-black mb-2" style="color:var(--color-group)" data-no-translate></p>
@@ -1116,6 +1118,9 @@
 
         <div id="checkout-payment-methods" class="flex flex-wrap gap-2 mb-6"></div>
 
+        <!-- หน้าคาเฟ่: ป้ายตั้งโต๊ะตอนจ่าย QR เป็นรูปประดับพร้อมยอด ไม่ใช่ QR จริงของร้าน (Controller.renderCheckoutStand) -->
+        <div id="checkout-stand" class="checkout-stand hidden" aria-hidden="true"></div>
+
         <div id="checkout-numpad" class="hidden">
           <div class="flex justify-between items-center bg-slate-50 p-3 rounded-xl mb-3 border border-slate-100">
             <span class="text-slate-500 font-bold text-sm">รับมา</span>
@@ -1124,7 +1129,7 @@
               <button onclick="Controller.numpad('C')" class="text-xs font-bold text-red-400 hover:text-red-600 hover:underline">ล้างทั้งหมด</button>
             </span>
           </div>
-          <div class="flex justify-between items-center bg-red-50 p-3 rounded-xl mb-3 text-red-500 min-h-[4rem]">
+          <div id="cash-change-box" class="flex justify-between items-center bg-red-50 p-3 rounded-xl mb-3 text-red-500 min-h-[4rem]">
             <span id="cash-change-label" class="font-bold text-base">เงินทอน</span>
             <span id="cash-change" class="cash-change-big">0</span>
           </div>
@@ -1132,11 +1137,11 @@
           <!-- แบงก์ที่ลูกค้ายื่นมา กดแล้วบวกเพิ่ม ไม่ใช่แทนที่ ยื่นร้อยสองใบก็กดร้อยสองที -->
           <div class="grid grid-cols-3 gap-2 mb-3">
             <button onclick="Controller.setExactCash()" class="cash-note is-exact">เต็มจำนวน</button>
-            <button onclick="Controller.addCash(20)" class="cash-note">฿20</button>
-            <button onclick="Controller.addCash(50)" class="cash-note">฿50</button>
-            <button onclick="Controller.addCash(100)" class="cash-note">฿100</button>
-            <button onclick="Controller.addCash(500)" class="cash-note">฿500</button>
-            <button onclick="Controller.addCash(1000)" class="cash-note">฿1,000</button>
+            <button onclick="Controller.addCash(20)" class="cash-note is-n20">฿20</button>
+            <button onclick="Controller.addCash(50)" class="cash-note is-n50">฿50</button>
+            <button onclick="Controller.addCash(100)" class="cash-note is-n100">฿100</button>
+            <button onclick="Controller.addCash(500)" class="cash-note is-n500">฿500</button>
+            <button onclick="Controller.addCash(1000)" class="cash-note is-n1000">฿1,000</button>
           </div>
 
           <div class="grid grid-cols-3 gap-2 mb-2">

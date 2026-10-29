@@ -7403,8 +7403,44 @@ renderReport(r) {
         const row = document.querySelector(`#cart-items [data-cart-idx="${idx}"]`);
         const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
         if (!row || reduced) return Promise.resolve();
+        // หน้าคาเฟ่: ลบทันที แถวที่ขยำเป็นสำเนาที่เล่นทับอยู่ข้างบน ไม่ต้องรอ
+        if (this.cafeMotion()) { this.crumpleCartLine(row); return Promise.resolve(); }
         row.classList.add('cart-line-out');
         return new Promise(resolve => setTimeout(resolve, 140));
+      },
+
+      // สำเนาแถวถูกขยำเป็นก้อนกระดาษ แล้วก้อนกระดาษเด้งตกหายไปด้านล่าง เป็นของประดับล้วน
+      crumpleCartLine(row) {
+        const r = row.getBoundingClientRect();
+        if (!r.width || typeof row.animate !== 'function') return;
+        const ghost = row.cloneNode(true);
+        ghost.removeAttribute('data-cart-idx');
+        ghost.className = 'cart-crumple';
+        Object.assign(ghost.style, { left: r.left + 'px', top: r.top + 'px', width: r.width + 'px', height: r.height + 'px' });
+        document.body.appendChild(ghost);
+        const squash = ghost.animate([
+          { transform: 'scale(1)', opacity: 1, borderRadius: '0' },
+          { transform: 'scale(.55, .3) rotate(-10deg)', opacity: .9, borderRadius: '30%', offset: .55 },
+          { transform: 'scale(.12) rotate(-40deg)', opacity: 0, borderRadius: '50%' }
+        ], { duration: 260, easing: 'ease-in' });
+        const drop = () => {
+          ghost.remove();
+          const ball = document.createElement('span');
+          ball.className = 'cart-paper-ball';
+          ball.style.left = (r.left + r.width * 0.62) + 'px';
+          ball.style.top = (r.top + r.height / 2 - 14) + 'px';
+          document.body.appendChild(ball);
+          const fall = Math.max(200, window.innerHeight - r.top);
+          const a = ball.animate([
+            { transform: 'translate(0,0) rotate(0)' },
+            { transform: 'translate(14px,-26px) rotate(160deg)', offset: .25 },
+            { transform: `translate(46px, ${fall}px) rotate(620deg)` }
+          ], { duration: 760, easing: 'cubic-bezier(.4,0,.9,.5)' });
+          a.onfinish = () => ball.remove();
+          a.oncancel = () => ball.remove();
+        };
+        squash.onfinish = drop;
+        squash.oncancel = () => ghost.remove();
       },
 
       async removeFromCart(idx) {
@@ -8051,6 +8087,13 @@ renderReport(r) {
 
         const numpad = document.getElementById('checkout-numpad');
 
+        // หน้าคาเฟ่: ลิ้นชักเปิดตอนเงินสด ป้ายตั้งโต๊ะตอน QR (CSS ซ่อนทั้งคู่ในหน้าเรียบ)
+        const modal = document.getElementById('modal-checkout');
+        const wasCash = !!(modal && modal.classList.contains('is-cash'));
+        if (modal) modal.classList.toggle('is-cash', !!method.isCash);
+        if (method.isCash && !wasCash) this.jingleCoins();
+        this.renderCheckoutStand(method);
+
         if (method.isCash) {
           // เล่นจังหวะโผล่เฉพาะตอนแป้นเพิ่งเปิดจริงๆ กดปุ่มเงินสดซ้ำไม่ต้องเล่นใหม่
           const wasHidden = numpad.classList.contains('hidden');
@@ -8066,6 +8109,54 @@ renderReport(r) {
           submitBtn.classList.remove('is-short');
           this.setSubmitButtonState('idle');
         }
+      },
+
+      // เหรียญเด้งออกจากลิ้นชักสี่เหรียญตอนลิ้นชักเปิด
+      jingleCoins() {
+        const till = document.getElementById('checkout-till');
+        if (!till || !this.cafeMotion()) return;
+        for (let i = 0; i < 4; i++) {
+          const c = document.createElement('span');
+          c.className = 'checkout-coin';
+          c.style.left = (38 + i * 8) + '%';
+          till.appendChild(c);
+          const a = this.cafeAnim(c, [
+            { transform: 'translateY(0)', opacity: 1 },
+            { transform: `translate(${(i - 1.5) * 10}px, -26px)`, offset: .4 },
+            { transform: `translate(${(i - 1.5) * 16}px, 14px)`, opacity: 0 }
+          ], 520, { delay: 120 + i * 40, easing: 'ease-out', fill: 'backwards' });
+          if (a) { a.onfinish = () => c.remove(); a.oncancel = () => c.remove(); } else c.remove();
+        }
+      },
+
+      // ป้ายตั้งโต๊ะเฉพาะวิธีที่ชื่อเป็น QR/พร้อมเพย์ ลวดลายวาดขึ้นเองพร้อมยอด ไม่ใช่ QR ของร้าน
+      renderCheckoutStand(method) {
+        const box = document.getElementById('checkout-stand');
+        if (!box) return;
+        const isQr = !method.isCash && /qr|พร้อมเพย์|promptpay|สแกน/i.test(String(method.name || ''));
+        box.classList.toggle('hidden', !isQr);
+        if (!isQr) return;
+        const total = document.getElementById('checkout-total');
+        box.innerHTML = '<div class="checkout-stand-card">' + this.standPattern()
+          + '<b>' + escHtml(total ? total.innerText : '') + '</b><small>ให้ลูกค้าสแกนจ่าย</small></div>';
+        this.cafeAnim(box.firstChild, [{ transform: 'scale(.6) rotate(-6deg)', opacity: 0 }, { transform: 'scale(1.05) rotate(1deg)', opacity: 1 }, { transform: 'scale(1)' }], 300);
+      },
+
+      standPattern() {
+        if (this._standSvg) return this._standSvg;
+        let r = '';
+        let seed = 7;
+        for (let y = 0; y < 29; y++) {
+          for (let x = 0; x < 29; x++) {
+            const fx = x % 22, fy = y % 22;
+            const finder = (x < 7 || x > 21) && (y < 7 || y > 21) && !(x > 21 && y > 21);
+            seed = (seed * 9301 + 49297) % 233280;
+            const on = finder ? (fx === 0 || fx === 6 || fy === 0 || fy === 6 || (fx > 1 && fx < 5 && fy > 1 && fy < 5)) : seed / 233280 > 0.55;
+            if (on) r += `<rect x="${x}" y="${y}" width="1" height="1"/>`;
+          }
+        }
+        this._standSvg = '<svg viewBox="0 0 29 29" shape-rendering="crispEdges" fill="#2b1d14" aria-hidden="true">' + r + '</svg>';
+        return this._standSvg;
       },
 
       numpad(val) {
@@ -8094,6 +8185,11 @@ renderReport(r) {
         const changeVal = change >= 0 ? change : 0;
         // รับมาแล้วแต่ไม่พอ ช่องเงินทอนบอกว่าขาดอีกเท่าไร แทนที่จะโชว์ 0 เฉยๆ ให้คนเดาเอง
         const short = received > 0 && change < 0;
+        const changeBox = document.getElementById('cash-change-box');
+        if (changeBox) {
+          changeBox.classList.toggle('is-short', short);
+          changeBox.classList.toggle('is-enough', received > 0 && !short);
+        }
         const changeLabel = document.getElementById('cash-change-label');
         if (changeLabel) changeLabel.innerText = short ? 'ขาดอีก' : 'เงินทอน';
         const changeEl = document.getElementById('cash-change');
