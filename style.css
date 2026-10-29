@@ -2336,3 +2336,29 @@
     html.look-cafe #modal-checkout .bg-gradient-to-b.from-primary { background: var(--color-primary); font-family: var(--cafe-hand); position: relative; z-index: 2; }
     /* ยอดเงินในหน้าต่างจ่ายเป็น h3 แต่ต้องคงตัวเลข Sarabun ไม่ใช่ลายมือ */
     html.look-cafe #checkout-total { font-family: 'Sarabun', 'Noto Sans Myanmar', sans-serif; }
+
+    /* ===== หน้าตาคาเฟ่ ขั้นที่ 4: จังหวะจ่ายแล้ว =====
+       แผ่นเดิม (#paid-overlay) ยังอยู่ใต้หน้าต่างถามพิมพ์และไม่รับคลิก หน้าคาเฟ่แค่เปลี่ยนของข้างในเป็นใบเสร็จ */
+    .paid-receipt { display: none; }
+    /* ขึ้นเหนือม่านเบลอของหน้าต่างถามพิมพ์ (z-[95]) ไม่งั้นเลขคิวเบลอจนอ่านไม่ออก ยังไม่รับคลิกเหมือนเดิม
+       วางช่วงบนของจอทุกขนาด การ์ดคำถามอยู่กลางจอจึงไม่โดนบัง */
+    #paid-overlay.is-cafe { z-index: 96; background: none; justify-content: flex-start; padding-top: 70px; }
+    #paid-overlay.is-cafe .paid-ring-wrap,
+    #paid-overlay.is-cafe #paid-overlay-queue,
+    #paid-overlay.is-cafe #paid-overlay-total { display: none; }
+    #paid-overlay.is-cafe .paid-receipt { display: grid; justify-items: center; }
+    #paid-overlay.is-cafe.is-on { animation-duration: 1.4s; }
+    #paid-overlay.is-cafe.has-ribbon.is-on { animation-duration: 2s; }
+    .paid-slot { width: 280px; height: 14px; border-radius: 8px; background: #2b1d14; box-shadow: 0 2px 0 #000; position: relative; z-index: 2; }
+    .paid-clip { width: 266px; overflow: hidden; margin-top: -6px; }
+    .paid-paper {
+      background: #fffdf7; padding: 18px 18px 28px; display: grid; gap: 4px; justify-items: center;
+      filter: drop-shadow(0 6px 8px rgba(0, 0, 0, .18));
+      clip-path: polygon(0 0, 100% 0, 100% 94%, 95% 100%, 90% 94%, 85% 100%, 80% 94%, 75% 100%, 70% 94%, 65% 100%, 60% 94%, 55% 100%, 50% 94%, 45% 100%, 40% 94%, 35% 100%, 30% 94%, 25% 100%, 20% 94%, 15% 100%, 10% 94%, 5% 100%, 0 94%);
+    }
+    .paid-paper small { font-size: 13px; font-weight: 700; color: var(--color-mute); }
+    .paid-paper b { font-family: var(--cafe-hand); font-size: 76px; line-height: 1; color: var(--color-mustard); font-weight: 700; }
+    .paid-amtrow { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 800; color: var(--color-secondary); }
+    .paid-stamp { border: 3px solid #2f8a4f; color: #2f8a4f; border-radius: 8px; padding: 0 8px; font-family: var(--cafe-hand); font-size: 18px; rotate: -12deg; background: rgba(255, 253, 247, .85); }
+    .paid-ribbon { margin-top: 8px; white-space: nowrap; background: var(--cafe-gold); color: var(--color-secondary); font-family: var(--cafe-hand); font-size: 15px; padding: 3px 12px; border-radius: 4px; rotate: -2deg; }
+    .paid-ribbon.hidden { display: none; }

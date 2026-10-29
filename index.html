@@ -1090,6 +1090,18 @@
     </div>
     <div id="paid-overlay-queue" class="text-3xl font-black text-secondary"></div>
     <div id="paid-overlay-total" class="text-sm font-bold text-ink"></div>
+    <!-- หน้าคาเฟ่: ใบเสร็จพิมพ์ออกจากช่อง ประทับ "จ่ายแล้ว" (Controller.playPaidOverlay) หน้าเรียบใช้วงติ๊กถูกข้างบนแทน -->
+    <div class="paid-receipt">
+      <div class="paid-slot"></div>
+      <div class="paid-clip">
+        <div class="paid-paper">
+          <small id="paid-receipt-meta"></small>
+          <b id="paid-receipt-queue" data-no-translate></b>
+          <span class="paid-amtrow"><span id="paid-receipt-total"></span><span class="paid-stamp">จ่ายแล้ว</span></span>
+          <span id="paid-receipt-ribbon" class="paid-ribbon hidden"></span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- บิลกลุ่ม: จ่ายทั้งบิลหรือแยกจ่ายรายคน เนื้อหาวาดโดย Controller.renderGroupPayChoice / renderSplitPicker -->
