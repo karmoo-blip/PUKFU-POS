@@ -2431,3 +2431,51 @@
       html.look-cafe .sales-sec.sales-sec-bar { background: none; box-shadow: none; }
       html.look-cafe #sales-hero-sec, html.look-cafe #sales-top-sec { margin: 0; border: 10px solid #8a6446; border-radius: 8px; background-color: #24332b; }
     }
+
+    /* ===== หน้าตาคาเฟ่ ขั้นที่ 6: ตั้งค่า สต๊อก แท็บพนักงาน ===== */
+
+    /* หน้าแรกของตั้งค่าบนมือถือ: การ์ดสูตรอาหารแถวละสองใบ ชื่ออยู่เหนือเส้นแดง จอใหญ่เมนูข้างยังเป็นรายการ */
+    @media (max-width: 1023.98px) {
+      html.look-cafe #settings-shell.is-home .set-nav-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+      html.look-cafe #settings-shell.is-home .set-nav-title { grid-column: 1 / -1; margin: 6px 0 -2px 2px; }
+      html.look-cafe #settings-shell.is-home .set-nav-item + .set-nav-item { margin-top: 0; }
+      html.look-cafe #settings-shell.is-home .set-nav-item {
+        position: relative; display: block; min-height: 92px; padding: 12px; border-radius: 6px; white-space: normal;
+        background-color: var(--cafe-paper);
+        background-image: repeating-linear-gradient(0deg, transparent 0 21px, rgba(80, 120, 170, .12) 21px 22px);
+        background-position: 0 44px; background-repeat: no-repeat; background-size: 100% calc(100% - 44px);
+      }
+      html.look-cafe #settings-shell.is-home .set-nav-item:nth-child(odd) { rotate: .7deg; }
+      html.look-cafe #settings-shell.is-home .set-nav-item:nth-child(even) { rotate: -.8deg; }
+      html.look-cafe #settings-shell.is-home .set-nav-ic { float: left; width: 22px; height: 22px; margin-right: 8px; color: var(--color-primary); }
+      html.look-cafe #settings-shell.is-home .set-nav-label {
+        display: block; overflow: visible; white-space: normal; padding: 1px 22px 6px 0; border-bottom: 2px solid rgba(200, 85, 61, .7);
+        font-family: var(--cafe-hand); font-size: 16px; line-height: 1.3;
+      }
+      html.look-cafe #settings-shell.is-home .set-nav-chev { display: none; }
+      html.look-cafe #settings-shell.is-home .set-nav-count { position: absolute; top: 10px; right: 10px; margin: 0; }
+    }
+
+    /* สต๊อก: โหลเล็กเติมตามระดับ ของใกล้หมดโหลแดงส่ายตัว มีป้ายใกล้หมด และหมายเหตุแดงบนสุด หน้าเรียบไม่โชว์ทั้งหมด */
+    .inv-jar, .inv-low-tag, .inv-low-note { display: none; }
+    html.look-cafe .inv-jar {
+      display: block; position: relative; width: 34px; height: 42px; flex: none; overflow: hidden; transform-origin: 50% 100%;
+      border: 2.5px solid rgba(43, 29, 20, .6); border-top-width: 6px; border-radius: 6px 6px 11px 11px; background: rgba(255, 255, 255, .6);
+    }
+    html.look-cafe .inv-jar i { position: absolute; left: 0; right: 0; bottom: 0; background: #c9a27a; }
+    html.look-cafe .inv-low .inv-jar { border-color: #b3261e; animation: jar-wobble 1.6s ease-in-out infinite; }
+    html.look-cafe .inv-low .inv-jar i { background: #e48b82; }
+    html.look-cafe .inv-low-tag { display: inline-block; background: #b3261e; color: #fff; border-radius: 4px; font-size: 12px; font-weight: 800; padding: 1px 6px; }
+    html.look-cafe .inv-low-note:not(.hidden) { display: block; margin: 12px 0 4px; background: #fbe7e1; color: #a8402a; border-radius: 6px; padding: 10px 12px; font-weight: 800; font-size: 15px; }
+    @keyframes jar-wobble { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-4deg); } 75% { transform: rotate(4deg); } }
+
+    /* แท็บพนักงาน: ตราประทับบนการ์ด */
+    .free-stamp {
+      position: absolute; left: 50%; top: 28%; translate: -50% 0; z-index: 3; pointer-events: none;
+      border: 3px solid var(--color-staff-drink); color: var(--color-staff-drink); border-radius: 8px; padding: 0 10px;
+      font-family: var(--cafe-hand); font-size: 28px; line-height: 1.3; background: rgba(255, 250, 240, .8);
+    }
+    .free-stamp.is-waste { border-color: var(--color-danger); color: var(--color-danger); }
+    @media (prefers-reduced-motion: reduce) { html.look-cafe .inv-low .inv-jar { animation: none; } }
+    /* "1 แก้ววันนี้" ยาวกว่ายอดเงิน ตัวใหญ่เท่ายอดเงินแล้วชนป้ายบรรทัดบน */
+    html.look-cafe .pos-bottom-bar.is-free #pos-bar-total { font-size: 24px; line-height: 1.25; }
