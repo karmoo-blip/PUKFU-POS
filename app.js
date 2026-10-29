@@ -1071,6 +1071,7 @@
         this.checkIosInstallBanner();
         this.watchInstallPrompt();
         this.initLang();
+        this.applyLook();
         this.initAutoRefresh();
         // ปิดรับออเดอร์ออนไลน์: ซ่อนทางเข้าในเมนูใต้ชื่อพนักงานด้วย ไม่งั้นกดแล้วเงียบ
         if (!this.onlineOrderEnabled()) {
@@ -1264,6 +1265,47 @@
       // ไม่ต้องไปไล่เรียก applyLang ตามหลังทุกจุดที่วาด
       lang: 'th',
       _langNodes: null,
+
+      // หน้าตาแอป เก็บแยกเครื่อง: 'cafe' (ค่าเริ่มต้น) หรือ 'plain' = หน้าตาเดิม
+      // ลดการเคลื่อนไหวก็เก็บแยกเครื่องเหมือนกัน เครื่องช้าเครื่องเดียวไม่ต้องพาทุกเครื่องช้าตาม
+      lookSetting() {
+        try { return localStorage.getItem('pos_look') === 'plain' ? 'plain' : 'cafe'; } catch (e) { return 'cafe'; }
+      },
+
+      calmSetting() {
+        try { return localStorage.getItem('pos_calm') === '1'; } catch (e) { return false; }
+      },
+
+      applyLook() {
+        const root = document.documentElement;
+        root.classList.toggle('look-cafe', this.lookSetting() === 'cafe');
+        root.classList.toggle('calm', this.calmSetting());
+      },
+
+      setLook(look) {
+        try { localStorage.setItem('pos_look', look === 'plain' ? 'plain' : 'cafe'); } catch (e) { /* จำไม่ได้ก็ยังเปลี่ยนรอบนี้ */ }
+        this.applyLook();
+        this.renderSettingsNav();
+      },
+
+      toggleCalm() {
+        try { localStorage.setItem('pos_calm', this.calmSetting() ? '0' : '1'); } catch (e) { /* จำไม่ได้ก็ยังเปลี่ยนรอบนี้ */ }
+        this.applyLook();
+        this.renderSettingsNav();
+      },
+
+      lookCardHtml() {
+        const look = this.lookSetting();
+        const calm = this.calmSetting();
+        return '<div class="look-card"><p class="set-nav-title" style="margin:10px 0 0">หน้าตา</p>'
+          + '<div class="look-row"><span class="look-row-t">หน้าตาแอป<small>เฉพาะเครื่องนี้</small></span>'
+          + '<span class="look-seg" role="group">'
+          + ['cafe', 'plain'].map(k => `<button type="button" onclick="Controller.setLook('${k}')" class="${k === look ? 'is-on' : ''}" aria-pressed="${k === look}">${k === 'cafe' ? 'คาเฟ่' : 'เรียบ'}</button>`).join('')
+          + '</span></div>'
+          + '<div class="look-row"><span class="look-row-t">ลดการเคลื่อนไหว<small>ปิดภาพเคลื่อนไหว เหมาะกับเครื่องช้า</small></span>'
+          + `<button type="button" onclick="Controller.toggleCalm()" class="look-switch${calm ? ' is-on' : ''}" role="switch" aria-checked="${calm}" aria-label="ลดการเคลื่อนไหว"></button></div>`
+          + '</div>';
+      },
 
       initLang() {
         const saved = localStorage.getItem('pos_lang');
@@ -1601,7 +1643,7 @@
       // ไม่ reload เอง เพราะตะกร้ายังไม่ได้ persist ไว้ อัปเดตกลางบิลรายการจะหาย
       APP_UPDATE_URL: 'https://karmoo-blip.github.io/PUKFU-POS/app-update/latest.json',
       // ไฟล์ที่ต้องได้ของใหม่ตอนกดอัปเดตบนเว็บ (ชุดเดียวกับ APP_SHELL ใน sw.js ส่วนที่เปลี่ยนทุก deploy)
-      APP_SHELL_FILES: ['./', './index.html', './app.js', './app-version.js', './style.css', './pure-helpers.js', './lang-my.js'],
+      APP_SHELL_FILES: ['./', './index.html', './app.js', './app-version.js', './style.css', './fonts-mali.css', './pure-helpers.js', './lang-my.js'],
       APP_UPDATE_BUNDLE_PREFIX: 'https://karmoo-blip.github.io/PUKFU-POS/app-update/',
       APP_UPDATE_APK_PREFIX: 'https://github.com/karmoo-blip/PUKFU-POS/releases/download/',
       APP_UPDATE_AUTO_MS: 30 * 60 * 1000,
@@ -3064,7 +3106,7 @@
         const allowed = this.currentSettingsUser ? this.getAllowedTabs(this.currentSettingsUser) : null;
         const counts = { notifications: this.bellCounts ? this.bellCounts().expired.length + this.bellCounts().soon.length : 0 };
 
-        let html = '';
+        let html = this.lookCardHtml();
         for (const group of this.SETTINGS_GROUPS) {
           const items = group.items.filter(i => (!allowed || allowed.includes(i.tab)) && !(i.hidden && i.hidden()));
           if (items.length === 0) continue;

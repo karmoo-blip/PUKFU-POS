@@ -2,6 +2,15 @@
 <html lang="en">
 <head>
   <script>
+    /* หน้าตาแอปต้องติดก่อนวาดหน้าแรก ไม่งั้นเห็นหน้าเรียบแวบหนึ่งแล้วค่อยเปลี่ยน (ตัวจริงอยู่ที่ Controller.applyLook) */
+    (function () {
+      var look = 'cafe', calm = false;
+      try { look = localStorage.getItem('pos_look') === 'plain' ? 'plain' : 'cafe'; calm = localStorage.getItem('pos_calm') === '1'; } catch (e) { /* ใช้ค่าเริ่มต้น */ }
+      if (look === 'cafe') document.documentElement.classList.add('look-cafe');
+      if (calm) document.documentElement.classList.add('calm');
+    })();
+  </script>
+  <script>
     (function () {
       /* อ่านค่าตั้งค่า API จาก hash (#setupApiUrl=...&setupApiKey=...) เป็นหลัก
          เพราะ hash ไม่ถูกส่งไปกับ request / referrer และไม่ขึ้นใน server log
@@ -70,6 +79,8 @@
     }
   </script>
   <link rel="stylesheet" href="style.css">
+  <!-- ลายมือของหน้าตาแบบคาเฟ่ ฝังในไฟล์ ใช้ได้ตอนออฟไลน์ -->
+  <link rel="stylesheet" href="fonts-mali.css">
 </head>
 <body class="font-sarabun bg-cream h-[100dvh] flex flex-col overflow-hidden text-ink">
 
