@@ -155,8 +155,6 @@
       <button onclick="Controller.switchView('pos')" class="flex items-center gap-2 hover:opacity-75 transition-opacity">
         <h1 class="text-xl font-bold text-secondary">PUKFU</h1>
       </button>
-      <!-- สลับภาษาอยู่ตรงนี้เพราะคนที่อ่านไทยไม่ออกหาเมนูตั้งค่าไม่เจอ ถ้าซ่อนไว้ในนั้นก็เท่ากับไม่มี -->
-      <div class="langsw langsw-nav"><button type="button" data-lang-btn="th" onclick="Controller.setLang('th')" class="is-on">ไทย</button><button type="button" data-lang-btn="my" onclick="Controller.setLang('my')" lang="my">မြန်မာ</button><button type="button" class="lang-toggle" onclick="Controller.toggleLang()" title="ภาษา / ဘာသာစကား" aria-label="สลับภาษา ไทย หรือ พม่า"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg></button></div>
     </div>
 
     <div class="flex items-center gap-4">
@@ -189,6 +187,12 @@
     <button id="menu-staff-sale" onclick="Controller.toggleUserMenu(); Controller.openStaffSale()" class="hidden w-full flex items-center justify-between text-left px-4 py-3 text-sm font-bold hover:bg-accent transition" style="color:var(--color-mustard)"><span>ขายราคาพนักงาน</span><span id="menu-staff-sale-price" class="text-xs font-bold" style="color:var(--color-mute)"></span></button>
     <button onclick="Controller.toggleUserMenu(); Controller.openSettings()" class="w-full text-left px-4 py-3 text-sm font-bold text-secondary hover:bg-accent transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/></svg> ตั้งค่า</button>
     <button id="user-menu-printer-btn" onclick="Controller.toggleUserMenu(); Controller.togglePrinterFromUserMenu()" class="w-full text-left px-4 py-3 text-sm font-bold text-secondary hover:bg-accent transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="8" rx="2"/><path d="M7 14h10v7H7z"/></svg> เชื่อมต่อเครื่องพิมพ์</button>
+    <!-- สลับภาษาย้ายจากแถบบนมาไว้ที่นี่ ชื่อเขียนสองภาษาเสมอ คนที่อ่านไทยไม่ออกก็หาเจอ (หน้าล็อกยังมีปุ่มของตัวเอง) -->
+    <button id="menu-lang" type="button" role="switch" aria-checked="false" onclick="Controller.toggleLang()" class="lang-row">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 2.5 15.3 0 18M12 3c-2.5 2.7-2.5 15.3 0 18"/></svg>
+      <span class="lang-row-t" data-no-translate><span>ภาษาพม่า</span><small lang="my">မြန်မာဘာသာ</small></span>
+      <span class="lang-row-sw" aria-hidden="true"></span>
+    </button>
     <div class="border-t border-sand"></div>
     <button onclick="Controller.toggleUserMenu(); Controller.lockApp()" class="w-full text-left px-4 py-3 text-sm font-bold text-red-500 hover:bg-red-50 transition"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="width:1em;height:1em;display:inline-block;vertical-align:-0.125em;flex:none"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg> ออกจากระบบ</button>
   </div>

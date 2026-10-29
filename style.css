@@ -1633,22 +1633,23 @@
     #pin-lock-screen .langsw button.is-on { background: var(--color-cream); color: var(--color-primary); }
     .lock-langsw { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 16px; z-index: 2; }
 
-    /* แถบบนบนมือถือไม่มีที่พอจะใส่ชิปสองภาษา (ชื่อร้าน + ชิป + ชื่อคนขาย + กระดิ่ง + สถานะ
-       รวมกันแล้วกว้างกว่าจอ ดันหน้าทั้งหน้าให้เลื่อนไปทางขวาได้)
-       จอเล็กจึงเหลือปุ่มกลมปุ่มเดียว กดสลับไปมา ส่วนชิปที่เป็นคำเต็มยังอยู่บนหน้าล็อกซึ่งมีที่เหลือเฟือ */
-    .lang-toggle { display: none; }
-    .lang-toggle svg { width: 19px; height: 19px; }
+    /* แถบบนบนมือถือไม่มีที่พอ คำว่า STATUS เป็นของประดับ จุดสีบอกสถานะอยู่แล้ว */
     @media (max-width: 1023px) {
-      .langsw-nav { background: none; padding: 0; }
-      .langsw-nav [data-lang-btn] { display: none; }
-      .langsw-nav .lang-toggle {
-        display: inline-flex; align-items: center; justify-content: center;
-        width: 36px; height: 36px; padding: 0; border: none; border-radius: var(--r-pill);
-        background: var(--color-fill); color: var(--color-primary);
-      }
-      .langsw-nav .lang-toggle.is-on { background: var(--color-secondary); color: #ffffff; }
       .nav-status-word { display: none; }
     }
+
+    /* สวิตช์ภาษาในเมนูชื่อพนักงาน (ย้ายมาจากแถบบน) เปิด = พม่า */
+    .lang-row {
+      width: 100%; display: flex; align-items: center; gap: 8px; text-align: left;
+      padding: 10px 16px; background: var(--color-fill); border: 0; font-family: inherit; color: var(--color-secondary);
+    }
+    .lang-row svg { width: 1em; height: 1em; flex: none; }
+    .lang-row-t { flex: 1; display: grid; line-height: 1.25; font-size: 14px; font-weight: 700; }
+    .lang-row-t small { font-family: 'Noto Sans Myanmar', 'Sarabun', sans-serif; font-size: 12px; font-weight: 700; color: var(--color-mute); }
+    .lang-row-sw { width: 46px; height: 26px; flex: none; border-radius: 99px; background: var(--color-line); position: relative; transition: background-color .15s ease; }
+    .lang-row-sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: left .15s ease; }
+    .lang-row.is-on .lang-row-sw { background: var(--color-primary); }
+    .lang-row.is-on .lang-row-sw::after { left: 23px; }
 
     /* ตัวพม่าไม่มีใน Sarabun ต้องยืม Noto Sans Myanmar มาเฉพาะช่วงตัวอักษรพม่า
        ตัวเลขกับตัวละตินยังเป็น Sarabun เหมือนเดิม เพราะ unicode-range ในไฟล์ฟอนต์กันไว้ให้แล้ว */
@@ -2162,10 +2163,6 @@
     html.look-cafe .pos-line-slide { background: #fffdf6; }
     html.look-cafe .nav-chip { background: rgba(246, 236, 217, .12); border-color: rgba(246, 236, 217, .3); color: #f6ecd9; }
     html.look-cafe .nav-chip:hover { background: rgba(246, 236, 217, .22); }
-    html.look-cafe body > nav .langsw { background: rgba(246, 236, 217, .12); }
-    html.look-cafe body > nav .langsw button { color: #f6ecd9; }
-    html.look-cafe body > nav .langsw button.is-on,
-    html.look-cafe .langsw-nav .lang-toggle.is-on { background: var(--cafe-gold); color: var(--color-secondary); }
     html.look-cafe main { padding-top: 6px; }
 
     /* การ์ดเมนูเป็นป้ายกระดาษแปะเทป เอียงนิดๆ สลับซ้ายขวา */
