@@ -2229,7 +2229,8 @@
 
     /* ตั้งค่า: ปุ่มเมนูเป็นการ์ดกระดาษ */
     html.look-cafe .set-nav-item { background: var(--cafe-paper); border: 0; box-shadow: var(--sh-1); }
-    html.look-cafe .set-nav-item.is-on { box-shadow: inset 4px 0 0 var(--color-mustard), var(--sh-1); }
+    /* เมนูที่เลือกอยู่เป็นป้ายเขียวตัวหนังสือครีม (พื้นกระดาษข้างบนทับพื้นเขียวเดิมจนตัวหนังสือขาวหายไป) */
+    html.look-cafe .set-nav-item.is-on { background: var(--color-primary); color: #f6ecd9; box-shadow: inset 4px 0 0 var(--color-mustard), var(--sh-1); }
 
     /* การ์ดหน้าตาแอปบนสุดของหน้าตั้งค่า (ทั้งสองหน้าตาใช้) */
     .look-card { background: #fff; border: 1px solid var(--color-sand); border-radius: var(--r-md); padding: 4px 14px; margin-bottom: 18px; }
@@ -2362,3 +2363,71 @@
     .paid-stamp { border: 3px solid #2f8a4f; color: #2f8a4f; border-radius: 8px; padding: 0 8px; font-family: var(--cafe-hand); font-size: 18px; rotate: -12deg; background: rgba(255, 253, 247, .85); }
     .paid-ribbon { margin-top: 8px; white-space: nowrap; background: var(--cafe-gold); color: var(--color-secondary); font-family: var(--cafe-hand); font-size: 15px; padding: 3px 12px; border-radius: 4px; rotate: -2deg; }
     .paid-ribbon.hidden { display: none; }
+
+    /* ===== หน้าตาคาเฟ่ ขั้นที่ 5: ประวัติกับหน้ายอดขาย ===== */
+
+    /* ประวัติ: ต้นขั้วเสียบหมุดแดงไว้บนสุด บิลยกเลิกโดนตราแดง บิลใหม่ตกลงมาแกว่งเข้าที่ */
+    html.look-cafe #history-list { position: relative; padding-top: 22px; }
+    html.look-cafe #history-list::before {
+      content: ''; position: absolute; top: 2px; left: 50%; width: 14px; height: 14px; margin-left: -7px; z-index: 2;
+      border-radius: 50%; background: var(--color-mustard); box-shadow: inset -2px -2px 0 rgba(0, 0, 0, .2), 0 10px 0 -5px #8a8a8a;
+    }
+    html.look-cafe #history-list > .is-cancelled { position: relative; }
+    html.look-cafe #history-list > .is-cancelled::after {
+      content: 'ยกเลิก'; position: absolute; right: 96px; top: 28px; rotate: -10deg; pointer-events: none;
+      border: 3px solid #b3261e; color: #b3261e; border-radius: 6px; padding: 0 8px;
+      font-family: var(--cafe-hand); font-size: 20px; line-height: 1.4; background: rgba(255, 253, 247, .7);
+    }
+    html.look-cafe body.lang-my #history-list > .is-cancelled::after { content: 'ပယ်ဖျက်'; font-family: 'Noto Sans Myanmar', sans-serif; font-size: 16px; }
+    html.look-cafe #history-list .is-fresh {
+      animation: history-stub-drop .52s cubic-bezier(.3, .7, .4, 1);
+      overflow: visible;
+    }
+    @keyframes history-stub-drop {
+      0%   { transform: translateY(-60px) rotate(-8deg); opacity: 0; }
+      55%  { transform: translateY(6px) rotate(3deg); opacity: 1; }
+      80%  { transform: translateY(-2px) rotate(-1deg); }
+      100% { transform: none; }
+    }
+
+    /* หน้ายอดขาย: ยอดของวันกับเมนูขายดีเขียนบนกระดานดำกรอบไม้ ตัวเลขยังเป็น Sarabun */
+    html.look-cafe #sales-hero-sec,
+    html.look-cafe #sales-top-sec {
+      position: relative; margin: 12px; border: 10px solid #8a6446; border-radius: 8px; color: #eef0e6;
+      background-color: #24332b; background-image: radial-gradient(rgba(255, 255, 255, .05) 1px, transparent 1px); background-size: 6px 6px;
+      box-shadow: 0 8px 0 #5a3e2a, inset 0 0 30px rgba(0, 0, 0, .35);
+    }
+    html.look-cafe #sales-hero-sec::after {
+      content: ''; position: absolute; right: 14px; bottom: -16px; width: 46px; height: 10px; rotate: -6deg;
+      border-radius: 3px; background: #f4f1e6; box-shadow: 0 2px 2px rgba(0, 0, 0, .3);
+    }
+    html.look-cafe #sales-hero-sec .sales-label,
+    html.look-cafe #sales-top-sec .sales-sec-t { font-family: var(--cafe-hand); font-size: 16px; letter-spacing: 0; text-transform: none; color: rgba(238, 240, 230, .85); }
+    html.look-cafe #sales-hero-sec .sales-hero { color: #ffe08a; text-shadow: 0 0 1px rgba(255, 224, 138, .6); }
+    html.look-cafe #sales-hero-sec .sales-fact { color: rgba(238, 240, 230, .85); }
+    html.look-cafe #sales-hero-sec .sales-fact b { color: #fff; }
+    html.look-cafe #sales-top-sec .sales-row-lab { font-family: var(--cafe-hand); color: #eef0e6; }
+    html.look-cafe #sales-top-sec .sales-row-extra { color: rgba(238, 240, 230, .7); }
+    html.look-cafe #sales-top-sec .sales-row-val { color: #fff; }
+    html.look-cafe #sales-top-sec .sales-row-track { background: none; }
+    html.look-cafe #sales-top-sec .sales-row-fill {
+      background: repeating-linear-gradient(90deg, #ffe08a 0 6px, transparent 6px 9px); border-radius: 3px;
+      filter: drop-shadow(0 0 1px rgba(255, 224, 138, .6)); transform-origin: 0 50%;
+      animation: chalk-draw .48s ease-out backwards;
+    }
+    html.look-cafe #sales-top-sec .sales-row:nth-child(2) .sales-row-fill { animation-delay: .09s; }
+    html.look-cafe #sales-top-sec .sales-row:nth-child(3) .sales-row-fill { animation-delay: .18s; }
+    html.look-cafe #sales-top-sec .sales-row:nth-child(4) .sales-row-fill { animation-delay: .27s; }
+    html.look-cafe #sales-top-sec .sales-row:nth-child(n+5) .sales-row-fill { animation-delay: .36s; }
+    html.look-cafe #sales-top-sec .sales-empty { color: rgba(238, 240, 230, .7); }
+    @keyframes chalk-draw { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+    @media (prefers-reduced-motion: reduce) {
+      html.look-cafe #history-list .is-fresh, html.look-cafe #sales-top-sec .sales-row-fill { animation: none; }
+    }
+    /* ส่วนอื่นของหน้ายอดขายเป็นกระดาษ (จอกว้างแตกเป็นการ์ดสองคอลัมน์ กระดานไม่ต้องเว้นขอบเพิ่ม) */
+    html.look-cafe .sales-box { background: var(--color-fill); border-color: var(--color-fill-2); }
+    @media (min-width: 1024px) {
+      html.look-cafe .sales-sec { background: var(--cafe-paper); border-color: transparent; box-shadow: var(--sh-1); border-radius: var(--r-md); }
+      html.look-cafe .sales-sec.sales-sec-bar { background: none; box-shadow: none; }
+      html.look-cafe #sales-hero-sec, html.look-cafe #sales-top-sec { margin: 0; border: 10px solid #8a6446; border-radius: 8px; background-color: #24332b; }
+    }
