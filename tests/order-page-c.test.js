@@ -118,3 +118,16 @@ test('a menu photo shows whole in a 4:3 box, never cropped', () => {
   assert.match(css, /\.pos-th \{[^}]*aspect-ratio: 4 \/ 3;/, 'ช่องรูปต้องสูงพอสำหรับรูปแนวตั้ง');
   assert.match(css, /\.pos-th\.has-photo \{[^}]*background-size: contain;/, 'รูปจริงต้องเห็นทั้งรูป ไม่ถูกตัด');
 });
+
+test('paying from inside the open order on a phone closes the order first, so payment is on top', async () => {
+  const { C, sandbox } = setup();
+  sandbox.window.innerWidth = 390;
+  C.cart = [{ sku: 'LAT', name: 'ลาเต้เย็น', price: 40, qty: 1, note: '' }];
+  C.toggleMobileCart(true);
+  assert.equal(C.isCartOpenMobile, true);
+  let opened = false;
+  C.startCheckout = () => { opened = true; };
+  await C.openCheckout();
+  assert.equal(C.isCartOpenMobile, false, 'แผ่นออเดอร์ต้องปิด ไม่งั้นบังหน้าต่างจ่ายเงิน');
+  assert.equal(opened, true);
+});
