@@ -2444,6 +2444,27 @@
           .getInventoryData();
       },
 
+      // ระดับในโหลของหน้าคาเฟ่ แอปไม่มีค่า "เต็ม" หรือ "ใกล้หมด" ให้ จึงอิงหน่วยซื้อ (ถุง/ขวด) ที่ตั้งไว้:
+      // สองหน่วยซื้อขึ้นไป = เต็มโหล เหลือไม่ถึงหนึ่งหน่วยซื้อ = ใกล้หมด
+      // ไม่ได้ตั้งหน่วยซื้อ: เต็มโหลถ้ายังมีของ หมดแล้ว (ศูนย์หรือติดลบ) = ใกล้หมด
+      stockJar(item) {
+        const stock = Number(item && item.stock) || 0;
+        const factor = Number(item && item.purchase_factor) || 0;
+        if (factor > 0 && item.purchase_unit) {
+          const pct = Math.max(0, Math.min(100, Math.round(stock / (factor * 2) * 100)));
+          return { pct, low: stock < factor };
+        }
+        return stock > 0 ? { pct: 100, low: false } : { pct: 0, low: true };
+      },
+
+      renderInventoryLowNote() {
+        const box = document.getElementById('inventory-low-note');
+        if (!box) return;
+        const low = (this.inventoryData || []).filter(it => this.stockJar(it).low).map(it => it.name);
+        box.classList.toggle('hidden', low.length === 0);
+        box.innerText = low.length ? this.tf('ใกล้หมด {x} อย่าง: {x}', low.length, low.join(', ')) : '';
+      },
+
       filterInventoryList(q) {
         this.inventorySearchQuery = q;
         this.renderInventory();
@@ -2483,12 +2504,17 @@
            return;
         }
 
-        list.innerHTML = entries.map(({ item, idx }) => `
-          <div class="border-b border-slate-100 lg:grid lg:items-center lg:gap-3 lg:grid-cols-[1fr_6rem_6rem_6rem_6rem_6rem]">
+        this.renderInventoryLowNote();
+        list.innerHTML = entries.map(({ item, idx }) => {
+          const jar = this.stockJar(item);
+          return `
+          <div class="border-b border-slate-100 lg:grid lg:items-center lg:gap-3 lg:grid-cols-[1fr_6rem_6rem_6rem_6rem_6rem]${jar.low ? ' inv-low' : ''}">
             <div class="p-4 flex items-center justify-between gap-2 hover:bg-slate-50 transition-colors">
               <div class="min-w-0 flex-1 flex items-center flex-wrap gap-x-2 gap-y-1" onclick="event.stopPropagation()">
+                <span class="inv-jar" aria-hidden="true"><i style="height:${jar.pct}%"></i></span>
                 ${item.photo ? `<img src="${escHtml(item.photo)}" class="w-8 h-8 rounded-lg object-cover">` : ''}
                 <p class="font-bold text-secondary text-lg truncate">${escHtml(item.name)}</p>
+                ${jar.low ? '<span class="inv-low-tag">ใกล้หมด</span>' : ''}
                 <span id="inv-stock-preview-${idx}" class="lg:hidden text-xs text-slate-400 font-bold">${
                   item.purchase_unit && Number(item.purchase_factor) > 0
                     ? this._formatStockForUnit(item.stock, Number(item.purchase_factor)) + ' ' + escHtml(item.purchase_unit) + ' คงเหลือ'
@@ -2541,7 +2567,8 @@
               </div>
             </div>
           </div>
-        `).join('');
+        `;
+        }).join('');
       },
 
       // คืนรายการแจ้งเตือนที่หมดอายุแล้ว/ใกล้หมดอายุ (ไม่รวมที่ปิดแจ้งเตือนไว้ชั่วคราว) ใช้ทั้งเรนเดอร์แบนเนอร์และปุ่มปิดแจ้งเตือน
@@ -7801,11 +7828,28 @@ renderReport(r) {
         this.renderFreeList();
         const srcIdx = this.menuData.findIndex(m => m.sku === item.sku);
         if (srcIdx !== -1) this.replayClass(document.querySelector(`#menu-grid [data-menu-idx="${srcIdx}"]`), 'card-added');
+        if (srcIdx !== -1) this.stampFree(document.querySelector(`#menu-grid [data-menu-idx="${srcIdx}"]`), kind);
         // แถบเดียวกับตอนใส่แก้วปกติ ย้อนกลับได้ภายในเวลาที่แถบยังอยู่ (สั้นกว่า FREE_UNDO_MS ไม่ต้องใส่ PIN)
         this.showAdded(item.sku, '', '');
         this.lastAdded = { freeId: id };
         const text = document.getElementById('added-bar-text');
         if (text) text.innerText = this.tf('บันทึก{x} · {x}', this.t(STAFF_MODES[kind].note), this.itemName(item));
+      },
+
+      // หน้าคาเฟ่: ตรา "ฟรี!" (หรือ "เสีย" สำหรับของเสีย) ประทับบนการ์ดหนึ่งวิแล้วหายไป
+      stampFree(card, kind) {
+        if (!card || !this.cafeMotion()) return;
+        const st = document.createElement('span');
+        st.className = 'free-stamp is-' + kind;
+        st.innerText = kind === 'waste' ? this.t('เสีย') : this.t('ฟรี!');
+        card.appendChild(st);
+        const a = this.cafeAnim(st, [
+          { transform: 'rotate(-14deg) scale(2.2)', opacity: 0 },
+          { transform: 'rotate(-14deg) scale(.9)', opacity: 1, offset: .3 },
+          { transform: 'rotate(-14deg) scale(1)', opacity: 1, offset: .8 },
+          { transform: 'rotate(-14deg) scale(1)', opacity: 0 }
+        ], 1000, { easing: 'ease-out' });
+        if (a) { a.onfinish = () => st.remove(); a.oncancel = () => st.remove(); } else st.remove();
       },
 
       saveFreeUnsent() {
