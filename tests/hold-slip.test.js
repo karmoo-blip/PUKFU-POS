@@ -84,3 +84,26 @@ test('a failed print leaves the cups unprinted so the slip still comes out at pa
   assert.ok(alerts.some(a => a.includes('พิมพ์ไม่สำเร็จ')));
   assert.equal(C.slipItems(C.heldOrders[0])[0].qty, 2);
 });
+
+test('holding a group bill asks too, prints the next round, and skips cups already printed', async () => {
+  const h = setup();
+  const { C } = h;
+  const g = { id: 'G1', name: 'โต๊ะ 3', slipRound: 1, items: [
+    { sku: 'LAT', name: 'ลาเต้เย็น', price: 65, qty: 2, slipPrintedQty: 1, person: 'นัท' },
+    { sku: 'TEA', name: 'ชาไทย', price: 60, qty: 1, slipPrintedQty: 1, person: 'บอล' },
+  ] };
+  C.groupBills = [g];
+  C.activeGroupId = 'G1';
+  C.cart = g.items;
+  C.holdCurrentOrder();
+  await settle();
+  assert.equal(C.activeGroupId, null, 'บิลกลุ่มถูกพักเหมือนเดิม');
+  assert.equal(C.groupBills.length, 1);
+  assert.deepEqual(h.sent, [{ title: 'โต๊ะ 3 · รอบที่ 2', items: [['ลาเต้เย็น', 1]] }]);
+  assert.equal(g.slipRound, 2);
+  C.activeGroupId = 'G1';
+  C.cart = g.items;
+  C.holdCurrentOrder();
+  await settle();
+  assert.equal(h.questions.length, 1, 'ไม่มีแก้วใหม่ ไม่ต้องถาม');
+});
