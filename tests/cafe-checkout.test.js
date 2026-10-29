@@ -48,9 +48,23 @@ test('cash opens the till drawer, QR shows the stand, other methods show neither
   assert.ok(!el('modal-checkout').classList.contains('is-cash'));
   assert.ok(!el('checkout-stand').classList.contains('hidden'));
   assert.ok(el('checkout-stand').innerHTML.includes('฿175.00'));
-  assert.ok(el('checkout-stand').innerHTML.includes('ให้ลูกค้าสแกนจ่าย'));
+  assert.ok(el('checkout-stand').innerHTML.includes('ยังไม่ได้ตั้งรูป QR ของร้าน'), 'ยังไม่มีรูป QR ต้องบอกตรงๆ');
+  assert.ok(!el('checkout-stand').innerHTML.includes('<rect x="7"'), 'ห้ามมีลายที่ดูเหมือน QR จริง');
   C.setPaymentMode('tr');
   assert.ok(el('checkout-stand').classList.contains('hidden'), 'โอนไม่ใช่ QR ไม่ต้องมีป้าย');
+});
+
+test('the stand shows the shop\'s real payment QR when one is saved', () => {
+  const { C, el } = setup(['look-cafe']);
+  C.setSubmitButtonState = () => {};
+  C.updateCashUI = () => {};
+  C.shopInfo = { paymentQrImage: 'data:image/png;base64,QUJD' };
+  el('checkout-total').innerText = '฿60.00';
+  C.setPaymentMode('qr');
+  const html = el('checkout-stand').innerHTML;
+  assert.ok(html.includes('<img src="data:image/png;base64,QUJD"'), html);
+  assert.ok(html.includes('ให้ลูกค้าสแกนจ่าย'));
+  assert.ok(html.includes('฿60.00'));
 });
 
 test('the change box is plain before cash, red while short, green once enough', () => {

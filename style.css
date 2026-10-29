@@ -2314,7 +2314,10 @@
     /* ป้ายตั้งโต๊ะ QR (รูปประดับ) */
     html.look-cafe .checkout-stand:not(.hidden) { display: grid; justify-items: center; margin: -8px 0 18px; }
     .checkout-stand-card { width: 190px; background: #fff; border-radius: 10px; padding: 14px; display: grid; justify-items: center; gap: 6px; box-shadow: 0 10px 0 #8a6446, 0 14px 18px -8px rgba(0, 0, 0, .35); }
-    .checkout-stand-card svg { width: 130px; height: 130px; }
+    .checkout-stand-card { width: 210px; }
+    .checkout-stand-card img { width: 170px; height: 170px; object-fit: contain; display: block; }
+    .checkout-stand-empty { width: 170px; height: 170px; display: grid; place-items: center; border: 2px dashed var(--color-line); border-radius: 8px; color: #b9a98d; }
+    .checkout-stand-empty svg { width: 70px; height: 70px; }
     .checkout-stand-card b { font-size: 20px; color: var(--color-secondary); }
     .checkout-stand-card small { font-size: 13px; font-weight: 700; color: var(--color-mute); }
 

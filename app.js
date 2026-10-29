@@ -8173,7 +8173,9 @@ renderReport(r) {
         }
       },
 
-      // ป้ายตั้งโต๊ะเฉพาะวิธีที่ชื่อเป็น QR/พร้อมเพย์ ลวดลายวาดขึ้นเองพร้อมยอด ไม่ใช่ QR ของร้าน
+      // ป้ายตั้งโต๊ะเฉพาะวิธีที่ชื่อเป็น QR/พร้อมเพย์: ใช้รูป QR จริงของร้าน (ข้อมูลร้าน รูปเดียวกับหน้าสั่งออนไลน์)
+      // ลูกค้าสแกนจากจอได้เลย ร้านที่ยังไม่ได้ตั้งรูป หรือเครื่องนี้เก็บรูปไม่ได้ (แคชเต็ม) โชว์ไอคอนแทน
+      // ห้ามวาดลายที่หน้าตาเหมือน QR จริง ลูกค้าจะสแกนแล้วจ่ายไม่ได้
       renderCheckoutStand(method) {
         const box = document.getElementById('checkout-stand');
         if (!box) return;
@@ -8181,26 +8183,13 @@ renderReport(r) {
         box.classList.toggle('hidden', !isQr);
         if (!isQr) return;
         const total = document.getElementById('checkout-total');
-        box.innerHTML = '<div class="checkout-stand-card">' + this.standPattern()
-          + '<b>' + escHtml(total ? total.innerText : '') + '</b><small>ให้ลูกค้าสแกนจ่าย</small></div>';
+        const qr = this.shopInfo && this.shopInfo.paymentQrImage;
+        const art = qr
+          ? `<img src="${escAttr(qr)}" alt="QR">`
+          : '<span class="checkout-stand-empty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM19 14v3M14 19h3M19 19h2"/></svg></span>';
+        box.innerHTML = '<div class="checkout-stand-card">' + art
+          + '<b>' + escHtml(total ? total.innerText : '') + '</b><small>' + (qr ? 'ให้ลูกค้าสแกนจ่าย' : 'ยังไม่ได้ตั้งรูป QR ของร้าน') + '</small></div>';
         this.cafeAnim(box.firstChild, [{ transform: 'scale(.6) rotate(-6deg)', opacity: 0 }, { transform: 'scale(1.05) rotate(1deg)', opacity: 1 }, { transform: 'scale(1)' }], 300);
-      },
-
-      standPattern() {
-        if (this._standSvg) return this._standSvg;
-        let r = '';
-        let seed = 7;
-        for (let y = 0; y < 29; y++) {
-          for (let x = 0; x < 29; x++) {
-            const fx = x % 22, fy = y % 22;
-            const finder = (x < 7 || x > 21) && (y < 7 || y > 21) && !(x > 21 && y > 21);
-            seed = (seed * 9301 + 49297) % 233280;
-            const on = finder ? (fx === 0 || fx === 6 || fy === 0 || fy === 6 || (fx > 1 && fx < 5 && fy > 1 && fy < 5)) : seed / 233280 > 0.55;
-            if (on) r += `<rect x="${x}" y="${y}" width="1" height="1"/>`;
-          }
-        }
-        this._standSvg = '<svg viewBox="0 0 29 29" shape-rendering="crispEdges" fill="#2b1d14" aria-hidden="true">' + r + '</svg>';
-        return this._standSvg;
       },
 
       numpad(val) {
