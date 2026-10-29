@@ -2092,3 +2092,162 @@
       .cart-empty-in,
       .cat-strip-in > * { animation: none; }
     }
+
+    /* ===== หน้าตาแบบคาเฟ่ (ขั้นที่ 1: สี พื้นผิว ฟอนต์ ยังไม่มีการขยับ) =====
+       เปิดด้วยคลาส look-cafe บน <html> (Controller.applyLook) ค่าเริ่มต้นเปิด เลือก "เรียบ" ในตั้งค่าเพื่อกลับเป็นหน้าเดิม
+       เปลี่ยนสีผ่านตัวแปรชุดเดิม Tailwind ผูกกับตัวแปรอยู่แล้ว ส่วนใหญ่จึงเปลี่ยนตามเอง
+       หน้าล็อก PIN ไม่เปลี่ยน: คืนค่าสีเดิมให้ที่ #pin-lock-screen
+       ใบเสร็จกับรายงานที่พิมพ์ไม่เกี่ยว วาดแยกจากหน้าจอ */
+    html.look-cafe {
+      --color-primary: #2f4a3a;   /* เขียวกันสาด */
+      --color-secondary: #2b1d14; /* หมึกน้ำตาลเข้ม */
+      --color-accent: #f1e3c8;    /* กระดาษคราฟต์ */
+      --color-mustard: #c8553d;   /* แดงอิฐ ยอดเงิน/ป้าย */
+      --color-sand: #e0cfb2;
+      --color-cream: #f3e6d3;
+      --color-ink: #4a3a2c;
+      --color-fill: #f4ead8;
+      --color-fill-2: #e8d9bf;
+      --color-line: #d5c3a5;
+      --color-mute: #7a6552;      /* 4.9:1 บนกระดาษ */
+      --cafe-paper: #fffaf0;
+      --cafe-gold: #e8b04b;
+      --cafe-gold-d: #b9832a;
+      --cafe-green-d: #1f3327;
+      --cafe-tape: rgba(214, 196, 140, .8);
+      --cafe-hand: 'Mali', 'Noto Sans Myanmar', 'Sarabun', sans-serif;
+      --r-sm: 6px;
+      --r-md: 8px;
+      --r-lg: 12px;
+      --sh-1: 2px 3px 0 rgba(43, 29, 20, .18);
+      --sh-2: 3px 4px 0 rgba(43, 29, 20, .22);
+      --sh-3: 0 14px 30px -14px rgba(43, 29, 20, .45);
+    }
+    html.look-cafe #pin-lock-screen {
+      --color-primary: #1f4d3a; --color-secondary: #163828; --color-accent: #e8f0e4; --color-mustard: #d2743f;
+      --color-sand: #dfe6d8; --color-cream: #fbfaf4; --color-ink: #5b6559;
+      --color-fill: #f2f3ec; --color-fill-2: #e6e9de; --color-line: #cbd1c1; --color-mute: #63705c;
+      --r-sm: 12px; --r-md: 16px; --r-lg: 24px;
+    }
+
+    /* พื้นเคาน์เตอร์ไม้ แทนพื้นครีมเรียบ */
+    html.look-cafe body,
+    html.look-cafe .bg-cream {
+      background-color: #ead6bb;
+      background-image: repeating-linear-gradient(90deg, rgba(120, 72, 30, .07) 0 2px, transparent 2px 46px), linear-gradient(180deg, #f3e6d3, #ead6bb);
+      background-attachment: fixed;
+    }
+    /* การ์ดขาวทั้งแอปเป็นกระดาษ */
+    html.look-cafe .bg-white { background-color: var(--cafe-paper); }
+
+    /* ลายมือ: หัวข้อกับชื่อเมนู ตัวเลขยอดเงินยังเป็น Sarabun ให้อ่านง่าย */
+    html.look-cafe main h2, html.look-cafe main h3, html.look-cafe .modal-sheet-mobile h3,
+    html.look-cafe .pos-name, html.look-cafe .menu-best-h, html.look-cafe .set-nav-title,
+    html.look-cafe body > nav h1 { font-family: var(--cafe-hand); }
+    html.look-cafe .set-nav-title { font-size: 14px; letter-spacing: 0; text-transform: none; color: var(--color-secondary); }
+
+    /* แถบบนเป็นกันสาดเขียว มีชายผ้าลายแดงขาว */
+    html.look-cafe body > nav,
+    html.look-cafe body > nav.bg-white {
+      position: relative; background: var(--color-primary); border-bottom: 0; color: #f6ecd9;
+    }
+    html.look-cafe body > nav::after {
+      content: ''; position: absolute; left: 0; right: 0; bottom: -10px; height: 10px; pointer-events: none;
+      background: repeating-linear-gradient(90deg, var(--color-mustard) 0 22px, #f6ecd9 22px 44px);
+      -webkit-mask: radial-gradient(circle at 11px 0, #000 10.5px, transparent 11px) 0 0 / 22px 10px repeat-x;
+              mask: radial-gradient(circle at 11px 0, #000 10.5px, transparent 11px) 0 0 / 22px 10px repeat-x;
+    }
+    html.look-cafe body > nav h1 { color: #f6ecd9; font-size: 22px; }
+    /* แถวในออเดอร์รองพื้นขาวไว้ให้ปัดลบ ในหน้าคาเฟ่ให้เป็นสีกระดาษสมุด */
+    html.look-cafe .pos-line-slide { background: #fffdf6; }
+    html.look-cafe .nav-chip { background: rgba(246, 236, 217, .12); border-color: rgba(246, 236, 217, .3); color: #f6ecd9; }
+    html.look-cafe .nav-chip:hover { background: rgba(246, 236, 217, .22); }
+    html.look-cafe body > nav .langsw { background: rgba(246, 236, 217, .12); }
+    html.look-cafe body > nav .langsw button { color: #f6ecd9; }
+    html.look-cafe body > nav .langsw button.is-on,
+    html.look-cafe .langsw-nav .lang-toggle.is-on { background: var(--cafe-gold); color: var(--color-secondary); }
+    html.look-cafe main { padding-top: 6px; }
+
+    /* การ์ดเมนูเป็นป้ายกระดาษแปะเทป เอียงนิดๆ สลับซ้ายขวา */
+    html.look-cafe .pos-card {
+      background: var(--cafe-paper); border: 0; border-radius: var(--r-sm);
+      box-shadow: var(--sh-1); padding-top: 12px;
+    }
+    html.look-cafe .pos-card::before {
+      content: ''; position: absolute; top: -7px; left: 50%; width: 46px; height: 14px; margin-left: -23px;
+      background: var(--cafe-tape); transform: rotate(-3deg); z-index: 1; pointer-events: none;
+    }
+    html.look-cafe #menu-grid > .pos-card:nth-child(odd) { rotate: -.8deg; }
+    html.look-cafe #menu-grid > .pos-card:nth-child(even) { rotate: .7deg; }
+    html.look-cafe #menu-grid { row-gap: 16px; padding-top: 8px; }
+    html.look-cafe .pos-card:hover { box-shadow: var(--sh-2); }
+    html.look-cafe .pos-th { border: 0; }
+    html.look-cafe .pos-price { color: var(--color-mustard); }
+    html.look-cafe .pos-qty-badge { border-radius: 4px; rotate: 8deg; background: var(--color-mustard); }
+
+    /* หมวดเป็นป้ายกระดาษขอบหมึก */
+    html.look-cafe #menu-categories-track button { border-radius: var(--r-sm); }
+
+    /* ปุ่มหลักบนหน้าขาย: ทองมีขอบล่าง กดแล้วยุบลง */
+    html.look-cafe .btn-till.is-primary { background: var(--cafe-gold); color: var(--color-secondary); box-shadow: 0 4px 0 var(--cafe-gold-d); }
+    html.look-cafe .btn-till.is-primary:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--cafe-gold-d); }
+    html.look-cafe .btn-till.is-ghost { background: var(--cafe-paper); border-color: var(--color-line); }
+
+    /* แผงออเดอร์: กระดาษสมุดมีเส้น */
+    html.look-cafe #cart-container {
+      background-color: #fffdf6;
+      background-image: repeating-linear-gradient(0deg, transparent 0 31px, rgba(80, 120, 170, .14) 31px 32px);
+      border-color: var(--color-line);
+    }
+
+    @media (max-width: 1023.98px) {
+      /* แถบล่างบนมือถือเป็นป้ายเขียวลอย มุมมน */
+      html.look-cafe .pos-bottom-bar {
+        left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom));
+        padding: 10px 10px 10px 16px; border: 0; border-radius: 10px;
+        background: var(--color-primary); color: #f6ecd9;
+        box-shadow: 0 8px 0 var(--cafe-green-d), 0 18px 26px -12px rgba(0, 0, 0, .45);
+      }
+      html.look-cafe .pos-bottom-bar #pos-bar-label { color: rgba(246, 236, 217, .8); }
+      html.look-cafe .pos-bottom-bar #pos-bar-total { color: #f6ecd9; }
+      html.look-cafe .pos-bottom-bar .btn-till.is-ghost { background: rgba(246, 236, 217, .14); border-color: rgba(246, 236, 217, .5); color: #f6ecd9; }
+      html.look-cafe .pos-bottom-bar.is-free { background: var(--color-staff-drink); box-shadow: 0 8px 0 #23536b, 0 18px 26px -12px rgba(0, 0, 0, .45); }
+      html.look-cafe .pos-bottom-bar.is-free #pos-bar-total { color: #fff; }
+      html.look-cafe .pos-bottom-bar.is-free #btn-bar-view { background: var(--cafe-paper); border-color: var(--cafe-paper); color: var(--color-staff-drink); }
+      html.look-cafe .cart-edge-tab { border-radius: 10px 0 0 10px; }
+    }
+
+    /* ประวัติ: แต่ละบิลเป็นต้นขั้วกระดาษ */
+    html.look-cafe #history-list { background: none; border: 0; box-shadow: none; padding: 4px 2px; }
+    html.look-cafe #history-list > [data-invoice] {
+      background: #fffdf7; border-radius: 3px; padding: 12px 14px; margin-bottom: 10px;
+      box-shadow: 1px 2px 0 rgba(43, 29, 20, .2); border-top-width: 0 !important;
+    }
+    html.look-cafe #history-list > [data-invoice]:nth-child(odd) { rotate: -.4deg; }
+    html.look-cafe #history-list > [data-invoice]:nth-child(even) { rotate: .35deg; }
+    html.look-cafe .history-inv { font-family: var(--cafe-hand); font-size: 17px; }
+
+    /* ตั้งค่า: ปุ่มเมนูเป็นการ์ดกระดาษ */
+    html.look-cafe .set-nav-item { background: var(--cafe-paper); border: 0; box-shadow: var(--sh-1); }
+    html.look-cafe .set-nav-item.is-on { box-shadow: inset 4px 0 0 var(--color-mustard), var(--sh-1); }
+
+    /* การ์ดหน้าตาแอปบนสุดของหน้าตั้งค่า (ทั้งสองหน้าตาใช้) */
+    .look-card { background: #fff; border: 1px solid var(--color-sand); border-radius: var(--r-md); padding: 4px 14px; margin-bottom: 18px; }
+    html.look-cafe .look-card { background: var(--cafe-paper); border: 0; box-shadow: var(--sh-1); }
+    .look-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+    .look-row + .look-row { border-top: 1px dashed var(--color-line); }
+    .look-row-t { flex: 1; min-width: 0; font-size: 15px; font-weight: 800; color: var(--color-secondary); }
+    .look-row-t small { display: block; font-size: 12px; font-weight: 700; color: var(--color-mute); }
+    .look-seg { display: inline-flex; border: 2px solid var(--color-secondary); border-radius: var(--r-sm); overflow: hidden; flex: none; }
+    .look-seg button { min-height: 40px; padding: 0 14px; border: 0; background: transparent; font: inherit; font-size: 15px; font-weight: 800; color: var(--color-secondary); }
+    .look-seg button.is-on { background: var(--color-secondary); color: #fff; }
+    .look-switch { width: 52px; height: 30px; flex: none; border: 0; border-radius: 99px; background: var(--color-line); position: relative; }
+    .look-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .3); transition: left .15s ease; }
+    .look-switch.is-on { background: var(--color-primary); }
+    .look-switch.is-on::after { left: 25px; }
+
+    /* ลดการเคลื่อนไหว: เลือกเองในตั้งค่า ใช้ได้ทั้งสองหน้าตา (ระบบที่ตั้ง reduce motion ไว้มีบล็อกของตัวเองอยู่แล้ว) */
+    html.calm *, html.calm *::before, html.calm *::after {
+      animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important;
+      transition-duration: .01ms !important; transition-delay: 0s !important;
+    }

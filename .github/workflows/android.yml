@@ -16,6 +16,7 @@ on:
       - 'style.css'
       - 'fonts-sarabun.css'
       - 'fonts-myanmar.css'
+      - 'fonts-mali.css'
       - 'lang-my.js'
       - 'manifest.json'
       - 'favicon.png'
