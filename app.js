@@ -7347,7 +7347,12 @@ renderReport(r) {
 
       holdCurrentOrder() {
         if (this.editingBill) return this.showAlert('กำลังแก้บิลอยู่ บันทึกหรือยกเลิกการแก้ไขก่อน', '');
-        if (this.activeGroupId) return this.parkGroup();
+        if (this.activeGroupId) {
+          const g = this.activeGroup();
+          this.parkGroup();
+          if (g && g.items.length) this.askHoldSlip(g, this.tf('{x} · รอบที่ {x}', g.name, (g.slipRound || 0) + 1));
+          return;
+        }
         if (this.cart.length === 0) return;
         const total = this.cart.reduce((s, i) => s + (i.price * i.qty), 0);
         const name = this.cart.map(i => i.name).join(', ').substring(0, 30) + '...';
@@ -7356,8 +7361,42 @@ renderReport(r) {
           time: new Date().toLocaleTimeString(this.dateLocale(), { hour: '2-digit', minute: '2-digit' }),
           items: [...this.cart], total, summary: name
         });
+        const held = this.heldOrders[this.heldOrders.length - 1];
         this.cart = []; this.hideUndo(); this.saveLocalState(); this.renderCart();
         this.showToast('เก็บเป็นบิลค้างชำระแล้ว');
+        this.askHoldSlip(held);
+      },
+
+      // บิลค้างชำระส่วนมากคือลูกค้ารอเครื่องดื่มอยู่ ถามว่าจะส่งใบสั่งให้บาริสต้าเลยไหม
+      // แก้วที่พิมพ์ไปแล้วจำไว้ใน slipPrintedQty ตอนจ่ายเงินทีหลังใบสั่งจะได้มีแค่แก้วที่เพิ่มมาใหม่
+      // ไม่มีเครื่องพิมพ์ก็ไม่ต้องถาม พักบิลได้เหมือนเดิม
+      // บิลกลุ่มส่ง title รอบถัดไปมา พิมพ์แล้วนับรอบเพิ่มเหมือนปุ่มพิมพ์ใบสั่ง
+      async askHoldSlip(held, title) {
+        if (!held || !this.slipItems(held).length) return;
+        const target = KitchenPrinter.isConnected ? KitchenPrinter : ReceiptPrinter;
+        if (!target.isConnected) return;
+        const ok = await new Promise(resolve => {
+          this._openAlertModal({
+            message: 'พิมพ์ใบสั่งให้บาริสต้าไหม?', type: 'info', input: false,
+            buttons: [
+              { label: 'ไม่พิมพ์', style: 'ghost', value: false },
+              { label: 'พิมพ์', style: 'primary', value: true }
+            ]
+          });
+          this._alertResolve = resolve;
+        });
+        if (!ok) return;
+        try {
+          const slip = { items: held.items, timestamp: new Date().toISOString(), invoice: '(ยังไม่ชำระ)' };
+          await target.sendData(await target.buildOrderSlip(slip, title || this.t('บิลค้างชำระ'), this.receiptSettings));
+          // พิมพ์ออกแล้วค่อยจำ ถ้าพิมพ์พัง ตอนจ่ายเงินบาริสต้ายังได้ใบสั่งครบทุกแก้ว
+          held.items.forEach(i => { i.slipPrintedQty = i.qty; });
+          if (title) held.slipRound = (held.slipRound || 0) + 1;
+          this.saveLocalState();
+        } catch (e) {
+          console.warn('BT Print Error:', e.message);
+          this.showAlert('พิมพ์ไม่สำเร็จ: ' + e.message, '');
+        }
       },
 
       openHeldOrdersModal(e) {
