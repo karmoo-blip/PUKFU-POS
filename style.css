@@ -2251,3 +2251,32 @@
       animation-duration: .01ms !important; animation-delay: 0s !important; animation-iteration-count: 1 !important;
       transition-duration: .01ms !important; transition-delay: 0s !important;
     }
+
+    /* ===== หน้าตาคาเฟ่ ขั้นที่ 2: หน้าขายขยับ =====
+       ท่าเล่นจาก JS (Controller.cafeAnim) เฉพาะหน้าคาเฟ่และไม่ได้ลดการเคลื่อนไหว ตรงนี้มีแต่หน้าตาของชิ้นที่ขยับ */
+
+    /* แก้วตัวการ์ตูน: หน้าเรียบไม่โชว์ */
+    .pos-bar-mascot, .cart-empty-mascot { display: none; }
+    html.look-cafe .pos-bar-mascot { display: block; width: 44px; height: 44px; flex: none; }
+    html.look-cafe .pos-bar-mascot svg { width: 100%; height: 100%; display: block; }
+    /* จอแคบใส่แก้ว ยอด ปุ่มดูออเดอร์ และปุ่มจ่ายไม่พอ: ซ่อนปุ่มดูออเดอร์ แตะยอดหรือแท็บขอบขวาแทน
+       โหมดพนักงานดื่มไม่มีปุ่มจ่าย ปุ่มดูรายการจึงยังอยู่ */
+    html.look-cafe .pos-bottom-bar:not(.is-free) #btn-bar-view { display: none; }
+    html.look-cafe .pos-bar-sum { flex: 1; min-width: 0; cursor: pointer; }
+    html.look-cafe .cart-empty-icon { display: none; }
+    html.look-cafe .cart-empty-mascot { display: block; width: 88px; height: 88px; }
+    html.look-cafe .cart-empty-mascot svg { width: 100%; height: 100%; display: block; }
+
+    /* หมดแล้ว: แก้วล้มนอน ป้าย "หมด" เป็นป้ายกระดาษเล็ก ไม่ใช่แผ่นแดงทับทั้งช่อง */
+    html.look-cafe .pos-card.is-out { opacity: .65; }
+    html.look-cafe .pos-card.is-out .pos-art { rotate: -82deg; translate: -6px 8px; filter: none; opacity: 1; }
+    html.look-cafe .pos-th-out {
+      inset: auto; left: 50%; bottom: 12%; translate: -50% 0; rotate: -8deg;
+      background: var(--cafe-paper); border: 2px solid var(--color-mustard); color: var(--color-mustard);
+      border-radius: 6px; padding: 0 10px; font-family: var(--cafe-hand); font-size: 18px;
+    }
+
+    /* แก้วที่บินลงออเดอร์ */
+    .cart-fly.is-cup { width: 44px; height: 44px; border: 0; border-radius: 0; background: none; box-shadow: none; display: grid; place-items: center; }
+    .cart-fly.is-cup svg { width: 100%; height: 100%; }
+    .cart-fly.is-cup.has-photo { border-radius: 8px; background-size: cover; background-position: center; box-shadow: 0 6px 14px -6px rgba(43, 29, 20, .6); }

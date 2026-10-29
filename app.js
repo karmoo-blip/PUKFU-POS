@@ -917,6 +917,7 @@
         const fm = this.freeMode();
         const bar = document.getElementById('pos-bottom-bar');
         if (bar) bar.classList.toggle('is-free', !!fm);
+        this.renderBarMascot(fm ? this.freeCountToday(fm) > 0 : cups > 0);
         if (fm) {
           const n = this.freeCountToday(fm);
           if (label) label.innerText = this.tf('{x} · ไม่เก็บเงิน', this.t(STAFF_MODES[fm].note));
@@ -946,6 +947,25 @@
           pay.classList.toggle('is-primary', !eb);
           pay.classList.toggle('is-off', cups === 0);
         }
+      },
+
+      // แตะยอดบนแถบล่าง: เปิดแผ่นออเดอร์เมื่อมีอะไรให้ดู ออเดอร์ว่างเปิดไปก็เจอหน้าว่าง
+      openOrderFromBar() {
+        const fm = this.freeMode();
+        const has = fm ? this.freeCountToday(fm) > 0 : (this.cart || []).length > 0;
+        if (has) this.toggleMobileCart(true);
+      },
+
+      // วาดใหม่เฉพาะตอนสถานะหลับ/ตื่นเปลี่ยน ตื่นขึ้นมาแล้วส่ายตัวหนึ่งที
+      renderBarMascot(awake) {
+        const slot = document.getElementById('pos-bar-mascot');
+        if (!slot) return;
+        const state = awake ? 'awake' : 'asleep';
+        if (this._mascotState === state && slot.innerHTML) return;
+        const wasAsleep = this._mascotState === 'asleep';
+        this._mascotState = state;
+        slot.innerHTML = this.cafeMascot(awake);
+        if (awake && wasAsleep) this.cafeAnim(slot, [{ rotate: '0deg' }, { rotate: '-14deg', scale: '1.12' }, { rotate: '10deg' }, { rotate: '0deg' }], 320);
       },
 
       // โหมดพนักงานดื่ม/ของเสียบนแท็บพนักงาน คืน 'drink' / 'waste' ไม่ได้อยู่โหมดนี้คืน null
@@ -2132,7 +2152,28 @@
       // เครื่องที่ตั้งค่าลดการเคลื่อนไหวไว้ ต้องเช็คเองสำหรับอนิเมชันที่สั่งจาก JS
       // ตัวที่เขียนด้วย CSS ล้วนมี @media คุมให้อยู่แล้ว
       reducedMotion() {
+        if (document.documentElement.classList.contains('calm')) return true; // ลดการเคลื่อนไหวในตั้งค่า
         return !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      },
+
+      // ท่าขยับของหน้าตาคาเฟ่ เล่นเฉพาะหน้าคาเฟ่ หน้าเรียบคงท่าเดิม
+      cafeMotion() {
+        return document.documentElement.classList.contains('look-cafe') && !this.reducedMotion();
+      },
+
+      // เล่นท่าสั้นๆ ด้วย Web Animations ไม่แตะคลาส ไม่ต้องรอให้จบ กดต่อได้ทันที
+      cafeAnim(el, frames, ms, opts) {
+        if (!el || typeof el.animate !== 'function' || !this.cafeMotion()) return null;
+        return el.animate(frames, Object.assign({ duration: ms, easing: 'cubic-bezier(.3,.7,.4,1.4)' }, opts || {}));
+      },
+
+      // แก้วตัวการ์ตูนบนแถบล่าง (และกลางออเดอร์ว่างบนจอใหญ่): ว่างอยู่หลับ มีของแล้วตื่นยิ้ม
+      cafeMascot(awake) {
+        return '<svg viewBox="0 0 44 44" aria-hidden="true"><path d="M8 10 H36 L33 40 Q32.5 42 30 42 H14 Q11.5 42 11 40 Z" fill="' + (awake ? '#e8b04b' : '#f1e3c8') + '" stroke="#2b1d14" stroke-width="2"/>'
+          + (awake
+            ? '<circle cx="17" cy="22" r="2.2" fill="#2b1d14"/><circle cx="27" cy="22" r="2.2" fill="#2b1d14"/><path d="M16 29 Q22 34 28 29" stroke="#2b1d14" stroke-width="2" fill="none" stroke-linecap="round"/>'
+            : '<path d="M14 22 H19 M25 22 H30 M19 31 H25" stroke="#2b1d14" stroke-width="2" stroke-linecap="round"/><text x="33" y="9" font-size="10" font-weight="900" fill="#2b1d14">z</text>')
+          + '</svg>';
       },
 
       // ใส่คลาสอนิเมชันแบบเล่นซ้ำได้ (ต้อง reflow คั่น ไม่งั้นเล่นแค่ครั้งแรก)
@@ -6430,8 +6471,15 @@ renderReport(r) {
 
       selectProduct(idx) {
         const item = this.menuData[idx];
+        const card = document.querySelector(`#menu-grid [data-menu-idx="${idx}"]`);
 
-        if (this.soldOutItems.includes(item.name)) return;
+        // หมดแล้ว: การ์ดส่ายหน้า บอกว่ากดติดแต่สั่งไม่ได้
+        if (this.soldOutItems.includes(item.name)) {
+          this.cafeAnim(card, [{ translate: '0' }, { translate: '-7px 0' }, { translate: '7px 0' }, { translate: '-4px 0' }, { translate: '0' }], 260, { easing: 'ease-out' });
+          return;
+        }
+        // การ์ดกระดาษยุบแล้วเด้งกลับ (ใช้ scale แยกจาก rotate ที่เอียงการ์ดไว้ จึงไม่ทับกัน)
+        this.cafeAnim(card, [{ scale: '1 1' }, { scale: '1.06 .9' }, { scale: '.97 1.04' }, { scale: '1 1' }], 240);
 
         // พนักงานดื่มกับของเสียไม่ถามความหวาน ต้นทุนเท่ากัน กดทีเดียวบันทึกเลย
         if (this.activeCategory === STAFF_TAB && (this.staffMode === 'drink' || this.staffMode === 'waste')) {
@@ -6805,7 +6853,7 @@ renderReport(r) {
         // แก้ไขรายการเดิมไม่ต้องมีของลอย เพราะไม่ได้เพิ่มของใหม่เข้าตะกร้า
         // จับตำแหน่งหน้าต่างไว้ก่อนปิด เพราะ closeModal ใช้ display:none แล้ววัดขนาดไม่ได้อีก
         if (!isEditing) {
-          this.flyToCart(document.getElementById('modal-product'));
+          this.flyToCart(document.getElementById('modal-product'), this.activeProduct);
           // การ์ดที่กดสั่งเด้งรับ คู่กับของที่ลอยไปตะกร้า
           // หาด้วย sku ไม่ใช่ indexOf เพราะแก้วราคาพนักงานเป็นสำเนาของเมนู ไม่ใช่ตัวเดียวกัน
           const srcIdx = this.menuData.findIndex(m => m.sku === this.activeProduct.sku);
@@ -6819,9 +6867,10 @@ renderReport(r) {
 
       // ของลอยจากหน้าต่างสินค้าไปที่ตะกร้า ยืนยันให้เห็นว่ากดติดแล้วโดยไม่ต้องละสายตาไปดูตะกร้า
       // ใช้ transform กับ opacity ล้วน ไม่แตะ layout และลบทิ้งเมื่อจบ ไม่ทิ้ง layer ค้างไว้
-      flyToCart(sourceEl) {
+      flyToCart(sourceEl, item) {
         if (!sourceEl) return;
-        if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+        if (this.reducedMotion()) return;
+        if (item && this.cafeMotion() && this.flyCupToOrder(item)) return;
 
         // จอเล็กบินไปที่แท็บขอบขวา (หรือยอดบนแถบล่างถ้ายังไม่มีแท็บ) จอใหญ่บินไปที่ยอดรวมในออเดอร์
         // แผ่นออเดอร์ที่ปิดอยู่ยังมีขนาดแต่อยู่นอกจอ จึงต้องเช็คว่าอยู่ในจอจริงด้วย
@@ -6858,6 +6907,50 @@ renderReport(r) {
         ], { duration: 300, easing: 'cubic-bezier(.35,.6,.3,1)' });
         anim.onfinish = done;
         anim.oncancel = done;
+      },
+
+      // หน้าคาเฟ่: แก้วใบเล็กบินโค้งจากการ์ดเมนูลงยอดบนแถบล่าง (มือถือ) หรือยอดในออเดอร์ (จอใหญ่)
+      // คืน false ถ้าหาการ์ดหรือปลายทางไม่เจอ ให้ flyToCart ใช้ท่าเดิมแทน
+      flyCupToOrder(item) {
+        const onScreen = el => {
+          if (!el) return false;
+          const r = el.getBoundingClientRect();
+          return r.width > 0 && r.left >= 0 && r.right <= window.innerWidth + 1;
+        };
+        const idx = this.menuData.findIndex(m => m.sku === item.sku);
+        const thumb = idx === -1 ? null : document.querySelector(`#menu-grid [data-menu-idx="${idx}"] .pos-th`);
+        const target = [document.getElementById('pos-bar-total'), document.getElementById('cart-total')].find(onScreen);
+        if (!thumb || !target || !onScreen(thumb)) return false;
+        const from = thumb.getBoundingClientRect();
+        const to = target.getBoundingClientRect();
+
+        const ghost = document.createElement('div');
+        ghost.className = 'cart-fly is-cup';
+        const src = this.menuData[idx];
+        if (src.image) {
+          ghost.classList.add('has-photo');
+          ghost.style.backgroundImage = `url('${String(src.image).replace(/'/g, '%27')}')`;
+        } else {
+          try { ghost.innerHTML = this.drinkArt(src); } catch (e) { ghost.innerHTML = MENU_ART_FALLBACK; }
+        }
+        const size = 44;
+        const x0 = from.left + from.width / 2 - size / 2;
+        const y0 = from.top + from.height / 2 - size / 2;
+        ghost.style.left = x0 + 'px';
+        ghost.style.top = y0 + 'px';
+        document.body.appendChild(ghost);
+        const dx = to.left + to.width / 2 - size / 2 - x0;
+        const dy = to.top + to.height / 2 - size / 2 - y0;
+        const done = () => ghost.remove();
+        if (typeof ghost.animate !== 'function') { done(); return true; }
+        const a = ghost.animate([
+          { transform: 'translate(0,0) scale(1) rotate(0)', opacity: 1 },
+          { transform: `translate(${dx * 0.45}px, ${dy * 0.45 - 110}px) scale(.85) rotate(-18deg)`, opacity: 1, offset: .5 },
+          { transform: `translate(${dx}px, ${dy}px) scale(.45) rotate(0)`, opacity: .7 }
+        ], { duration: 340, easing: 'cubic-bezier(.3,.6,.4,1)' });
+        a.onfinish = done;
+        a.oncancel = done;
+        return true;
       },
 
       // อ่านตัวเลือกเดิมของรายการในตะกร้า (ความหวาน / ส่วนเสริม / โน้ต)
@@ -6959,7 +7052,8 @@ renderReport(r) {
 
         if (this.cart.length === 0) {
            container.innerHTML = `<div class="cart-empty-in flex flex-col items-center justify-center gap-2 my-auto" style="color:var(--color-mute)">
-             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem;color:var(--color-line)"><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.5 11h10L20 7H6"/></svg>
+             <svg class="cart-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="width:2.5rem;height:2.5rem;color:var(--color-line)"><circle cx="9" cy="20" r="1.5"/><circle cx="17" cy="20" r="1.5"/><path d="M3 4h2l2.5 11h10L20 7H6"/></svg>
+             <span class="cart-empty-mascot">${this.cafeMascot(false)}</span>
              <span class="text-sm font-bold">ไม่มีสินค้าในออเดอร์</span>
            </div>`;
            if(btnHold) btnHold.classList.add('hidden');
