@@ -7356,8 +7356,40 @@ renderReport(r) {
           time: new Date().toLocaleTimeString(this.dateLocale(), { hour: '2-digit', minute: '2-digit' }),
           items: [...this.cart], total, summary: name
         });
+        const held = this.heldOrders[this.heldOrders.length - 1];
         this.cart = []; this.hideUndo(); this.saveLocalState(); this.renderCart();
         this.showToast('เก็บเป็นบิลค้างชำระแล้ว');
+        this.askHoldSlip(held);
+      },
+
+      // บิลค้างชำระส่วนมากคือลูกค้ารอเครื่องดื่มอยู่ ถามว่าจะส่งใบสั่งให้บาริสต้าเลยไหม
+      // แก้วที่พิมพ์ไปแล้วจำไว้ใน slipPrintedQty ตอนจ่ายเงินทีหลังใบสั่งจะได้มีแค่แก้วที่เพิ่มมาใหม่
+      // ไม่มีเครื่องพิมพ์ก็ไม่ต้องถาม พักบิลได้เหมือนเดิม
+      async askHoldSlip(held) {
+        if (!held || !this.slipItems(held).length) return;
+        const target = KitchenPrinter.isConnected ? KitchenPrinter : ReceiptPrinter;
+        if (!target.isConnected) return;
+        const ok = await new Promise(resolve => {
+          this._openAlertModal({
+            message: 'พิมพ์ใบสั่งให้บาริสต้าไหม?', type: 'info', input: false,
+            buttons: [
+              { label: 'ไม่พิมพ์', style: 'ghost', value: false },
+              { label: 'พิมพ์', style: 'primary', value: true }
+            ]
+          });
+          this._alertResolve = resolve;
+        });
+        if (!ok) return;
+        try {
+          const slip = { items: held.items, timestamp: new Date().toISOString(), invoice: '(ยังไม่ชำระ)' };
+          await target.sendData(await target.buildOrderSlip(slip, this.t('บิลค้างชำระ'), this.receiptSettings));
+          // พิมพ์ออกแล้วค่อยจำ ถ้าพิมพ์พัง ตอนจ่ายเงินบาริสต้ายังได้ใบสั่งครบทุกแก้ว
+          held.items.forEach(i => { i.slipPrintedQty = i.qty; });
+          this.saveLocalState();
+        } catch (e) {
+          console.warn('BT Print Error:', e.message);
+          this.showAlert('พิมพ์ไม่สำเร็จ: ' + e.message, '');
+        }
       },
 
       openHeldOrdersModal(e) {
