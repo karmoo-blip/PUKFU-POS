@@ -123,6 +123,10 @@
       }
       .cart-edge-tab.hidden { display: none; }
       .cart-edge-tab.is-edit { background: var(--color-edit); }
+      /* พนักงานดื่ม/ของเสีย: แถบล่างกับแท็บเป็นสีฟ้าเดียวกับปุ่มโหมด บอกว่าไม่ใช่ยอดขาย */
+      .cart-edge-tab.is-free { background: var(--color-staff-drink); }
+      .pos-bottom-bar.is-free #pos-bar-total { color: var(--color-staff-drink); }
+      .pos-bottom-bar.is-free #btn-bar-view { border-color: var(--color-staff-drink); color: var(--color-staff-drink); }
       #btn-hold-order { white-space: nowrap; padding: 0 12px; }
       /* กันเนื้อหาเมนูโดนแถบล่าง (fixed) บังตอนเลื่อนดูสินค้า */
       #pos-content-scroll { padding-bottom: calc(88px + env(safe-area-inset-bottom) + 1rem) !important; }

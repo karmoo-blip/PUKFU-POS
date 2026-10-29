@@ -899,9 +899,12 @@
       renderEdgeTab() {
         const tab = document.getElementById('cart-edge-tab');
         if (!tab) return;
-        const cups = (this.cart || []).reduce((s, i) => s + (Number(i.qty) || 0), 0);
+        // พนักงานดื่ม/ของเสีย: แก้วไม่ได้เข้าออเดอร์ แท็บนับแก้วฟรีของวันนี้แทน ดึงแล้วเจอรายการใต้ออเดอร์
+        const fm = this.freeMode();
+        const cups = fm ? this.freeCountToday(fm) : (this.cart || []).reduce((s, i) => s + (Number(i.qty) || 0), 0);
         tab.classList.toggle('hidden', cups === 0 || this.isCartOpenMobile);
-        tab.classList.toggle('is-edit', !!this.editingBill);
+        tab.classList.toggle('is-edit', !fm && !!this.editingBill);
+        tab.classList.toggle('is-free', !!fm);
         const n = document.getElementById('cart-edge-count');
         if (n) n.innerText = String(cups);
       },
@@ -911,6 +914,24 @@
         const label = document.getElementById('pos-bar-label');
         const view = document.getElementById('btn-bar-view');
         const pay = document.getElementById('btn-bar-pay');
+        const fm = this.freeMode();
+        const bar = document.getElementById('pos-bottom-bar');
+        if (bar) bar.classList.toggle('is-free', !!fm);
+        if (fm) {
+          const n = this.freeCountToday(fm);
+          if (label) label.innerText = this.tf('{x} · ไม่เก็บเงิน', this.t(STAFF_MODES[fm].note));
+          const sum = document.getElementById('pos-bar-total');
+          if (sum) sum.innerText = this.tf('{x} แก้ววันนี้', n);
+          if (view) { view.innerText = 'ดูรายการ'; view.classList.toggle('hidden', n === 0); }
+          if (pay) pay.classList.add('hidden');
+          return;
+        }
+        // ออกจากโหมดแก้วฟรี ยอดบนแถบกลับเป็นยอดออเดอร์ (ตัวเดียวกับในแผ่นออเดอร์)
+        const sum = document.getElementById('pos-bar-total');
+        const cartTotal = document.getElementById('cart-total');
+        if (sum && cartTotal && sum.innerText !== cartTotal.innerText) sum.innerText = cartTotal.innerText;
+        if (view) view.innerText = 'ดูออเดอร์';
+        if (pay) pay.classList.remove('hidden');
         const eb = this.editingBill;
         const g = this.activeGroup();
         if (label) {
@@ -925,6 +946,22 @@
           pay.classList.toggle('is-primary', !eb);
           pay.classList.toggle('is-off', cups === 0);
         }
+      },
+
+      // โหมดพนักงานดื่ม/ของเสียบนแท็บพนักงาน คืน 'drink' / 'waste' ไม่ได้อยู่โหมดนี้คืน null
+      freeMode() {
+        return this.activeCategory === STAFF_TAB && (this.staffMode === 'drink' || this.staffMode === 'waste') ? this.staffMode : null;
+      },
+
+      freeCountToday(kind) {
+        return this.todayFreeUnits().filter(u => u.kind === kind).length;
+      },
+
+      // แถบล่างกับแท็บขอบขวาบนมือถือ วาดใหม่โดยไม่ต้องวาดออเดอร์ทั้งชุด
+      refreshPhoneBar() {
+        const cups = (this.cart || []).reduce((s, i) => s + (Number(i.qty) || 0), 0);
+        this.renderBottomBar(cups);
+        this.renderEdgeTab();
       },
 
       paymentMode: 'QR',
@@ -6508,6 +6545,13 @@ renderReport(r) {
         const last = this.lastAdded;
         this.hideAdded();
         if (!last) return;
+        if (last.freeId) {
+          this.freeUnsent = (this.freeUnsent || []).filter(e => e.id !== last.freeId);
+          this.saveFreeUnsent();
+          this.renderMenu({ noStagger: true });
+          this.renderFreeList();
+          return;
+        }
         const idx = this.cart.findIndex(i => i.sku === last.sku && i.note === last.note);
         if (idx === -1) return;
         if (this.cart[idx].qty > 1) this.cart[idx].qty -= 1;
@@ -6971,7 +7015,8 @@ renderReport(r) {
             }
           } else {
             badge.classList.remove('is-on', 'is-bump');
-            if (this.isCartOpenMobile) this.toggleMobileCart();
+            // โหมดแก้วฟรีเปิดแผ่นไว้ดูรายการแก้วฟรี ออเดอร์ว่างก็ไม่ต้องปิด
+            if (this.isCartOpenMobile && !this.freeMode()) this.toggleMobileCart();
           }
         }
         if(btnShowHeld) {
@@ -7561,6 +7606,7 @@ renderReport(r) {
         if (!STAFF_MODES[mode]) return;
         this.staffMode = mode;
         this.renderMenu({ noStagger: true });
+        this.refreshPhoneBar();
         this.resetStaffTabTimer();
       },
 
@@ -7570,8 +7616,9 @@ renderReport(r) {
       recordFreeCup(item, kind) {
         const now = new Date();
         this.freeUnsent = this.freeUnsent || [];
+        const id = 'F' + now.getTime() + Math.random().toString(36).slice(2, 6);
         this.freeUnsent.push({
-          id: 'F' + now.getTime() + Math.random().toString(36).slice(2, 6),
+          id,
           kind, at: now.toISOString(), day: now.toLocaleDateString(),
           item: { sku: item.sku, name: item.name, lang2: item.lang2 || '', lang3: item.lang3 || '', category: item.category || '' },
           by: this.loggedInEmployee ? this.loggedInEmployee.name : ''
@@ -7582,6 +7629,11 @@ renderReport(r) {
         this.renderFreeList();
         const srcIdx = this.menuData.findIndex(m => m.sku === item.sku);
         if (srcIdx !== -1) this.replayClass(document.querySelector(`#menu-grid [data-menu-idx="${srcIdx}"]`), 'card-added');
+        // แถบเดียวกับตอนใส่แก้วปกติ ย้อนกลับได้ภายในเวลาที่แถบยังอยู่ (สั้นกว่า FREE_UNDO_MS ไม่ต้องใส่ PIN)
+        this.showAdded(item.sku, '', '');
+        this.lastAdded = { freeId: id };
+        const text = document.getElementById('added-bar-text');
+        if (text) text.innerText = this.tf('บันทึก{x} · {x}', this.t(STAFF_MODES[kind].note), this.itemName(item));
       },
 
       saveFreeUnsent() {
@@ -7776,6 +7828,7 @@ renderReport(r) {
         if (!box) return;
         // โชว์เฉพาะตอนอยู่แท็บพนักงาน แท็บอื่นเป็นหน้าขายปกติ ไม่ต้องเห็น (ข้อมูลยังอยู่ครบ)
         const html = this.activeCategory === STAFF_TAB ? this.freeListHtml() : '';
+        this.refreshPhoneBar();
         if (html === this._freeListHtml) return;
         this._freeListHtml = html;
         box.innerHTML = html;
