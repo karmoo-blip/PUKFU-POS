@@ -1350,6 +1350,12 @@
         return this.lookup(window.LANG_MY || {}, text) || text;
       },
 
+      // วันที่บนหน้าจอ: ภาษาพม่าใช้ชื่อเดือนพม่ากับเลข 0-9 แบบที่ทั้งแอปใช้ ภาษาไทยเหมือนเดิม
+      // ใบเสร็จกับรายงานที่พิมพ์ออกไปยังเป็นไทยเสมอ (ไม่เรียกตัวนี้)
+      dateLocale() {
+        return this.lang === 'my' ? 'my-MM-u-nu-latn' : 'th-TH';
+      },
+
       lookup(dict, key) {
         if (dict[key]) return dict[key];
         const numbers = [];
@@ -1745,7 +1751,7 @@
         const current = this.currentAppVersion();
         const builtAt = current && current.builtAt ? new Date(current.builtAt) : null;
         const versionLine = current
-          ? 'เวอร์ชัน ' + escHtml(current.version) + (builtAt && !isNaN(builtAt) ? ' · อัปเดตเมื่อ ' + builtAt.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) : '')
+          ? 'เวอร์ชัน ' + escHtml(current.version) + (builtAt && !isNaN(builtAt) ? ' · อัปเดตเมื่อ ' + builtAt.toLocaleDateString(this.dateLocale(), { day: 'numeric', month: 'short' }) : '')
           : 'เวอร์ชันทดสอบ';
         const latestVersion = u.latest ? escHtml(u.latest.version) : '';
         const row = (tag, text) => '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:14px">' + tag
@@ -1780,8 +1786,8 @@
           body = row('<span class="set-tag set-tag-off">อัปเดตไม่สำเร็จ</span>', escHtml(u.message)) + checkBtn('ลองอีกครั้ง');
         } else {
           const when = u.checkedAt
-            ? 'ตรวจล่าสุด ' + (new Date(u.checkedAt).toDateString() === new Date().toDateString() ? 'วันนี้ ' : new Date(u.checkedAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short' }) + ' ')
-              + new Date(u.checkedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+            ? 'ตรวจล่าสุด ' + (new Date(u.checkedAt).toDateString() === new Date().toDateString() ? 'วันนี้ ' : new Date(u.checkedAt).toLocaleDateString(this.dateLocale(), { day: 'numeric', month: 'short' }) + ' ')
+              + new Date(u.checkedAt).toLocaleTimeString(this.dateLocale(), { hour: '2-digit', minute: '2-digit' })
             : 'ยังไม่ได้ตรวจ';
           body = row(u.checkedAt ? '<span class="set-tag set-tag-ok">ล่าสุดแล้ว</span>' : '', when) + checkBtn('ตรวจหาอัปเดต');
         }
@@ -2648,7 +2654,7 @@
       },
 
       _pendingOrderRowHtml(o, idx, mode) {
-        const time = o.createdAt ? new Date(o.createdAt).toLocaleString('th-TH') : '';
+        const time = o.createdAt ? new Date(o.createdAt).toLocaleString(this.dateLocale()) : '';
         const itemsSummary = (o.items || []).map(i => `${i.qty}x ${i.name}`).join(', ');
         const slipHtml = o.paymentSlipImage
           ? `<button onclick="Controller.viewPendingOrderSlip(${idx})" class="flex items-center gap-2 mb-2 active:scale-95 transition-all">
@@ -3600,7 +3606,7 @@
           const used = history.filter(o => o.location === q.loc).length;
           // ส่งชื่อโต๊ะผ่าน onclick แบบ encode ไว้ ชื่อที่มีเครื่องหมายคำพูดจะได้ไม่ทำให้ปุ่มพัง
           const arg = encodeURIComponent(q.loc);
-          const when = q.createdAt ? new Date(q.createdAt).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : '';
+          const when = q.createdAt ? new Date(q.createdAt).toLocaleDateString(this.dateLocale(), { day: 'numeric', month: 'short', year: '2-digit' }) : '';
           const meta = [when ? 'สร้างเมื่อ ' + when : '', history.length ? used + ' ออเดอร์ใน ' + history.length + ' รายการล่าสุด' : '']
             .filter(Boolean).join(' · ');
           return `
@@ -3647,7 +3653,7 @@
         container.innerHTML = rows.map(o => {
           const st = statusMap[o.status] || { label: o.status, cls: 'bg-slate-100 text-slate-500' };
           const itemsSummary = (o.items || []).map(i => `${i.qty}x ${i.name}`).join(', ');
-          const time = o.createdAt ? new Date(o.createdAt).toLocaleString('th-TH') : '';
+          const time = o.createdAt ? new Date(o.createdAt).toLocaleString(this.dateLocale()) : '';
           return `
             <div class="py-3">
               <div class="flex justify-between items-start gap-2 mb-1">
@@ -4593,10 +4599,10 @@
         const dayEl = document.getElementById('sales-best-day');
         const monthEl = document.getElementById('sales-best-month');
         if (dayEl) dayEl.innerText = res.bestDay
-          ? `${new Date(res.bestDay.date + 'T00:00:00').toLocaleDateString('th-TH', {day: 'numeric', month: 'short', year: '2-digit'})} · ${fmt(res.bestDay.total)}`
+          ? `${new Date(res.bestDay.date + 'T00:00:00').toLocaleDateString(this.dateLocale(), {day: 'numeric', month: 'short', year: '2-digit'})} · ${fmt(res.bestDay.total)}`
           : 'ยังไม่มีข้อมูล';
         if (monthEl) monthEl.innerText = res.bestMonth
-          ? `${new Date(res.bestMonth.month + '-01T00:00:00').toLocaleDateString('th-TH', {month: 'long', year: 'numeric'})} · ${fmt(res.bestMonth.total)}`
+          ? `${new Date(res.bestMonth.month + '-01T00:00:00').toLocaleDateString(this.dateLocale(), {month: 'long', year: 'numeric'})} · ${fmt(res.bestMonth.total)}`
           : 'ยังไม่มีข้อมูล';
       },
 
@@ -4681,7 +4687,7 @@
         const start = this.toLocalDateStr(new Date(this.calendarYear, this.calendarMonth, 1));
         const end = this.toLocalDateStr(new Date(this.calendarYear, this.calendarMonth + 1, 0));
         const label = document.getElementById('cal-month-label');
-        if (label) label.innerText = new Date(this.calendarYear, this.calendarMonth, 1).toLocaleDateString('th-TH', { month: 'long', year: 'numeric' });
+        if (label) label.innerText = new Date(this.calendarYear, this.calendarMonth, 1).toLocaleDateString(this.dateLocale(), { month: 'long', year: 'numeric' });
 
         google.script.run
           .withSuccessHandler(res => { if (res && res.success) this.renderCalendar(res, start, end); })
@@ -4737,7 +4743,7 @@
 
           if (hasSale) {
             const dt = new Date(this.calendarYear, this.calendarMonth, day);
-            const short = dt.toLocaleDateString('th-TH', { month: 'short' });
+            const short = dt.toLocaleDateString(this.dateLocale(), { month: 'short' });
             list += `<div class="cal-row${strong ? ' is-strong' : ''}">
               <span class="cal-row-d">${dayNames[dt.getDay()]}. ${day} ${escHtml(short)}</span>
               <span class="cal-row-b">${d.bills} บิล</span>
@@ -5723,7 +5729,7 @@ renderReport(r) {
 
         html('sales-daily', this.salesColumnChart(
           (r.daily || []).map(d => ({
-            label: new Date(d.date + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric' }),
+            label: new Date(d.date + 'T00:00:00').toLocaleDateString(this.dateLocale(), { day: 'numeric' }),
             value: d.total
           })),
           { aria: 'ยอดขายรายวัน' }
@@ -6992,7 +6998,7 @@ renderReport(r) {
           const t = document.getElementById('edit-bill-bar-title');
           const sub = document.getElementById('edit-bill-bar-sub');
           if (t) t.innerText = label;
-          if (sub) sub.innerText = eb ? eb.invoice + (eb.timestamp ? ' · ' + new Date(eb.timestamp).toLocaleString(this.lang === 'my' ? 'my-MM-u-nu-latn' : 'th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '') : '';
+          if (sub) sub.innerText = eb ? eb.invoice + (eb.timestamp ? ' · ' + new Date(eb.timestamp).toLocaleString(this.dateLocale(), { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '') : '';
         }
         if (chip) {
           chip.classList.toggle('hidden', !eb);
@@ -7138,7 +7144,7 @@ renderReport(r) {
         const name = this.cart.map(i => i.name).join(', ').substring(0, 30) + '...';
         this.heldOrders.push({
           id: 'HOLD-' + new Date().getTime(),
-          time: new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
+          time: new Date().toLocaleTimeString(this.dateLocale(), { hour: '2-digit', minute: '2-digit' }),
           items: [...this.cart], total, summary: name
         });
         this.cart = []; this.hideUndo(); this.saveLocalState(); this.renderCart();
@@ -9931,9 +9937,9 @@ renderReport(r) {
         const yesterday = new Date(Date.now() - 24 * 3600 * 1000).toDateString();
         const dayName = (d) => {
           const key = d.toDateString();
-          if (key === today) return 'วันนี้ ' + d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-          if (key === yesterday) return 'เมื่อวาน ' + d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' });
-          return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+          if (key === today) return this.t('วันนี้') + ' ' + d.toLocaleDateString(this.dateLocale(), { day: 'numeric', month: 'short' });
+          if (key === yesterday) return this.t('เมื่อวาน') + ' ' + d.toLocaleDateString(this.dateLocale(), { day: 'numeric', month: 'short' });
+          return d.toLocaleDateString(this.dateLocale(), { day: 'numeric', month: 'short', year: 'numeric' });
         };
 
         let html = '';
@@ -9945,7 +9951,7 @@ renderReport(r) {
           const label = this.floatLogLabel(r.action);
           const who = r.user === 'system' ? 'ระบบ' : (r.user || 'ไม่ระบุ');
           const denom = this.floatLogDenomText(r.denominations);
-          const meta = [when.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }), who, denom].filter(Boolean);
+          const meta = [when.toLocaleTimeString(this.dateLocale(), { hour: '2-digit', minute: '2-digit' }), who, denom].filter(Boolean);
           html += `
           <div class="fl-row">
             <div>
