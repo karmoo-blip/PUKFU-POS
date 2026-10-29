@@ -7576,6 +7576,8 @@ renderReport(r) {
       
       // บิลกลุ่มถามก่อนว่าจ่ายทั้งบิลหรือแยกจ่ายรายคน ออเดอร์ปกติเข้าหน้าชำระเงินเลยเหมือนเดิม
       async openCheckout() {
+        // มือถือ: แผ่นออเดอร์ (z-index 60) อยู่สูงกว่าหน้าต่างจ่ายเงิน (z-50) ถ้าไม่ปิดก่อน หน้าต่างจ่ายเงินจะเปิดอยู่ข้างใต้ กดอะไรไม่ได้
+        if (this.isCartOpenMobile) this.toggleMobileCart(false);
         if (this.editingBill) return this.openBillEditSave();
         if (this.cart.length === 0) return this.showAlert('ยังไม่มีสินค้า', '');
         this.splitCheckout = null;
